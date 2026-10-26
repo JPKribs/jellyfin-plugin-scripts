@@ -1,6 +1,6 @@
 # Writing Scripts
 
-Each script has **triggers**, optional **item kinds**, **users**, and **conditions** that narrow which events it runs for, and a list of **steps** it performs in order. Scripts are managed on **Dashboard → Plugins → Scripts**.
+Each script has **triggers**, optional **item kinds**, **users**, and **conditions** that narrow which events it runs for, and a list of **steps** it performs in order. Scripts are managed on **Dashboard → Plugins → Scripts**. For ready-made ideas, see [Examples](Examples.md).
 
 ![The Scripts tab](screenshots/Scripts.png)
 

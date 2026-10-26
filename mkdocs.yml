@@ -48,5 +48,6 @@ nav:
       - Installation: Installation.md
   - Using Scripts:
       - Writing Scripts: Scripts.md
+      - Examples: Examples.md
   - Reference:
       - Versioning: Versioning.md
