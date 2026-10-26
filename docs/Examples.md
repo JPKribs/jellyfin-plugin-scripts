@@ -43,14 +43,13 @@ Stops the newest transcode when it would be the fourth.
 | Conditions | All of: **Play method** is `Transcode`; **Video height** is at least `2160`; **Is local network** is `false` |
 | Step | **Stop playback**, message `4K can't be converted for remote streaming. Pick a 1080p version.` |
 
-### Bedtime for the kids' accounts
+### Quiet hours overnight
 
 | Setting | Value |
 |---|---|
 | Trigger | **Playback started** |
-| Users | The kids' accounts |
-| Conditions | **Any** of: **Hour (0-23)** is at least `21`; **Hour (0-23)** is at most `5` |
-| Steps | 1. **Send message** to the event's session: `It's bedtime. See you tomorrow!` <br> 2. **Stop playback** |
+| Conditions | **Any** of: **Hour (0-23)** is at least `23`; **Hour (0-23)** is at most `5` |
+| Steps | 1. **Send message** to the event's session: `The server is in quiet hours until 6:00.` <br> 2. **Stop playback** |
 
 Hours are the server's local time.
 
@@ -60,7 +59,6 @@ Hours are the server's local time.
 |---|---|
 | Triggers | **Playback started**, **Playback resumed** |
 | Item kinds | Movie |
-| Conditions | **Device name** is `Living Room TV` |
 | Secret | `HA_TOKEN`, a Home Assistant long-lived access token |
 | Step | **HTTP request** from the **Home Assistant service call** preset |
 
@@ -130,7 +128,7 @@ Tags belong to the item, not a user, so the first person to finish it removes th
 | Trigger | **Favorite changed** |
 | Item kinds | Movie |
 | Conditions | **Is favorite** is `true` |
-| Step | **Add to collection**, choose a collection such as *Family favorites* |
+| Step | **Add to collection**, choose the collection to gather them in |
 
 A second script with **Is favorite** is `false` and **Remove from collection** keeps it tidy.
 
