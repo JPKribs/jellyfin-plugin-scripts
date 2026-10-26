@@ -1,7 +1,7 @@
 ---
 name: "Scripts"
 guid: "449817c2-7661-46fb-b302-bbd6dd3b0a01"
-version: "12.3.0.0"
+version: "12.3.0.1"
 targetAbi: "12.3.0.0"
 framework: "net10.0"
 overview: "Run your own scripts when server events happen."
@@ -16,12 +16,20 @@ owner: "JPKribs"
 artifacts:
 - "Jellyfin.Plugin.Scripts.dll"
 changelog:
-  features:
-  - Run scripts on more than 45 server events, covering playback, library, collections, Live TV recordings, played and favorite changes, sessions, user accounts, scheduled tasks, plugins, settings, and the activity log
-  - Paused for a while and Playing for a while triggers, for jobs such as stopping playback left paused or asking whether someone is still watching
-  - Schedules that run a script every few minutes, daily at a time on chosen days, or monthly
-  - More than 20 built-in steps, including HTTP requests with presets for Discord, Slack, ntfy, Gotify, and Home Assistant, session messages, pausing and stopping playback, tags, collections, favorites, user sign out, library scans, and running programs on the server
-  - Filter by item kind, user, and conditions such as genre, year, play method, active transcodes, or time of day
-  - Encrypted secrets for tokens, templates for common scripts, export and import, test runs, and a searchable history
+  fixed:
+  - Renaming a secret keeps its value instead of quietly clearing it
+  - Secret values now live in their own encrypted file, so the plugin configuration any API client reads holds none, and a secret that shows up in a step message or command output is masked in the history and activity log
+  - A script on a scheduled task starting can no longer queue the same task forever, and tasks queued by scripts can no longer set each other off in a loop
+  - Favorite changed no longer fires when a user likes or dislikes an item
+  - Deleting a script saves only the deletion and leaves unsaved edits to other scripts for you to save or discard
+  - A schedule whose time is skipped by daylight saving runs when the clocks jump instead of failing and holding up other schedules, and a time just before midnight still runs if the check lands after it
+  - Clearing the history can no longer be undone by a save already in progress
+  - An interval schedule enabled again waits a full interval instead of running at once
+  - Test runs send messages meant for every session or every administrator only to your own sessions
+  - When an HTTP request runs out of retries, its last status and response body are kept
+  - Running another script skips a disabled script, and a nested failure is written to the activity log once
+  - An event value holding a path can no longer change which program a Run command step starts
+  - Append to file steps no longer fail when several runs write to the same file at once
+  - The editor checks number ranges before saving and says which field is out of range
   developer:
-  - Initial release, built for Jellyfin 12.3 (target ABI 12.3.0.0).
+  - Scripts are indexed by trigger once per saved configuration, schedule state is read from disk once, and new items waiting for metadata are released by their own update instead of being looked up every few seconds

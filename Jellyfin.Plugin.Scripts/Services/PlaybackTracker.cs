@@ -57,7 +57,28 @@ public sealed class PlaybackTracker
     /// Forgets a session once playback stops.
     /// </summary>
     /// <param name="key">The playback session key.</param>
-    public void Stopped(string key) => _sessions.TryRemove(key, out _);
+    /// <returns>The play method seen while it played, since the server clears it before reporting the stop.</returns>
+    public string? Stopped(string key) => _sessions.TryRemove(key, out var state) ? state.PlayMethod : null;
+
+    /// <summary>
+    /// Records the play method a session reports, for the events that come after the server has cleared it.
+    /// </summary>
+    /// <param name="key">The playback session key.</param>
+    /// <param name="playMethod">The play method.</param>
+    public void RememberPlayMethod(string key, string playMethod)
+    {
+        if (_sessions.TryGetValue(key, out var state))
+        {
+            state.PlayMethod = playMethod;
+        }
+    }
+
+    /// <summary>
+    /// Gets the play method last seen for a session.
+    /// </summary>
+    /// <param name="key">The playback session key.</param>
+    /// <returns>The play method, or null when none was seen.</returns>
+    public string? PlayMethodOf(string key) => _sessions.TryGetValue(key, out var state) ? state.PlayMethod : null;
 
     /// <summary>
     /// Finds sessions paused for at least <paramref name="threshold"/> that have not yet fired for
@@ -106,6 +127,8 @@ public sealed class PlaybackTracker
         private bool _isPaused;
         private DateTime _since;
         private TimeSpan _played;
+
+        public string? PlayMethod { get; set; }
 
         public PlaybackState(PlaybackProgressEventArgs? args, DateTime now, bool isPaused)
         {

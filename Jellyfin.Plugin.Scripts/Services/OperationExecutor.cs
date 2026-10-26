@@ -153,6 +153,14 @@ public partial class OperationExecutor
         }
         else
         {
+            // Event values may fill the command, but never steer it to another program: a device name or a typed
+            // username holding a path could otherwise pick what runs.
+            var steering = Placeholders.Names(op.Command).FirstOrDefault(name => SteersPath(state.Variables.GetValueOrDefault(name)));
+            if (steering is not null)
+            {
+                return Result(OperationStatus.Failed, "Not run: the value of {{" + steering + "}} holds a path, which would change which program runs. Pass it as an argument instead.");
+            }
+
             var command = Placeholders.Fill(op.Command, state.Variables).Trim();
             if (IsPath(command))
             {
@@ -250,7 +258,9 @@ public partial class OperationExecutor
 
         // JpkHttp never throws, so a response worth retrying (no answer, a 5xx, or a 429) is turned into the
         // HttpRequestException RetryPolicy treats as transient. The last one is caught and reported below.
+        // The last answer is kept, so when the retries run out the step still reports its status and body.
         var retries = Math.Clamp(op.Retries, 0, MaxRetries);
+        HttpResult? last = null;
         HttpResult response;
         try
         {
@@ -258,6 +268,7 @@ public partial class OperationExecutor
                 async ct =>
                 {
                     var result = await JpkHttp.SendAsync(_httpClientFactory, method, uri.ToString(), ct, headers, body, contentType).ConfigureAwait(false);
+                    last = result;
                     if (retries > 0 && (result.Status == 0 || result.Status >= 500 || result.Status == 429))
                     {
                         throw new HttpRequestException(result.Status == 0 ? result.Body : "HTTP " + Number(result.Status), null, result.Status == 0 ? null : (HttpStatusCode)result.Status);
@@ -272,17 +283,23 @@ public partial class OperationExecutor
         }
         catch (HttpRequestException ex)
         {
-            return Result(OperationStatus.Failed, "Failed after " + Number(retries + 1) + " attempts: " + ex.Message);
+            if (last is null)
+            {
+                return Result(OperationStatus.Failed, "Failed after " + Number(retries + 1) + " attempts: " + ex.Message);
+            }
+
+            response = last;
         }
 
         var text = response.Body.Length > MaxResponseChars ? response.Body[..MaxResponseChars] + "\n[response truncated]" : response.Body;
 
         if (response.Status == 0)
         {
-            return Result(OperationStatus.Failed, "No response: " + text);
+            return Result(OperationStatus.Failed, (retries > 0 ? "No response after " + Number(retries + 1) + " attempts: " : "No response: ") + text);
         }
 
-        var message = method + " " + uri.Host + " returned " + Number(response.Status) + ".";
+        var message = method + " " + uri.Host + " returned " + Number(response.Status)
+            + (!response.Ok && retries > 0 ? " after " + Number(retries + 1) + " attempts." : ".");
         return Result(response.Ok ? OperationStatus.Succeeded : OperationStatus.Failed, message, text);
     }
 
@@ -304,18 +321,23 @@ public partial class OperationExecutor
             return Result(OperationStatus.Skipped, "This event has no user whose sessions could get the message.");
         }
 
+        // A test never messages other people: its message for every session or every administrator goes only to
+        // the sessions of the administrator running it.
+        var tester = state.Context.TesterId;
         var sessions = _sessionManager.Sessions
             .Where(s => s.IsActive && s.SupportsRemoteControl)
-            .Where(s => op.Target switch
-            {
-                MessageTarget.UserSessions => state.Context.UserIds.Contains(s.UserId),
-                MessageTarget.AdminSessions => IsAdministrator(s.UserId),
-                _ => true
-            })
+            .Where(s => tester is { } testerId
+                ? s.UserId == testerId
+                : op.Target switch
+                {
+                    MessageTarget.UserSessions => state.Context.UserIds.Contains(s.UserId),
+                    MessageTarget.AdminSessions => IsAdministrator(s.UserId),
+                    _ => true
+                })
             .ToList();
         if (sessions.Count == 0)
         {
-            return Result(OperationStatus.Skipped, "No active session can receive messages.");
+            return Result(OperationStatus.Skipped, tester is null ? "No active session can receive messages." : "A test sends this message only to your own sessions, and none of them can receive messages.");
         }
 
         var message = Message(op, state);
@@ -334,7 +356,9 @@ public partial class OperationExecutor
             }
         }
 
-        return Result(sent > 0 ? OperationStatus.Succeeded : OperationStatus.Failed, "Sent the message to " + Number(sent) + " of " + Number(sessions.Count) + " sessions.");
+        return Result(
+            sent > 0 ? OperationStatus.Succeeded : OperationStatus.Failed,
+            "Sent the message to " + Number(sent) + " of " + Number(sessions.Count) + (tester is null ? " sessions." : " of your sessions, since this is a test."));
     }
 
     private async Task<OperationResult> StopPlaybackAsync(ScriptOperation op, RunState state, CancellationToken cancellationToken)
@@ -383,13 +407,20 @@ public partial class OperationExecutor
             return Result(OperationStatus.Failed, "No scheduled task has the key " + key + ".");
         }
 
-        // A script run by this task finishing would queue it again, and again after that.
-        if (state.Context.Trigger == ScriptTrigger.TaskCompleted
-            && string.Equals(state.Context.Get("TASK_KEY"), key, StringComparison.OrdinalIgnoreCase))
+        // A task starting or finishing that queues itself would repeat forever, and so would tasks that queue
+        // each other. A task a script queued therefore never queues another.
+        var isTaskEvent = state.Context.Trigger is ScriptTrigger.TaskStarted or ScriptTrigger.TaskCompleted;
+        if (isTaskEvent && string.Equals(state.Context.Get("TASK_KEY"), key, StringComparison.OrdinalIgnoreCase))
         {
-            return Result(OperationStatus.Skipped, "Not queued: this run was started by the same task finishing, which would repeat forever.");
+            return Result(OperationStatus.Skipped, "Not queued: this run was started by the same task, which would repeat forever.");
         }
 
+        if (state.Context.QueuedByScript)
+        {
+            return Result(OperationStatus.Skipped, "Not queued: this run was started by a task another script queued, and tasks queuing each other could repeat forever.");
+        }
+
+        TaskChains.MarkQueued(worker.ScheduledTask.Key);
         _taskManager.QueueScheduledTask(worker.ScheduledTask, new TaskOptions());
         return Result(OperationStatus.Succeeded, "Queued " + worker.Name + ".");
     }
@@ -421,6 +452,9 @@ public partial class OperationExecutor
     }
 
     private static readonly char[] CmdSpecialChars = { '%', '"', '&', '|', '<', '>', '^' };
+
+    private static bool SteersPath(string? value)
+        => value is not null && (value.Contains('/', StringComparison.Ordinal) || value.Contains('\\', StringComparison.Ordinal) || value.Contains("..", StringComparison.Ordinal));
 
     private static bool IsBatchFile(string command)
         => command.EndsWith(".bat", StringComparison.OrdinalIgnoreCase) || command.EndsWith(".cmd", StringComparison.OrdinalIgnoreCase);

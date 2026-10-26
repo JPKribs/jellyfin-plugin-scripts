@@ -62,9 +62,10 @@ public sealed class EventSubscriber : IHostedService, IDisposable
     private readonly ScriptDispatcher _dispatcher;
     private readonly ILogger<EventSubscriber> _logger;
     private readonly PlaybackTracker _playback = new();
-    private readonly ConcurrentDictionary<Guid, DateTime> _pendingItems = new();
-    private readonly ConcurrentDictionary<string, string> _playMethods = new(StringComparer.Ordinal);
+    private readonly FavoriteStates _favorites = new();
+    private readonly ConcurrentDictionary<Guid, PendingItem> _pendingItems = new();
     private readonly JsonFileStore<ScheduleState> _scheduleStore;
+    private ScheduleState? _scheduleState;
     private Timer? _tickTimer;
     private CancellationTokenRegistration _startedRegistration;
     private volatile bool _stopping;
@@ -234,8 +235,8 @@ public sealed class EventSubscriber : IHostedService, IDisposable
         Guard("playback progress", () =>
         {
             var key = PlayKey(e);
-            RememberPlayMethod(key, e);
             var edge = _playback.Progress(key, e.IsPaused, e, DateTime.UtcNow);
+            RememberPlayMethod(key, e);
             if (edge is { } paused)
             {
                 DispatchPlayback(paused ? ScriptTrigger.PlaybackPause : ScriptTrigger.PlaybackResume, e);
@@ -247,9 +248,7 @@ public sealed class EventSubscriber : IHostedService, IDisposable
     {
         Guard("playback stop", () =>
         {
-            var key = PlayKey(e);
-            _playback.Stopped(key);
-            _playMethods.TryRemove(key, out var playMethod);
+            var playMethod = _playback.Stopped(PlayKey(e));
             DispatchPlayback(ScriptTrigger.PlaybackStop, e, playMethod);
         });
     }
@@ -263,20 +262,13 @@ public sealed class EventSubscriber : IHostedService, IDisposable
     }
 
     // The server clears a session's play state before it reports the stop, so the method seen while playing
-    // is kept for the stop event.
+    // is kept with the rest of the playback's state for the stop event.
     private void RememberPlayMethod(string key, PlaybackProgressEventArgs e)
     {
-        if (e.Session?.PlayState?.PlayMethod is not { } method)
+        if (e.Session?.PlayState?.PlayMethod is { } method)
         {
-            return;
+            _playback.RememberPlayMethod(key, method.ToString());
         }
-
-        if (_playMethods.Count >= 5000)
-        {
-            _playMethods.Clear();
-        }
-
-        _playMethods[key] = method.ToString();
     }
 
     // ---- Sessions ----
@@ -313,8 +305,8 @@ public sealed class EventSubscriber : IHostedService, IDisposable
                 return;
             }
 
-            // The event fires before metadata is fetched, so the item waits until it has provider IDs.
-            _pendingItems.TryAdd(item.Id, DateTime.UtcNow);
+            // The event fires before metadata is fetched, so the item waits until an update brings provider IDs.
+            _pendingItems.TryAdd(item.Id, new PendingItem(DateTime.UtcNow, HasMetadata(item)));
         });
     }
 
@@ -323,7 +315,19 @@ public sealed class EventSubscriber : IHostedService, IDisposable
         Guard("item updated", () =>
         {
             var item = e.Item;
-            if (item is null || item.IsVirtualItem || !ScriptDispatcher.WantsItem(ScriptTrigger.ItemUpdated, item.GetBaseItemKind()))
+            if (item is null)
+            {
+                return;
+            }
+
+            // A new item waiting for metadata is released once an update gives it some, so the tick never has
+            // to look every waiting item up again.
+            if (_pendingItems.TryGetValue(item.Id, out var pending) && !pending.Ready && HasMetadata(item))
+            {
+                _pendingItems.TryUpdate(item.Id, pending with { Ready = true }, pending);
+            }
+
+            if (item.IsVirtualItem || !ScriptDispatcher.WantsItem(ScriptTrigger.ItemUpdated, item.GetBaseItemKind()))
             {
                 return;
             }
@@ -404,6 +408,10 @@ public sealed class EventSubscriber : IHostedService, IDisposable
     {
         Guard("user data saved", () =>
         {
+            // Every save shows the item's favorite state, so a like or dislike (saved with the same reason as a
+            // favorite) can be told apart from a favorite actually changing.
+            var favoriteChanged = e.UserData is { } data && e.Item is { } saved && _favorites.Record(e.UserId, saved.Id, data.IsFavorite);
+
             // Playback saves user data constantly; only the deliberate changes a user makes are triggers.
             ScriptTrigger trigger;
             switch (e.SaveReason)
@@ -411,7 +419,7 @@ public sealed class EventSubscriber : IHostedService, IDisposable
                 case UserDataSaveReason.TogglePlayed:
                     trigger = e.UserData?.Played == true ? ScriptTrigger.MarkedPlayed : ScriptTrigger.MarkedUnplayed;
                     break;
-                case UserDataSaveReason.UpdateUserRating:
+                case UserDataSaveReason.UpdateUserRating when favoriteChanged:
                     trigger = ScriptTrigger.FavoriteChanged;
                     break;
                 default:
@@ -444,9 +452,14 @@ public sealed class EventSubscriber : IHostedService, IDisposable
     {
         Guard("task completed", () =>
         {
+            // Forgotten on every finish, scripts or not, so a later run of the same task is not taken for one a
+            // script queued.
+            var queuedByScript = TaskChains.Finished(e.Result?.Key ?? e.Task?.ScheduledTask?.Key);
             if (ScriptDispatcher.HasScriptsFor(ScriptTrigger.TaskCompleted))
             {
-                _dispatcher.Dispatch(_builder.FromTask(e));
+                var context = _builder.FromTask(e);
+                context.QueuedByScript = queuedByScript;
+                _dispatcher.Dispatch(context);
             }
         });
     }
@@ -536,8 +549,9 @@ public sealed class EventSubscriber : IHostedService, IDisposable
 
     private void OnNetworkChanged(object? sender, EventArgs e) => DispatchValues(ScriptTrigger.NetworkChanged);
 
-    // Jellyfin reports some account changes (policy, configuration) only through this event, and others only
-    // through the event bus, so both feed User updated and UserEvents drops the duplicate.
+    // Jellyfin reports an account edit through this event, its event bus, or both, depending on which part of
+    // the server made it, so both feed User edited and UserEvents drops the duplicate. Neither reports a change
+    // to a user's permissions or policy, which the trigger's description says.
     private void OnUserUpdated(object? sender, GenericEventArgs<Jellyfin.Database.Implementations.Entities.User> e)
     {
         Guard("user updated", () =>
@@ -589,25 +603,25 @@ public sealed class EventSubscriber : IHostedService, IDisposable
         }
     }
 
+    // Only items that are ready, or have waited as long as they may, are looked up, once each.
     private void ReleasePendingItems(DateTime now)
     {
-        foreach (var (id, added) in _pendingItems.ToArray())
+        foreach (var (id, pending) in _pendingItems.ToArray())
         {
-            var item = _libraryManager.GetItemById(id);
-            if (item is null)
+            var age = now - pending.Added;
+            if (!((pending.Ready && age >= TickInterval) || age >= MetadataWaitLimit) || !_pendingItems.TryRemove(id, out _))
             {
-                _pendingItems.TryRemove(id, out _);
                 continue;
             }
 
-            var age = now - added;
-            var hasMetadata = item.ProviderIds is { Count: > 0 };
-            if (((hasMetadata && age >= TickInterval) || age >= MetadataWaitLimit) && _pendingItems.TryRemove(id, out _))
+            if (_libraryManager.GetItemById(id) is { } item)
             {
                 _dispatcher.Dispatch(_builder.FromItem(ScriptTrigger.ItemAdded, item));
             }
         }
     }
+
+    private static bool HasMetadata(BaseItem item) => item.ProviderIds is { Count: > 0 };
 
     private void FirePaused(DateTime now)
     {
@@ -615,7 +629,7 @@ public sealed class EventSubscriber : IHostedService, IDisposable
         {
             foreach (var (args, paused) in _playback.DuePaused(script.Id, TimeSpan.FromMinutes(script.PausedForMinutes), now))
             {
-                var context = _builder.FromPlayback(ScriptTrigger.PlaybackPausedFor, args, _playMethods.GetValueOrDefault(PlayKey(args)));
+                var context = _builder.FromPlayback(ScriptTrigger.PlaybackPausedFor, args, _playback.PlayMethodOf(PlayKey(args)));
                 context.Set("PAUSED_SECONDS", ((long)paused.TotalSeconds).ToString(CultureInfo.InvariantCulture));
                 context.Set("IS_PAUSED", "true");
                 _dispatcher.DispatchTo(context, script);
@@ -629,23 +643,28 @@ public sealed class EventSubscriber : IHostedService, IDisposable
         {
             foreach (var (args, played) in _playback.DuePlaying(script.Id, TimeSpan.FromMinutes(script.PlayingForMinutes), now))
             {
-                var context = _builder.FromPlayback(ScriptTrigger.PlaybackPlayingFor, args, _playMethods.GetValueOrDefault(PlayKey(args)));
+                var context = _builder.FromPlayback(ScriptTrigger.PlaybackPlayingFor, args, _playback.PlayMethodOf(PlayKey(args)));
                 context.Set("PLAYING_SECONDS", ((long)played.TotalSeconds).ToString(CultureInfo.InvariantCulture));
                 _dispatcher.DispatchTo(context, script);
             }
         }
     }
 
+    // The state is read from disk once and kept, since only this class writes it.
     private void FireSchedules(DateTime now)
     {
         var scripts = ScriptDispatcher.ScriptsFor(ScriptTrigger.Schedule).ToList();
-        if (scripts.Count == 0)
+        var state = _scheduleState ??= _scheduleStore.Load();
+
+        // A script that is disabled, deleted, or no longer scheduled is forgotten, so an interval script enabled
+        // again waits a whole interval rather than running at once for the time it was off.
+        var stale = state.LastRuns.Keys.Where(id => !scripts.Any(s => s.Id == id)).ToList();
+        var changed = stale.Count > 0;
+        foreach (var id in stale)
         {
-            return;
+            state.LastRuns.Remove(id);
         }
 
-        var state = _scheduleStore.Load();
-        var changed = false;
         foreach (var script in scripts)
         {
             DateTime? last = state.LastRuns.TryGetValue(script.Id, out var stored) ? stored : null;
@@ -669,6 +688,8 @@ public sealed class EventSubscriber : IHostedService, IDisposable
             _scheduleStore.Save(state);
         }
     }
+
+    private readonly record struct PendingItem(DateTime Added, bool Ready);
 
     private void Guard(string what, Action action)
     {

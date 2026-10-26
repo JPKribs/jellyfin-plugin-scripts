@@ -28,6 +28,7 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
         // pinned application name, so moving the host does not leave stored secrets undecryptable.
         serviceCollection.AddPluginSecretProtector(Plugin.SecretsName);
 
+        serviceCollection.AddSingleton<SecretVault>();
         serviceCollection.AddSingleton<ScriptPaths>();
         serviceCollection.AddSingleton<HistoryStore>();
         serviceCollection.AddSingleton<EventContextBuilder>();

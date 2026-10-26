@@ -376,6 +376,7 @@ public class EventContextBuilder
         context.Set("TASK_NAME", worker.Name);
         context.Set("TASK_KEY", worker.ScheduledTask?.Key);
         context.Set("TASK_CATEGORY", worker.Category);
+        context.QueuedByScript = TaskChains.WasQueued(context.Get("TASK_KEY"));
         context.Summary = worker.Name ?? string.Empty;
         return context;
     }

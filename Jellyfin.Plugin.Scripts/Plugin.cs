@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Jellyfin.Plugin.Scripts.Configuration;
 using Jellyfin.Plugin.Scripts.Services;
 using JPKribs.Jellyfin.Base;
@@ -22,6 +23,8 @@ public class Plugin : PluginBase<Plugin, PluginConfiguration>
     public const string SecretsName = "Jellyfin.Plugin.Scripts";
 
     private readonly Lazy<SecretProtector> _secrets;
+    private readonly SecretVault _vault;
+    private readonly ILogger<Plugin> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="Plugin"/> class.
@@ -36,7 +39,10 @@ public class Plugin : PluginBase<Plugin, PluginConfiguration>
         : base(applicationPaths, xmlSerializer)
     {
         ArgumentNullException.ThrowIfNull(logger);
+        _logger = logger;
         _secrets = new Lazy<SecretProtector>(() => StableSecretProtection.CreateProtector(applicationPaths, SecretsName, logger));
+        _vault = new SecretVault(SecretVault.FileIn(applicationPaths), logger);
+        MoveSecretsToVault();
         logger.LogInformation("Scripts plugin initialized");
     }
 
@@ -61,7 +67,25 @@ public class Plugin : PluginBase<Plugin, PluginConfiguration>
         ArgumentNullException.ThrowIfNull(stored);
         ConfigurationValidator.Normalize(incoming);
         ConfigurationValidator.Validate(incoming);
-        ScriptSecrets.Protect(incoming, stored, _secrets.Value);
+        _vault.Save(ScriptSecrets.Store(incoming, stored, _vault.Load(), _secrets.Value));
+    }
+
+    // Release 12.3.0.0 kept encrypted values in the configuration itself. They move to the vault once, so the
+    // configuration the dashboard reads holds none.
+    private void MoveSecretsToVault()
+    {
+        try
+        {
+            if (Configuration.Scripts.SelectMany(s => s.Secrets).Any(s => s.Value.Length > 0 && s.Value != SecretProtector.KeptSentinel))
+            {
+                UpdateConfiguration(Configuration);
+                _logger.LogInformation("Scripts: moved script secrets out of the configuration into the secret vault");
+            }
+        }
+        catch (Exception ex) when (ex is ArgumentException or System.IO.IOException or UnauthorizedAccessException)
+        {
+            _logger.LogWarning(ex, "Scripts: could not move script secrets into the secret vault");
+        }
     }
 
     /// <inheritdoc />

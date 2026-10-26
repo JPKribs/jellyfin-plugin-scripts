@@ -36,6 +36,7 @@ public class ScriptRunner : BackgroundService
 
     private readonly OperationExecutor _executor;
     private readonly SecretProtector _secrets;
+    private readonly SecretVault _vault;
     private readonly HistoryStore _history;
     private readonly ActivityLogger _activityLogger;
     private readonly ILogger<ScriptRunner> _logger;
@@ -49,15 +50,18 @@ public class ScriptRunner : BackgroundService
     /// <param name="history">The run history.</param>
     /// <param name="activityLogger">The activity log writer.</param>
     /// <param name="secrets">Decrypts script secrets at run time.</param>
+    /// <param name="vault">The stored secret values.</param>
     /// <param name="logger">The logger.</param>
     public ScriptRunner(
         OperationExecutor executor,
         HistoryStore history,
         ActivityLogger activityLogger,
         SecretProtector secrets,
+        SecretVault vault,
         ILogger<ScriptRunner> logger)
     {
         _secrets = secrets;
+        _vault = vault;
         _executor = executor;
         _history = history;
         _activityLogger = activityLogger;
@@ -106,13 +110,13 @@ public class ScriptRunner : BackgroundService
 
         // Secrets are decrypted only for the run: they fill placeholders and the environment, but are left out
         // of EVENT_JSON and of the variables the history records.
+        var secrets = script.Secrets.Count == 0
+            ? new Dictionary<string, string>(StringComparer.Ordinal)
+            : ScriptSecrets.Reveal(script, _vault.Load(), _secrets);
         var withSecrets = new Dictionary<string, string>(variables, StringComparer.Ordinal);
-        foreach (var secret in script.Secrets)
+        foreach (var (name, value) in secrets)
         {
-            if (secret.Name.Length > 0)
-            {
-                withSecrets[TriggerCatalog.SecretPrefix + secret.Name] = _secrets.Unprotect(secret.Value);
-            }
+            withSecrets[TriggerCatalog.SecretPrefix + name] = value;
         }
 
         var environment = withSecrets.ToDictionary(v => TriggerCatalog.EnvironmentPrefix + v.Key, v => v.Value, StringComparer.Ordinal);
@@ -168,7 +172,10 @@ public class ScriptRunner : BackgroundService
                 result = new OperationResult { Status = OperationStatus.Failed, Message = ex.Message };
             }
 
+            // A secret that reached a message or a command's output is masked before the run is recorded.
             result.Type = operation.Type;
+            result.Message = ScriptSecrets.Mask(result.Message, secrets);
+            result.Output = ScriptSecrets.Mask(result.Output, secrets);
             run.Operations.Add(result);
             stopped = result.Status == OperationStatus.Failed && !operation.ContinueOnError;
         }
@@ -177,7 +184,8 @@ public class ScriptRunner : BackgroundService
         run.Succeeded = run.Operations.All(o => o.Status != OperationStatus.Failed);
         _history.Add(run, settings.HistorySize);
 
-        if (!run.Succeeded && !isTest)
+        // A nested run's failure is reported once, by the script that ran it.
+        if (!run.Succeeded && !isTest && depth == 0)
         {
             var failure = run.Operations.First(o => o.Status == OperationStatus.Failed);
             _activityLogger.Log("Script \"" + script.Name + "\" failed", "Scripts.ScriptFailed", failure.Message, LogLevel.Warning);
@@ -247,6 +255,11 @@ public class ScriptRunner : BackgroundService
         if (target is null)
         {
             return new OperationResult { Status = OperationStatus.Failed, Message = "The chosen script no longer exists." };
+        }
+
+        if (!target.Enabled)
+        {
+            return new OperationResult { Status = OperationStatus.Skipped, Message = "Not run: \"" + target.Name + "\" is disabled. A script only other scripts run can be enabled with no triggers." };
         }
 
         if (depth + 1 >= MaxScriptDepth)

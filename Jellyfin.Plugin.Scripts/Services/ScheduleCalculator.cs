@@ -40,20 +40,37 @@ public static class ScheduleCalculator
             return false;
         }
 
+        // Yesterday too, so a time just before midnight still runs when the tick lands just after it.
         var local = TimeZoneInfo.ConvertTimeFromUtc(nowUtc, localZone);
-        if (!RunsOn(script, local.Date))
+        foreach (var date in new[] { local.Date, local.Date.AddDays(-1) })
         {
-            return false;
+            if (!RunsOn(script, date))
+            {
+                continue;
+            }
+
+            var dueUtc = DueUtc(date + timeOfDay, localZone);
+            if (nowUtc >= dueUtc && nowUtc - dueUtc <= Grace)
+            {
+                runUtc = dueUtc;
+                return lastRunUtc is not { } previous || previous < runUtc;
+            }
         }
 
-        var dueLocal = DateTime.SpecifyKind(local.Date + timeOfDay, DateTimeKind.Unspecified);
-        if (local < dueLocal || local - dueLocal > Grace)
+        return false;
+    }
+
+    // A time the clocks skip when daylight saving starts runs at the first minute that exists after it, as cron
+    // does. A time that happens twice when it ends runs once, at the second occurrence.
+    private static DateTime DueUtc(DateTime localTime, TimeZoneInfo localZone)
+    {
+        var due = DateTime.SpecifyKind(localTime, DateTimeKind.Unspecified);
+        for (var guard = 0; guard < 24 * 60 && localZone.IsInvalidTime(due); guard++)
         {
-            return false;
+            due = due.AddMinutes(1);
         }
 
-        runUtc = TimeZoneInfo.ConvertTimeToUtc(dueLocal, localZone);
-        return lastRunUtc is not { } previous || previous < runUtc;
+        return TimeZoneInfo.ConvertTimeToUtc(due, localZone);
     }
 
     private static bool RunsOn(ScriptDefinition script, DateTime date)

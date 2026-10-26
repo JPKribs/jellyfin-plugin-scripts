@@ -28,6 +28,7 @@ public sealed class HistoryStore : IDisposable
 
     private readonly JsonFileStore<ScriptHistory> _store;
     private readonly object _lock = new();
+    private readonly object _saveLock = new();
     private readonly Timer _flushTimer;
     private List<ScriptRun>? _runs;
     private bool _dirty;
@@ -141,19 +142,24 @@ public sealed class HistoryStore : IDisposable
     /// </summary>
     public void Flush()
     {
-        ScriptHistory snapshot;
-        lock (_lock)
+        // The snapshot is taken and written under one save lock, so a timer flush holding an older snapshot can
+        // never write after a newer one, such as the empty history Clear just made.
+        lock (_saveLock)
         {
-            if (!_dirty || _runs is null)
+            ScriptHistory snapshot;
+            lock (_lock)
             {
-                return;
+                if (!_dirty || _runs is null)
+                {
+                    return;
+                }
+
+                snapshot = new ScriptHistory { Runs = _runs.ToList() };
+                _dirty = false;
             }
 
-            snapshot = new ScriptHistory { Runs = _runs.ToList() };
-            _dirty = false;
+            _store.Save(snapshot);
         }
-
-        _store.Save(snapshot);
     }
 
     /// <inheritdoc />

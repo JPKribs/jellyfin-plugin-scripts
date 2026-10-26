@@ -44,6 +44,18 @@ public sealed class EventContext
     public string Summary { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets a value indicating whether this event is a scheduled task that a script queued, in which case
+    /// no step may queue another task.
+    /// </summary>
+    public bool QueuedByScript { get; set; }
+
+    /// <summary>
+    /// Gets or sets the administrator running a test, whose own sessions are the only ones a test's message for
+    /// every session or every administrator reaches.
+    /// </summary>
+    public Guid? TesterId { get; set; }
+
+    /// <summary>
     /// Gets a variable, or an empty string when the event lacks it.
     /// </summary>
     /// <param name="name">The variable name without the prefix.</param>

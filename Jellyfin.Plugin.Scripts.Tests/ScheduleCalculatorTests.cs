@@ -71,6 +71,24 @@ public class ScheduleCalculatorTests
         Assert.True(ScheduleCalculator.IsDue(script, new DateTime(2026, 3, 4, 1, 0, 30, DateTimeKind.Utc), zone, null, out _));
     }
 
+    [Fact]
+    public void ATimeJustBeforeMidnightStillRunsAfterIt()
+    {
+        var script = Daily("23:59", DayOfWeek.Wednesday);
+        Assert.True(Due(script, new DateTime(2026, 3, 5, 0, 0, 30, DateTimeKind.Utc))); // Thursday, just after
+    }
+
+    [Fact]
+    public void ATimeSkippedByDaylightSavingRunsWhenTheClockJumps()
+    {
+        var zone = TimeZoneInfo.FindSystemTimeZoneById("America/New_York");
+        var script = Daily("02:30");
+
+        // 8 March 2026: 02:00 EST jumps to 03:00 EDT, which is 07:00 UTC. 02:30 never happens.
+        Assert.True(ScheduleCalculator.IsDue(script, new DateTime(2026, 3, 8, 7, 0, 30, DateTimeKind.Utc), zone, null, out var run));
+        Assert.Equal(new DateTime(2026, 3, 8, 7, 0, 0, DateTimeKind.Utc), run);
+    }
+
     [Theory]
     [InlineData("03:00", true)]
     [InlineData("23:59", true)]

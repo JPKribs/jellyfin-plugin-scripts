@@ -51,7 +51,7 @@ Every playback trigger carries the user, session, and item, plus `ACTIVE_STREAMS
 | Trigger | Runs when |
 |---|---|
 | Marked played, Marked unplayed | A user marks an item played or unplayed. |
-| Favorite changed | A user adds or removes a favorite. `IS_FAVORITE` says which. |
+| Favorite changed | A user adds or removes a favorite. `IS_FAVORITE` says which. A like or dislike is not a favorite change, though the first rating of an item not seen since the server started may be reported as one. |
 
 ### Sessions
 
@@ -88,11 +88,11 @@ Every playback trigger carries the user, session, and item, plus `ACTIVE_STREAMS
 
 **On a schedule** runs the script without an event:
 
-* **Interval**: every so many minutes. The first run comes one interval after the server first sees the schedule, not the moment it is saved. An interval that passed while the server was off runs once when it starts.
+* **Interval**: every so many minutes. The first run comes one interval after the server first sees the schedule, not the moment it is saved, and the same after the script is enabled again. An interval that passed while the server was off runs once when it starts.
 * **Daily**: at a time of day, on the days of the week you pick, or every day when none are picked.
 * **Monthly**: at a time on a day of the month. A day past the end of a short month runs on its last day.
 
-Times are the server's local time. A daily or monthly run is still made if the server was busy for up to two minutes past the time, and never twice for the same time. One missed while the server was off is skipped, not made up.
+Times are the server's local time. A daily or monthly run is still made if the server was busy for up to two minutes past the time, and never twice for the same time. One missed while the server was off is skipped, not made up. A time the clocks skip when daylight saving starts runs when they jump, and a time that happens twice when it ends runs once.
 
 ## Item kinds
 
@@ -138,7 +138,7 @@ Steps run in order. Drag a step, or use its arrows, to reorder it, and open it t
 |---|---|---|---|
 | Run | Run command | Runs a program or script at any path the server can reach, or a name on the server's PATH such as `curl`. | |
 | | HTTP request | Sends a GET, POST, PUT, PATCH, or DELETE with your headers and body. | |
-| | Run another script | Runs another script's steps with this event, skipping its triggers and filters. Up to 3 levels deep. | |
+| | Run another script | Runs another script's steps with this event, skipping its triggers and filters. Up to 3 levels deep. A disabled script is not run, so enable a helper script and give it no triggers. | |
 | | Wait | Pauses before the next step. | |
 | Sessions | Send message | Shows a message on the event's session, all of the event's user's sessions, every session, or every administrator's session. | |
 | | Pause playback | Pauses the event's session. | A session |
@@ -151,7 +151,7 @@ Steps run in order. Drag a step, or use its arrows, to reorder it, and open it t
 | Users | Disable or enable user | Disables or enables the event's user. Administrators are never disabled. | A user |
 | | Sign user out | Signs the event's user out of every device. Administrators are never signed out. | A user |
 | Server | Scan libraries | Queues a scan of every library. | |
-| | Run scheduled task | Queues a scheduled task. A task finishing can't queue itself, since that would repeat forever. | |
+| | Run scheduled task | Queues a scheduled task. A task starting or finishing can't queue itself, and a task a script queued can't queue another, since tasks queuing each other would repeat forever. | |
 | | Write to activity log | Adds an entry to the server's activity log. | |
 | | Append to file | Appends a line to a file, creating the file if its folder exists. | |
 
@@ -162,6 +162,8 @@ A step that needs something the event lacks is skipped. A failed step stops the 
 **Start from a preset** fills the request for a generic JSON webhook, Discord, Slack, ntfy, Gotify, or a Home Assistant service call. Replace the URL, and put tokens in the script's [secrets](#secrets). **Retries** tries again, up to 5 times and waiting longer each time, after no answer, a 5xx, or a 429.
 
 ### Run command
+
+Placeholders may fill the command, but a value holding a path (a `/`, a `\`, or `..`) is refused there, so an event value such as a device name can never change which program runs. Pass such values as arguments.
 
 Use **Check path** to confirm the server can see the file and that it is executable. The server runs it as the account Jellyfin runs under, in the folder that holds the script unless you set a working folder. It is stopped after its timeout, which defaults to the value on the Settings tab. A script may start a background process and exit; the step reports the script's own exit code as soon as it finishes.
 
@@ -181,7 +183,7 @@ Use **Check path** to confirm the server can see the file and that it is executa
 
 ## Secrets
 
-Keep tokens and passwords in the script's **Secrets** rather than in its steps. Use one as `{{SECRET_NAME}}` in a step, or `$JF_SECRET_NAME` in a command. Values are encrypted on the server, never sent back to the browser, left out of exports, and left out of the variables the history records. A command that prints a secret still puts it in its captured output, so don't echo them.
+Keep tokens and passwords in the script's **Secrets** rather than in its steps. Use one as `{{SECRET_NAME}}` in a step, or `$JF_SECRET_NAME` in a command. Values are encrypted into their own file on the server, never sent back to the browser in any form, and left out of exports. Wherever a secret of three or more characters shows up in a step's message or a command's output, the history and the activity log show `[SECRET_NAME]` instead. Renaming a secret keeps its value.
 
 ![Secrets](screenshots/Secrets.png)
 
@@ -219,7 +221,7 @@ Users are stored by ID, so on another server a script's users show as unknown un
 
 ## Testing
 
-**Test** runs the open script's steps right away, including unsaved edits and its secrets, with sample values for the chosen trigger. Item kinds and conditions are not applied, and steps that act on a session, user, or item are skipped, because the sample has none.
+**Test** runs the open script's steps right away, including unsaved edits and its secrets, with sample values for the chosen trigger. Item kinds and conditions are not applied, and steps that act on the event's session, user, or item are skipped, because the sample has none. A message for every session or every administrator goes only to your own sessions. Other steps, such as a command, an HTTP request, a library scan, or a queued task, really run.
 
 ![A test run](screenshots/TestRun.png)
 

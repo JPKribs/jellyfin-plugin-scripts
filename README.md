@@ -13,7 +13,3 @@ Plugin repository URL for Jellyfin:
 ```
 https://raw.githubusercontent.com/JPKribs/jellyfin-plugin-scripts/master/manifest.json
 ```
-
-## AI Disclaimer
-
-Anthropic's Claude Code is utilized in the development and maintenance of this project.

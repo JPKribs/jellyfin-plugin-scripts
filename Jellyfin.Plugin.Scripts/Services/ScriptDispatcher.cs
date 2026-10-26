@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using Jellyfin.Data.Enums;
+using Jellyfin.Plugin.Scripts.Configuration;
 using Jellyfin.Plugin.Scripts.Models;
 
 namespace Jellyfin.Plugin.Scripts.Services;
@@ -17,6 +18,7 @@ public class ScriptDispatcher
 
     // When each script's cooldown for a user and item ends.
     private readonly ConcurrentDictionary<string, DateTime> _cooldowns = new(StringComparer.Ordinal);
+    private static TriggerIndex? _index;
     private readonly ScriptRunner _runner;
     private DateTime _lastSweep = DateTime.MinValue;
 
@@ -54,51 +56,41 @@ public class ScriptDispatcher
     public int Dispatch(EventContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
-        var queued = 0;
-        var now = DateTime.UtcNow;
-        SweepCooldowns(now);
-
-        foreach (var script in ScriptsFor(context.Trigger))
-        {
-            if (!ConditionEvaluator.Matches(script, context))
-            {
-                continue;
-            }
-
-            var claim = ClaimCooldown(script, context, now);
-            if (claim is { Allowed: false })
-            {
-                continue;
-            }
-
-            if (_runner.TryEnqueue(new ScriptJob(script, context)))
-            {
-                queued++;
-            }
-            else if (claim is { } dropped)
-            {
-                // The run never happened, so it must not hold off the next event for the same user and item.
-                _cooldowns.TryRemove(new KeyValuePair<string, DateTime>(dropped.Key, dropped.Until));
-            }
-        }
-
-        return queued;
+        SweepCooldowns(DateTime.UtcNow);
+        return ScriptsFor(context.Trigger).Count(script => DispatchTo(context, script));
     }
 
     /// <summary>
-    /// Gets the enabled scripts that run on a trigger.
+    /// Gets the enabled scripts that run on a trigger. The scripts are indexed by trigger once per saved
+    /// configuration, since busy events such as a library scan ask for every item.
     /// </summary>
     /// <param name="trigger">The trigger.</param>
     /// <returns>The scripts.</returns>
     public static IEnumerable<ScriptDefinition> ScriptsFor(ScriptTrigger trigger)
     {
-        var scripts = Plugin.Instance?.ReadConfiguration(c => c.Scripts.ToList()) ?? new List<ScriptDefinition>();
-        return scripts.Where(s => s.Enabled && s.Triggers.Contains(trigger));
+        var config = Plugin.Instance?.ReadConfiguration(c => c);
+        if (config is null)
+        {
+            return Enumerable.Empty<ScriptDefinition>();
+        }
+
+        var index = _index;
+        if (index is null || !ReferenceEquals(index.Config, config))
+        {
+            index = new TriggerIndex(config, config.Scripts
+                .Where(s => s.Enabled)
+                .SelectMany(s => s.Triggers.Distinct().Select(t => (Trigger: t, Script: s)))
+                .ToLookup(p => p.Trigger, p => p.Script));
+            _index = index;
+        }
+
+        return index.ByTrigger[trigger];
     }
 
     /// <summary>
-    /// Queues one script for an event its own threshold made due, such as a pause that has lasted long enough,
-    /// if its filters, conditions, and cooldown allow it.
+    /// Queues one script for an event if its filters, conditions, and cooldown allow it. Used for every script
+    /// <see cref="Dispatch"/> finds, and directly for events only one script's own threshold made due, such as
+    /// a pause that has lasted long enough.
     /// </summary>
     /// <param name="context">The event.</param>
     /// <param name="script">The script.</param>
@@ -112,8 +104,7 @@ public class ScriptDispatcher
             return false;
         }
 
-        var now = DateTime.UtcNow;
-        var claim = ClaimCooldown(script, context, now);
+        var claim = ClaimCooldown(script, context, DateTime.UtcNow);
         if (claim is { Allowed: false })
         {
             return false;
@@ -124,6 +115,7 @@ public class ScriptDispatcher
             return true;
         }
 
+        // The run never happened, so it must not hold off the next event for the same user and item.
         if (claim is { } dropped)
         {
             _cooldowns.TryRemove(new KeyValuePair<string, DateTime>(dropped.Key, dropped.Until));
@@ -176,4 +168,6 @@ public class ScriptDispatcher
             _cooldowns.TryRemove(expired);
         }
     }
+
+    private sealed record TriggerIndex(PluginConfiguration Config, ILookup<ScriptTrigger, ScriptDefinition> ByTrigger);
 }

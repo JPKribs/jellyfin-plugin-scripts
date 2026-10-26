@@ -20,6 +20,8 @@ namespace Jellyfin.Plugin.Scripts.Services;
 /// </summary>
 public partial class OperationExecutor
 {
+    private static readonly SemaphoreSlim AppendLock = new(1, 1);
+
     private async Task<OperationResult> PausePlaybackAsync(RunState state, CancellationToken cancellationToken)
     {
         if (string.IsNullOrEmpty(state.Context.SessionId))
@@ -180,8 +182,18 @@ public partial class OperationExecutor
             return Result(OperationStatus.Failed, "The server cannot find the folder for " + path + ". In Docker, mount it into the container.");
         }
 
+        // Runs at once may append to the same file, which Windows refuses while another write holds it open.
         var line = Placeholders.Fill(op.Text, state.Variables);
-        await File.AppendAllTextAsync(path, line + Environment.NewLine, cancellationToken).ConfigureAwait(false);
+        await AppendLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await File.AppendAllTextAsync(path, line + Environment.NewLine, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            AppendLock.Release();
+        }
+
         return Result(OperationStatus.Succeeded, "Appended a line to " + path + ".");
     }
 

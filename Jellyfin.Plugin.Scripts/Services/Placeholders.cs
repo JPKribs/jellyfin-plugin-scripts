@@ -31,12 +31,7 @@ public static partial class Placeholders
 
         return Pattern().Replace(template, match =>
         {
-            var name = match.Groups[1].Value.ToUpperInvariant();
-            if (name.StartsWith(TriggerCatalog.EnvironmentPrefix, StringComparison.Ordinal))
-            {
-                name = name[TriggerCatalog.EnvironmentPrefix.Length..];
-            }
-
+            var name = Name(match);
             var value = variables.TryGetValue(name, out var found) ? found : string.Empty;
             return match.Groups[2].Value.ToUpperInvariant() switch
             {
@@ -45,6 +40,30 @@ public static partial class Placeholders
                 _ => value
             };
         });
+    }
+
+    /// <summary>
+    /// Lists the variables a template uses, as <see cref="Fill"/> looks them up.
+    /// </summary>
+    /// <param name="template">The text.</param>
+    /// <returns>The variable names, without the <c>JF_</c> prefix.</returns>
+    public static IEnumerable<string> Names(string? template)
+    {
+        if (string.IsNullOrEmpty(template))
+        {
+            yield break;
+        }
+
+        foreach (Match match in Pattern().Matches(template))
+        {
+            yield return Name(match);
+        }
+    }
+
+    private static string Name(Match match)
+    {
+        var name = match.Groups[1].Value.ToUpperInvariant();
+        return name.StartsWith(TriggerCatalog.EnvironmentPrefix, StringComparison.Ordinal) ? name[TriggerCatalog.EnvironmentPrefix.Length..] : name;
     }
 
     private static string JsonEscape(string value)

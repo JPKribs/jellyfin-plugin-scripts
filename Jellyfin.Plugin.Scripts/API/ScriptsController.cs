@@ -28,6 +28,9 @@ namespace Jellyfin.Plugin.Scripts.API;
 [Authorize(Policy = "RequiresElevation")]
 public class ScriptsController : ControllerBase
 {
+    // The claim Jellyfin's authentication handler stores the signed-in user's ID under.
+    private const string UserIdClaim = "Jellyfin-UserId";
+
     private readonly ILibraryManager _libraryManager;
     private readonly IUserManager _userManager;
     private readonly ITaskManager _taskManager;
@@ -35,6 +38,7 @@ public class ScriptsController : ControllerBase
     private readonly ScriptRunner _runner;
     private readonly HistoryStore _history;
     private readonly SecretProtector _secrets;
+    private readonly SecretVault _vault;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ScriptsController"/> class.
@@ -46,6 +50,7 @@ public class ScriptsController : ControllerBase
     /// <param name="runner">The script runner.</param>
     /// <param name="history">The run history.</param>
     /// <param name="secrets">Encrypts secrets sent with a test run.</param>
+    /// <param name="vault">The stored secret values.</param>
     public ScriptsController(
         ILibraryManager libraryManager,
         IUserManager userManager,
@@ -53,9 +58,11 @@ public class ScriptsController : ControllerBase
         EventContextBuilder builder,
         ScriptRunner runner,
         HistoryStore history,
-        SecretProtector secrets)
+        SecretProtector secrets,
+        SecretVault vault)
     {
         _secrets = secrets;
+        _vault = vault;
         _libraryManager = libraryManager;
         _userManager = userManager;
         _taskManager = taskManager;
@@ -145,9 +152,9 @@ public class ScriptsController : ControllerBase
             ConfigurationValidator.Normalize(request.Script);
             ConfigurationValidator.Validate(request.Script);
 
-            // Untouched secrets arrive as the kept sentinel, so they resolve against the saved script.
+            // Untouched secrets arrive as the kept sentinel, so they resolve against the saved script's vault.
             var stored = Plugin.Instance?.ReadConfiguration(c => c.Scripts.FirstOrDefault(s => s.Id == request.Script.Id));
-            ScriptSecrets.Protect(request.Script, stored, _secrets);
+            ScriptSecrets.Resolve(request.Script, stored, _vault.Load(), _secrets);
         }
         catch (ArgumentException ex)
         {
@@ -155,6 +162,7 @@ public class ScriptsController : ControllerBase
         }
 
         var context = _builder.Sample(request.Trigger);
+        context.TesterId = Guid.TryParse(User.FindFirst(UserIdClaim)?.Value, out var tester) ? tester : Guid.Empty;
         return await _runner.RunAsync(request.Script, context, true, cancellationToken).ConfigureAwait(false);
     }
 

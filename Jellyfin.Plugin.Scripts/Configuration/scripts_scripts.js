@@ -203,21 +203,26 @@ export default function (view) {
         Shared.setVisible('pausedOptions', has('PlaybackPausedFor'));
         Shared.setVisible('playingOptions', has('PlaybackPlayingFor'));
         Shared.setVisible('scheduleOptions', has('Schedule'));
-        el('pausedMinutes').value = script.PausedForMinutes || 10;
-        el('playingMinutes').value = script.PlayingForMinutes || 60;
+        el('pausedMinutes').value = orDefault(script.PausedForMinutes, 10);
+        el('playingMinutes').value = orDefault(script.PlayingForMinutes, 60);
 
         suppressWidgetEvents = true;
         scheduleChoice.set(script.ScheduleMode || 'Daily');
         suppressWidgetEvents = false;
-        el('scheduleIntervalMinutes').value = script.ScheduleIntervalMinutes || 60;
+        el('scheduleIntervalMinutes').value = orDefault(script.ScheduleIntervalMinutes, 60);
         el('scheduleTime').value = script.ScheduleTime || '03:00';
-        el('scheduleMonthDay').value = script.ScheduleMonthDay || 1;
+        el('scheduleMonthDay').value = orDefault(script.ScheduleMonthDay, 1);
         el('scheduleDays').innerHTML = DAYS.map(function (day) {
             var checked = (script.ScheduleDays || []).indexOf(day) >= 0 ? ' checked' : '';
             return '<label class="emby-checkbox-label scripts-day"><input type="checkbox" is="emby-checkbox" data-day="' + day + '"' + checked + ' />' +
                 '<span class="checkboxLabel">' + day.slice(0, 3) + '</span></label>';
         }).join('');
         renderScheduleMode();
+    }
+
+    // Shows what the script holds, so a cleared field reads as empty rather than as a default it does not have.
+    function orDefault(value, fallback) {
+        return value === undefined || value === null ? fallback : value;
     }
 
     function renderScheduleMode() {
@@ -683,8 +688,14 @@ export default function (view) {
             secretNames[name] = true;
         }
 
-        if (script.Triggers.indexOf('Schedule') >= 0 && script.ScheduleMode !== 'Interval' && !/^([01]\d|2[0-3]):[0-5]\d$/.test(script.ScheduleTime || '')) {
-            return label + 'the schedule needs a time.';
+        var outside = function (value, min, max) { return !(value >= min && value <= max); };
+        if (outside(script.CooldownSeconds || 0, 0, 86400)) return label + 'the cooldown must be between 0 and 86400 seconds.';
+        if (script.Triggers.indexOf('PlaybackPausedFor') >= 0 && outside(script.PausedForMinutes, 1, 1440)) return label + 'paused for must be between 1 and 1440 minutes.';
+        if (script.Triggers.indexOf('PlaybackPlayingFor') >= 0 && outside(script.PlayingForMinutes, 1, 1440)) return label + 'playing for must be between 1 and 1440 minutes.';
+        if (script.Triggers.indexOf('Schedule') >= 0) {
+            if (script.ScheduleMode === 'Interval' && outside(script.ScheduleIntervalMinutes, 1, 10080)) return label + 'the schedule interval must be between 1 and 10080 minutes.';
+            if (script.ScheduleMode !== 'Interval' && !/^([01]\d|2[0-3]):[0-5]\d$/.test(script.ScheduleTime || '')) return label + 'the schedule needs a time.';
+            if (script.ScheduleMode === 'Monthly' && outside(script.ScheduleMonthDay, 1, 31)) return label + 'the day of the month must be between 1 and 31.';
         }
 
         for (var i = 0; i < script.Operations.length; i++) {
@@ -698,7 +709,10 @@ export default function (view) {
             if ((op.Type === 'AddToCollection' || op.Type === 'RemoveFromCollection') && !op.CollectionId) return step + 'needs a collection.';
             if (op.Type === 'RunScript' && !op.ScriptId) return step + 'needs a script to run.';
             if (op.Type === 'AppendToFile' && !/^(\/|[A-Za-z]:\\)/.test((op.FilePath || '').trim())) return step + 'needs a full file path.';
-            if (op.Type === 'Wait' && !(op.WaitSeconds >= 1 && op.WaitSeconds <= 3600)) return step + 'must wait between 1 and 3600 seconds.';
+            if (op.Type === 'Wait' && outside(op.WaitSeconds, 1, 3600)) return step + 'must wait between 1 and 3600 seconds.';
+            if (op.Type === 'RunCommand' && outside(op.TimeoutSeconds || 0, 0, 3600)) return step + 'timeout must be between 0 and 3600 seconds.';
+            if (op.Type === 'HttpRequest' && outside(op.Retries || 0, 0, 5)) return step + 'retries must be between 0 and 5.';
+            if ((op.Type === 'SendMessage' || op.Type === 'StopPlayback') && outside(op.DisplaySeconds || 0, 0, 300)) return step + 'show-for time must be between 0 and 300 seconds.';
         }
 
         return '';
@@ -874,13 +888,21 @@ export default function (view) {
         el('btnDeleteScript').addEventListener('click', function () {
             var script = current();
             if (!script) return;
-            confirmDialog('Delete "' + (script.Name || 'Untitled') + '"? This saves right away.', { title: 'Delete script', confirmText: 'Delete', destructive: true }).then(function (ok) {
+            var name = script.Name || 'Untitled';
+            confirmDialog('Delete "' + name + '"? This saves right away. Unsaved edits to other scripts stay unsaved.', { title: 'Delete script', confirmText: 'Delete', destructive: true }).then(function (ok) {
                 if (!ok) return;
-                scripts = scripts.filter(function (s) { return s.Id !== script.Id; });
-                selectedId = scripts.length ? scripts[0].Id : null;
-                edited();
-                if (selectedId) renderEditor();
-                save();
+                // Only the deletion is saved: the server's own copy loses this script, and edits to other scripts
+                // wait for Save as before.
+                var wasClean = !(tracker && tracker.isDirty());
+                Shared.saveConfigWith(function (config) {
+                    config.Scripts = (config.Scripts || []).filter(function (s) { return compactId(s.Id) !== script.Id; });
+                }, 'scriptStatus', { success: 'Deleted "' + name + '".', error: 'The server refused to delete the script.' }).then(function () {
+                    scripts = scripts.filter(function (s) { return s.Id !== script.Id; });
+                    selectedId = scripts.length ? scripts[0].Id : null;
+                    edited();
+                    if (selectedId) renderEditor();
+                    if (wasClean && tracker) tracker.markClean();
+                }).catch(function () { /* the status line already says why */ });
             });
         });
 
@@ -1133,8 +1155,8 @@ export default function (view) {
         });
     }
 
-    // Reads the scripts back from the server. Stored secrets arrive encrypted; the editor holds only the
-    // kept sentinel for them, so neither the page nor an export ever carries the encrypted value.
+    // Reads the scripts back from the server. The configuration holds only the kept sentinel for a stored
+    // secret, never its value. PreviousName lets the server find a renamed secret's stored value.
     function reloadScripts() {
         return Shared.getConfig().then(function (config) {
             scripts = (config.Scripts || []).map(function (s) {
@@ -1143,7 +1165,7 @@ export default function (view) {
                 script.Enabled = !!s.Enabled;
                 script.UserIds = (s.UserIds || []).map(compactId);
                 script.Secrets = (s.Secrets || []).map(function (x) {
-                    return { Name: x.Name, Value: x.Value ? SECRET_KEPT : '' };
+                    return { Name: x.Name, Value: x.Value ? SECRET_KEPT : '', PreviousName: x.Name };
                 });
                 return script;
             });
