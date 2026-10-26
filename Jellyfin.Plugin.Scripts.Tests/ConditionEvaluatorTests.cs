@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.Scripts.Models;
@@ -103,6 +104,57 @@ public class ConditionEvaluatorTests
 
         script.Match = ConditionMatch.Any;
         Assert.True(ConditionEvaluator.Matches(script, Playback()));
+    }
+
+    [Fact]
+    public void EmptyUsersRunForEveryone()
+    {
+        Assert.True(ConditionEvaluator.Matches(Script(), Playback()));
+    }
+
+    [Fact]
+    public void UsersFilterMatchesAnyOfTheSessionsUsers()
+    {
+        var alice = Guid.NewGuid();
+        var bob = Guid.NewGuid();
+        var context = Playback();
+        context.UserIds.Add(alice);
+        context.UserIds.Add(bob);
+
+        var script = Script();
+        script.UserIds = new List<Guid> { bob };
+        Assert.True(ConditionEvaluator.Matches(script, context));
+
+        script.UserIds = new List<Guid> { Guid.NewGuid() };
+        Assert.False(ConditionEvaluator.Matches(script, context));
+    }
+
+    [Fact]
+    public void UsersFilterIsIgnoredForEventsWithoutAUser()
+    {
+        var script = Script();
+        script.UserIds = new List<Guid> { Guid.NewGuid() };
+
+        Assert.True(ConditionEvaluator.Matches(script, new EventContext(ScriptTrigger.TaskCompleted)));
+        Assert.True(ConditionEvaluator.Matches(script, new EventContext(ScriptTrigger.ItemAdded)));
+    }
+
+    [Fact]
+    public void AFailedSignInForAnUnknownNameNeverPassesAUsersFilter()
+    {
+        var script = Script();
+        script.UserIds = new List<Guid> { Guid.NewGuid() };
+
+        Assert.False(ConditionEvaluator.Matches(script, new EventContext(ScriptTrigger.AuthenticationFailure)));
+    }
+
+    [Theory]
+    [InlineData(ConditionOperator.IsNot)]
+    [InlineData(ConditionOperator.DoesNotContain)]
+    public void NegativeOperatorsDoNotMatchAMissingValue(ConditionOperator op)
+    {
+        // A playback of a movie has no series name.
+        Assert.False(ConditionEvaluator.Matches(Condition(ConditionField.SeriesName, op, "Kids Show"), Playback()));
     }
 
     [Fact]

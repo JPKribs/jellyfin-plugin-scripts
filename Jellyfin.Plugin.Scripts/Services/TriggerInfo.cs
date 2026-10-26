@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Jellyfin.Plugin.Scripts.Models;
 
 namespace Jellyfin.Plugin.Scripts.Services;
@@ -18,4 +19,8 @@ public sealed record TriggerInfo(
     string Category,
     bool HasItem,
     bool HasSession,
-    IReadOnlyList<VariableInfo> Variables);
+    IReadOnlyList<VariableInfo> Variables)
+{
+    /// <summary>Gets a value indicating whether the event carries a user, so the users filter applies.</summary>
+    public bool HasUser => Variables.Any(v => v.Name == "USER_ID");
+}

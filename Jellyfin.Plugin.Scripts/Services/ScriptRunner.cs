@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -33,6 +34,7 @@ public class ScriptRunner : BackgroundService
     private readonly HistoryStore _history;
     private readonly ActivityLogger _activityLogger;
     private readonly ILogger<ScriptRunner> _logger;
+    private readonly ConcurrentDictionary<Task, byte> _inFlight = new();
     private int _running;
 
     /// <summary>
@@ -173,12 +175,31 @@ public class ScriptRunner : BackgroundService
                 }
 
                 Interlocked.Increment(ref _running);
-                _ = RunTrackedAsync(job, stoppingToken);
+                var run = RunTrackedAsync(job, stoppingToken);
+                _inFlight.TryAdd(run, 0);
+                _ = run.ContinueWith(done => _inFlight.TryRemove(done, out _), CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
             }
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
             // Server shutting down.
+        }
+    }
+
+    /// <inheritdoc />
+    public override async Task StopAsync(CancellationToken cancellationToken)
+    {
+        await base.StopAsync(cancellationToken).ConfigureAwait(false);
+
+        // Runs still finishing (a process being killed, a request timing out) complete before the runner is
+        // disposed, so none of them touches it afterwards.
+        try
+        {
+            await Task.WhenAll(_inFlight.Keys).WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // The host stopped waiting.
         }
     }
 

@@ -13,11 +13,12 @@ namespace Jellyfin.Plugin.Scripts.Services;
 /// </summary>
 public class ScriptDispatcher
 {
-    // Entries older than the longest allowed cooldown are useless; past this many they are swept.
-    private const int CooldownSweepThreshold = 10_000;
+    private static readonly TimeSpan SweepInterval = TimeSpan.FromMinutes(1);
 
-    private readonly ConcurrentDictionary<string, DateTime> _lastRuns = new(StringComparer.Ordinal);
+    // When each script's cooldown for a user and item ends.
+    private readonly ConcurrentDictionary<string, DateTime> _cooldowns = new(StringComparer.Ordinal);
     private readonly ScriptRunner _runner;
+    private DateTime _lastSweep = DateTime.MinValue;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ScriptDispatcher"/> class.
@@ -45,7 +46,8 @@ public class ScriptDispatcher
         => ScriptsFor(trigger).Any(s => s.ItemKinds.Count == 0 || s.ItemKinds.Contains(kind));
 
     /// <summary>
-    /// Queues every enabled script whose trigger, item kind filter, conditions, and cooldown allow the event.
+    /// Queues every enabled script whose trigger, item kind and users filters, conditions, and cooldown allow the
+    /// event.
     /// </summary>
     /// <param name="context">The event.</param>
     /// <returns>How many runs were queued.</returns>
@@ -54,10 +56,17 @@ public class ScriptDispatcher
         ArgumentNullException.ThrowIfNull(context);
         var queued = 0;
         var now = DateTime.UtcNow;
+        SweepCooldowns(now);
 
         foreach (var script in ScriptsFor(context.Trigger))
         {
-            if (!ConditionEvaluator.Matches(script, context) || !PassCooldown(script, context, now))
+            if (!ConditionEvaluator.Matches(script, context))
+            {
+                continue;
+            }
+
+            var claim = ClaimCooldown(script, context, now);
+            if (claim is { Allowed: false })
             {
                 continue;
             }
@@ -65,6 +74,11 @@ public class ScriptDispatcher
             if (_runner.TryEnqueue(new ScriptJob(script, context)))
             {
                 queued++;
+            }
+            else if (claim is { } dropped)
+            {
+                // The run never happened, so it must not hold off the next event for the same user and item.
+                _cooldowns.TryRemove(new KeyValuePair<string, DateTime>(dropped.Key, dropped.Until));
             }
         }
 
@@ -77,38 +91,48 @@ public class ScriptDispatcher
         return scripts.Where(s => s.Enabled && s.Triggers.Contains(trigger));
     }
 
-    private bool PassCooldown(ScriptDefinition script, EventContext context, DateTime now)
+    // Claims the cooldown window atomically, so two events arriving together cannot both run. Returns null when
+    // the script has no cooldown.
+    private (bool Allowed, string Key, DateTime Until)? ClaimCooldown(ScriptDefinition script, EventContext context, DateTime now)
     {
         if (script.CooldownSeconds <= 0)
         {
-            return true;
+            return null;
         }
 
-        if (_lastRuns.Count > CooldownSweepThreshold)
-        {
-            var cutoff = now - TimeSpan.FromSeconds(ConfigurationValidator.MaxCooldownSeconds);
-            foreach (var stale in _lastRuns.Where(p => p.Value < cutoff).Select(p => p.Key).ToList())
-            {
-                _lastRuns.TryRemove(stale, out _);
-            }
-        }
-
-        var key = script.Id.ToString("N", CultureInfo.InvariantCulture) + "|" + context.Get("USER_ID") + "|" + context.Get("ITEM_ID");
-        var window = TimeSpan.FromSeconds(script.CooldownSeconds);
+        // Per trigger, so a start held off by its cooldown never swallows the stop that follows it.
+        var key = script.Id.ToString("N", CultureInfo.InvariantCulture) + "|" + context.Trigger + "|" + context.Get("USER_ID") + "|" + context.Get("ITEM_ID");
+        var until = now + TimeSpan.FromSeconds(script.CooldownSeconds);
         var allowed = true;
-        _lastRuns.AddOrUpdate(
+        var stored = _cooldowns.AddOrUpdate(
             key,
-            now,
-            (_, last) =>
+            until,
+            (_, existing) =>
             {
-                if (now - last < window)
+                if (existing > now)
                 {
                     allowed = false;
-                    return last;
+                    return existing;
                 }
 
-                return now;
+                return until;
             });
-        return allowed;
+        return (allowed, key, stored);
+    }
+
+    // Expired windows are dropped at most once a minute, so a library scan with a cooldown never rescans the
+    // whole table on every item.
+    private void SweepCooldowns(DateTime now)
+    {
+        if (now - _lastSweep < SweepInterval || _cooldowns.IsEmpty)
+        {
+            return;
+        }
+
+        _lastSweep = now;
+        foreach (var expired in _cooldowns.Where(p => p.Value <= now).ToList())
+        {
+            _cooldowns.TryRemove(expired);
+        }
     }
 }

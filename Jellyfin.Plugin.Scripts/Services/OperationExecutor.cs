@@ -96,9 +96,20 @@ public class OperationExecutor
         {
             // The shell line is never filled with placeholders: event values such as an item or device name
             // could otherwise carry shell syntax. They reach the shell as environment variables instead.
-            startInfo.FileName = OperatingSystem.IsWindows() ? "cmd.exe" : "/bin/sh";
-            startInfo.ArgumentList.Add(OperatingSystem.IsWindows() ? "/c" : "-c");
-            startInfo.ArgumentList.Add(op.Command);
+            // On Windows the line is handed to cmd verbatim: ArgumentList would escape its quotes with
+            // backslashes, which cmd does not understand. cmd expands %JF_...% before it parses the line, so
+            // there event values can carry cmd syntax; the docs say to read them inside a script instead.
+            if (OperatingSystem.IsWindows())
+            {
+                startInfo.FileName = "cmd.exe";
+                startInfo.Arguments = "/d /s /c \"" + op.Command + "\"";
+            }
+            else
+            {
+                startInfo.FileName = "/bin/sh";
+                startInfo.ArgumentList.Add("-c");
+                startInfo.ArgumentList.Add(op.Command);
+            }
         }
         else
         {
@@ -122,6 +133,15 @@ public class OperationExecutor
             foreach (var line in Lines(op.Arguments))
             {
                 startInfo.ArgumentList.Add(Placeholders.Fill(line, state.Variables));
+            }
+
+            // Windows runs a .bat or .cmd file through cmd, which does not honour the quoting ArgumentList
+            // applies, so an argument holding cmd syntax could break out. Such a run is refused rather than risked.
+            if (OperatingSystem.IsWindows() && IsBatchFile(command) && startInfo.ArgumentList.Any(a => a.IndexOfAny(CmdSpecialChars) >= 0))
+            {
+                return Result(
+                    OperationStatus.Failed,
+                    "Not run: an argument for this batch file contains a character cmd treats as syntax (% \" & | < > ^). Read the value from the environment inside the script instead.");
             }
         }
 
@@ -182,7 +202,10 @@ public class OperationExecutor
         }
 
         var body = string.IsNullOrEmpty(op.Body) ? null : Placeholders.Fill(op.Body, state.Variables);
-        var contentType = string.IsNullOrWhiteSpace(op.ContentType) ? "application/json" : op.ContentType.Trim();
+        // The body is always sent as UTF-8, so parameters such as "; charset=utf-8" are dropped rather than passed
+        // to a constructor that accepts only the media type.
+        var mediaType = (op.ContentType ?? string.Empty).Split(';')[0].Trim();
+        var contentType = mediaType.Length == 0 ? "application/json" : mediaType;
         var method = new HttpMethod(string.IsNullOrWhiteSpace(op.Method) ? "POST" : op.Method.Trim().ToUpperInvariant());
 
         var response = await JpkHttp.SendAsync(_httpClientFactory, method, uri.ToString(), cancellationToken, headers, body, contentType).ConfigureAwait(false);
@@ -290,6 +313,11 @@ public class OperationExecutor
             TimeoutMs = op.DisplaySeconds > 0 ? op.DisplaySeconds * 1000L : null
         };
     }
+
+    private static readonly char[] CmdSpecialChars = { '%', '"', '&', '|', '<', '>', '^' };
+
+    private static bool IsBatchFile(string command)
+        => command.EndsWith(".bat", StringComparison.OrdinalIgnoreCase) || command.EndsWith(".cmd", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsPath(string command)
         => Path.IsPathRooted(command) || command.Contains('/', StringComparison.Ordinal) || command.Contains('\\', StringComparison.Ordinal);

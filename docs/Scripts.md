@@ -1,6 +1,6 @@
 # Writing Scripts
 
-Each script has **triggers**, optional **item kinds** and **conditions** that narrow which events it runs for, and a list of **steps** it performs in order. Scripts are managed on **Dashboard → Plugins → Scripts**.
+Each script has **triggers**, optional **item kinds**, **users**, and **conditions** that narrow which events it runs for, and a list of **steps** it performs in order. Scripts are managed on **Dashboard → Plugins → Scripts**.
 
 ## Triggers
 
@@ -12,7 +12,7 @@ Each script has **triggers**, optional **item kinds** and **conditions** that na
 | Item added | An item is added to a library. It waits up to a minute for the item's metadata, so names and provider IDs are filled. Placeholder items, such as missing episodes from the series metadata, are skipped. | Yes | No |
 | Item removed | An item is removed from a library. | Yes | No |
 | Signed in | A user signs in. | No | No |
-| Sign in failed | A sign in attempt fails. | No | No |
+| Sign in failed | A sign in attempt fails for an existing user. Jellyfin reports no event for a username that doesn't exist. | No | No |
 | Scheduled task finished | A scheduled task finishes, whatever its outcome. | No | No |
 
 ## Item kinds
@@ -23,6 +23,12 @@ Item kinds only filter triggers that carry an item. Sign ins and scheduled tasks
 
 !!! warning
     A library scan adds people, genres, studios, and folders as items too. A script on **Item added** with no item kinds runs for all of them.
+
+## Users
+
+Choose the users the script runs for, or leave the list empty to run for everyone. On playback, the script runs when any of the session's users is listed. A failed sign in counts only when the typed name belongs to a listed user.
+
+Users only filter triggers that carry a user: playback and sign ins. Library events and scheduled tasks ignore them. For anything finer, such as matching a name pattern, use a **User** condition.
 
 ## Conditions
 
@@ -40,9 +46,9 @@ Each condition compares one event value with one or more values, using **is**, *
 | Username attempted | The username typed into a failed sign in. |
 | Scheduled task, Task status | The task's key, and `Completed`, `Failed`, `Cancelled`, or `Aborted`. |
 
-A field the event does not have never matches. The editor warns when a condition's field is missing from some of the selected triggers. Choose whether the script runs when **all** conditions match or when **any** does.
+A field the trigger does not supply, or a value this event happens to lack, never matches, for **is not** and **does not contain** too. For example, **Series name is not** does not match a movie, which has no series. The editor warns when a condition's field is missing from some of the selected triggers. Choose whether the script runs when **all** conditions match or when **any** does.
 
-**Cooldown** skips the script for the same user and item until the given number of seconds have passed since its last run. It keeps pause and resume from running a script over and over.
+**Cooldown** skips the script for the same trigger, user, and item until the given number of seconds have passed since its last run, so a script on both start and stop still sees the stop. It keeps pause and resume from running a script over and over.
 
 ## Steps
 
@@ -61,15 +67,18 @@ A step that needs a session or an item is skipped on events without one. A faile
 
 ### Run command
 
-Use **Check path** to confirm the server can see the file and that it is executable. The server runs it as the account Jellyfin runs under, in the folder that holds the script unless you set a working folder. It is stopped after its timeout, which defaults to the value on the Settings tab.
+Use **Check path** to confirm the server can see the file and that it is executable. The server runs it as the account Jellyfin runs under, in the folder that holds the script unless you set a working folder. It is stopped after its timeout, which defaults to the value on the Settings tab. A script may start a background process and exit; the step reports the script's own exit code as soon as it finishes.
 
 Each line of **Arguments** is passed as exactly one argument, with placeholders filled, so a value containing spaces or quotes never splits into more.
 
-With **Run through the shell**, the command is one line for `/bin/sh -c` (or `cmd /c` on Windows), which allows pipes and redirects. Placeholders are not filled in a shell line, so event values such as item or device names can never inject shell syntax. Read them from the environment instead:
+With **Run through the shell**, the command is one line for `/bin/sh -c`, which allows pipes and redirects. Placeholders are not filled in a shell line, so event values such as item or device names can never inject shell syntax. Read them from the environment instead:
 
 ```sh
 /scripts/log.sh "$JF_USER_NAME" "$JF_ITEM_NAME" >> /scripts/plays.log
 ```
+
+!!! warning "Windows"
+    On Windows a shell line runs through `cmd /c`, which expands `%JF_...%` variables *before* it parses the line, so an event value such as a typed username can carry cmd syntax. Read event values inside a script file instead of in the shell line. A `.bat` or `.cmd` file is refused when one of its filled arguments contains `% " & | < > ^`, since cmd does not honour the quoting other programs get.
 
 !!! info "Docker"
     The path is the path inside the container. Mount your scripts, for example `-v /srv/jellyfin-scripts:/scripts:ro`, and use `/scripts/notify.sh`. The official image has a shell but no Python or most other interpreters, so write scripts for `/bin/sh` or mount the interpreter you need.
@@ -86,9 +95,15 @@ In a step's text fields, write a variable as `{{ITEM_NAME}}`. Use `{{ITEM_NAME:j
 | User | `USER_ID`, `USER_NAME` |
 | Session | `SESSION_ID`, `CLIENT`, `CLIENT_VERSION`, `DEVICE_ID`, `DEVICE_NAME`, `REMOTE_ADDRESS`, `IS_LOCAL` |
 | Item | `ITEM_ID`, `ITEM_NAME`, `ITEM_KIND`, `ITEM_PATH`, `LIBRARY_ID`, `LIBRARY_NAME`, `YEAR`, `RUNTIME_SECONDS`, `SERIES_NAME`, `SEASON_NUMBER`, `EPISODE_NUMBER`, `ALBUM`, `ARTIST`, `PROVIDER_IMDB`, `PROVIDER_TMDB`, `PROVIDER_TVDB` |
-| Playback | `PLAY_SESSION_ID`, `PLAY_METHOD`, `POSITION_SECONDS`, `PROGRESS_PERCENT`, `IS_PAUSED`, `VIDEO_CODEC`, `AUDIO_CODEC`, `TRANSCODE_REASONS`, and on stop `PLAYED_TO_COMPLETION` |
+| Playback | `PLAY_SESSION_ID`, `PLAY_METHOD` (on stop, the method seen while playing), `POSITION_SECONDS`, `PROGRESS_PERCENT`, `IS_PAUSED`, `VIDEO_CODEC`, `AUDIO_CODEC`, `TRANSCODE_REASONS`, and on stop `PLAYED_TO_COMPLETION` |
 | Sign in failed | `USERNAME_ATTEMPTED`, `USER_ID` when the name matches a user |
 | Scheduled task | `TASK_NAME`, `TASK_KEY`, `TASK_STATUS`, `TASK_ERROR`, `TASK_DURATION_SECONDS` |
+
+## Export and import
+
+**Export** on the Scripts tab saves every script, including unsaved edits, to a JSON file. **Import** reads one back, adding its scripts or replacing ones with the same ID. Imported scripts start **disabled** and unsaved, so review each one's steps before enabling it and saving, since a command runs on your server.
+
+Users are stored by ID, so on another server a script's users show as unknown until you pick them again.
 
 ## Testing
 

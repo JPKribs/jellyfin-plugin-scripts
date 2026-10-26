@@ -33,10 +33,20 @@
                                 <span class="material-icons" aria-hidden="true">delete</span>
                                 <span class="icon-btn-label">Delete</span>
                             </button>
+                            <button is="emby-button" type="button" id="btnExportScripts" class="raised jpk-icon-btn" title="Export every script to a file">
+                                <span class="material-icons" aria-hidden="true">download</span>
+                                <span class="icon-btn-label">Export</span>
+                            </button>
+                            <button is="emby-button" type="button" id="btnImportScripts" class="raised jpk-icon-btn" title="Import scripts from a file">
+                                <span class="material-icons" aria-hidden="true">upload</span>
+                                <span class="icon-btn-label">Import</span>
+                            </button>
                         </div>
                     </div>
 
-                    <div id="emptyState" class="jpk-empty-section hidden">No scripts yet. Click <strong>New</strong> to create one.</div>
+                    <span id="transferStatus" class="jpk-status-text"></span>
+
+                    <div id="emptyState" class="jpk-empty-section hidden">No scripts yet. Click <strong>New</strong> to create one, or <strong>Import</strong> a file.</div>
 
                     <div id="scriptEditor" class="hidden">
 
@@ -76,6 +86,20 @@
                                 </div>
                                 <div id="itemKindMount"></div>
                                 <div id="itemKindWarn" class="jpk-warn hidden"></div>
+                            </div>
+                        </div>
+
+                        <!-- Users -->
+                        <div class="jpk-section">
+                            <div class="jpk-section-title">Users</div>
+                            <div class="jpk-section-content">
+                                <div class="fieldDescription">
+                                    Run only for these users. Leave empty to run for everyone. Applies to playback and
+                                    sign in triggers; on playback, any of the session's users counts. Library events and
+                                    scheduled tasks ignore it.
+                                </div>
+                                <div id="userMount"></div>
+                                <div id="userWarn" class="jpk-warn hidden"></div>
                             </div>
                         </div>
 
@@ -127,9 +151,9 @@
                                     <label for="scriptCooldown">Cooldown in seconds</label>
                                     <input is="emby-input" type="number" id="scriptCooldown" min="0" max="86400" />
                                     <div class="fieldDescription">
-                                        After a run, skip this script for the same user and item until this many seconds
-                                        pass. Use it to keep pause and resume from running a script over and over. 0 turns
-                                        it off.
+                                        After a run, skip this script for the same trigger, user, and item until this many
+                                        seconds pass. Use it to keep pause and resume from running a script over and over. 0
+                                        turns it off.
                                     </div>
                                 </div>
                             </div>

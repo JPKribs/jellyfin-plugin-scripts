@@ -54,8 +54,9 @@ public class EventContextBuilder
     /// </summary>
     /// <param name="trigger">The playback trigger.</param>
     /// <param name="e">The event arguments.</param>
+    /// <param name="playMethod">The play method seen earlier in the session, used when the event no longer has one.</param>
     /// <returns>The context.</returns>
-    public EventContext FromPlayback(ScriptTrigger trigger, PlaybackProgressEventArgs e)
+    public EventContext FromPlayback(ScriptTrigger trigger, PlaybackProgressEventArgs e, string? playMethod = null)
     {
         ArgumentNullException.ThrowIfNull(e);
         var context = Create(trigger);
@@ -66,6 +67,7 @@ public class EventContextBuilder
         context.Set("USER_NAME", first?.Username);
         foreach (var user in users)
         {
+            context.UserIds.Add(user.Id);
             context.AddCandidate(ConditionField.User, user.Id.ToString("N", CultureInfo.InvariantCulture));
             context.AddCandidate(ConditionField.User, user.Username);
         }
@@ -82,7 +84,7 @@ public class EventContextBuilder
         AddItem(context, e.Item);
 
         context.Set("PLAY_SESSION_ID", e.PlaySessionId);
-        context.Set("PLAY_METHOD", session?.PlayState?.PlayMethod?.ToString());
+        context.Set("PLAY_METHOD", session?.PlayState?.PlayMethod?.ToString() ?? playMethod);
         context.Set("IS_PAUSED", Bool(e.IsPaused));
         if (e.PlaybackPositionTicks is { } position)
         {
@@ -140,6 +142,11 @@ public class EventContextBuilder
         var context = Create(ScriptTrigger.AuthenticationSuccess);
 
         var userId = e.User?.Id.ToString("N", CultureInfo.InvariantCulture);
+        if (e.User is not null)
+        {
+            context.UserIds.Add(e.User.Id);
+        }
+
         context.Set("USER_ID", userId);
         context.Set("USER_NAME", e.User?.Name);
         context.AddCandidate(ConditionField.User, userId);
@@ -168,6 +175,11 @@ public class EventContextBuilder
         var context = Create(ScriptTrigger.AuthenticationFailure);
 
         var userId = e.UserId?.ToString("N", CultureInfo.InvariantCulture);
+        if (e.UserId is { } attempted)
+        {
+            context.UserIds.Add(attempted);
+        }
+
         context.Set("USERNAME_ATTEMPTED", e.Username);
         context.Set("USER_ID", userId);
         context.AddCandidate(ConditionField.User, userId);
@@ -231,6 +243,11 @@ public class EventContextBuilder
         if (TriggerCatalog.Get(trigger).HasItem)
         {
             context.ItemKind = BaseItemKind.Movie;
+        }
+
+        if (Guid.TryParse(context.Get("USER_ID"), out var sampleUser))
+        {
+            context.UserIds.Add(sampleUser);
         }
 
         context.AddCandidate(ConditionField.User, context.Get("USER_ID"));

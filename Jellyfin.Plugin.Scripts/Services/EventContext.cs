@@ -34,6 +34,9 @@ public sealed class EventContext
     /// <summary>Gets or sets the event's item ID, when it has one.</summary>
     public Guid? ItemId { get; set; }
 
+    /// <summary>Gets the IDs of the event's users: every user of a playback session, or the one signing in.</summary>
+    public List<Guid> UserIds { get; } = new();
+
     /// <summary>Gets or sets the event's playback session ID, when it has one.</summary>
     public string? SessionId { get; set; }
 

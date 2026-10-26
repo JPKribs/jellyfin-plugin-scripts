@@ -79,6 +79,18 @@ public class ConfigurationValidatorTests
         Assert.Throws<ArgumentException>(() => ConfigurationValidator.Validate(script));
     }
 
+    [Theory]
+    [InlineData("application/json; charset=utf-8", true)]
+    [InlineData("text/plain", true)]
+    [InlineData("not a type", false)]
+    public void ChecksTheContentType(string contentType, bool valid)
+    {
+        var script = Valid();
+        script.Operations = new List<ScriptOperation> { new() { Type = OperationType.HttpRequest, Url = "https://example.com", ContentType = contentType } };
+        var error = Record.Exception(() => ConfigurationValidator.Validate(script));
+        Assert.Equal(valid, error is null);
+    }
+
     [Fact]
     public void RejectsOutOfRangeSettings()
     {

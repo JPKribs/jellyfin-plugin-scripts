@@ -1,4 +1,4 @@
-import { createConfigPage, createChipSelect, confirmDialog, generateGuid } from './configurationpage?name=scripts_jpkribs_shared.js';
+import { createConfigPage, createChipSelect, confirmDialog, generateGuid, downloadJson, pickJsonFile } from './configurationpage?name=scripts_jpkribs_shared.js';
 import { PLUGIN_ID, TABS, FIELD_LABELS, OPERATOR_LABELS, OPERATION_TYPES, renderRunSteps } from './configurationpage?name=scripts_common.js';
 
 export default function (view) {
@@ -29,6 +29,7 @@ export default function (view) {
     var selectedId = null;
     var loaded = false;
     var itemKindSelect = null;
+    var userSelect = null;
     var conditionSelects = [];
 
     function el(id) { return view.querySelector('#' + id); }
@@ -54,6 +55,19 @@ export default function (view) {
 
     function duration(ms) {
         return ms < 1000 ? ms + ' ms' : Shared.formatDuration(Math.round(ms / 1000));
+    }
+
+    // IDs may arrive with or without dashes; the catalog uses the compact form.
+    function compactId(id) {
+        return String(id || '').replace(/-/g, '').toLowerCase();
+    }
+
+    function userItems(ids) {
+        return (ids || []).map(function (id) {
+            var key = compactId(id);
+            var user = catalog.Users.find(function (u) { return compactId(u.Id) === key; });
+            return { value: key, label: user ? user.Name : 'Unknown user (' + key.slice(0, 8) + ')' };
+        });
     }
 
     function current() {
@@ -115,12 +129,14 @@ export default function (view) {
         el('conditionMatch').value = script.Match || 'All';
         el('scriptCooldown').value = script.CooldownSeconds || 0;
         itemKindSelect.setValue(script.ItemKinds || []);
+        userSelect.setValue(userItems(script.UserIds));
         renderTriggers();
         renderConditions();
         renderOperations();
         renderVariables();
         renderTestTriggers();
         renderItemKindWarning();
+        renderUserWarning();
     }
 
     function renderTriggers() {
@@ -141,6 +157,7 @@ export default function (view) {
     }
 
     function onTriggersChanged() {
+        renderUserWarning();
         renderConditions();
         renderOperations();
         renderVariables();
@@ -158,6 +175,97 @@ export default function (view) {
               ' runs for every kind a scan touches, including people, genres, studios, and folders.'
             : '';
         Shared.setVisible(box, warn);
+    }
+
+    function renderUserWarning() {
+        var script = current();
+        var triggers = selectedTriggers(script);
+        var ignored = triggers.filter(function (t) { return !t.HasUser; });
+        var warn = (script.UserIds || []).length > 0 && ignored.length > 0;
+        var box = el('userWarn');
+        box.textContent = warn
+            ? 'Ignored for ' + ignored.map(function (t) { return t.Label.toLowerCase(); }).join(', ') + ', which ' +
+              (ignored.length === 1 ? 'has' : 'have') + ' no user. The script runs on ' + (ignored.length === 1 ? 'that event' : 'those events') + ' whatever these users do.'
+            : '';
+        Shared.setVisible(box, warn);
+    }
+
+    // ---- Export and import ----
+
+    function exportScripts() {
+        if (!scripts.length) {
+            Shared.setStatus('transferStatus', 'There are no scripts to export.', true);
+            return;
+        }
+
+        var now = new Date();
+        var stamp = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+        downloadJson('jellyfin-scripts-' + stamp + '.json', { Format: 'jellyfin-plugin-scripts', Version: 1, Scripts: scripts });
+        Shared.setStatus('transferStatus', 'Exported ' + scripts.length + ' script' + (scripts.length === 1 ? '' : 's') +
+            (JSON.stringify(scripts) !== savedJson ? ', including unsaved edits.' : '.'), false);
+    }
+
+    // Accepts an export file, a bare array of scripts, or one script.
+    function readImport(data) {
+        var list = Array.isArray(data) ? data : (data && Array.isArray(data.Scripts) ? data.Scripts : (data && data.Name !== undefined ? [data] : null));
+        if (!list) return null;
+        return list.filter(function (s) { return s && typeof s === 'object'; }).map(function (s) {
+            return {
+                Id: /^[0-9a-f]{32}$/.test(compactId(s.Id)) ? compactId(s.Id) : generateGuid(),
+                Name: String(s.Name || 'Imported script'),
+                Enabled: false,
+                Triggers: (Array.isArray(s.Triggers) ? s.Triggers : []).filter(triggerInfo),
+                ItemKinds: (Array.isArray(s.ItemKinds) ? s.ItemKinds : []).filter(function (k) { return catalog.ItemKinds.indexOf(k) >= 0; }),
+                UserIds: Array.isArray(s.UserIds) ? s.UserIds.map(compactId) : [],
+                Match: s.Match === 'Any' ? 'Any' : 'All',
+                // Only fields, operators, and steps this version knows survive, so a file from a newer
+                // version or a hand edit cannot leave the editor unable to render.
+                Conditions: (Array.isArray(s.Conditions) ? s.Conditions : []).filter(function (c) {
+                    return c && FIELD_LABELS[c.Field] && OPERATOR_LABELS[c.Operator];
+                }).map(function (c) {
+                    return { Field: c.Field, Operator: c.Operator, Values: Array.isArray(c.Values) ? c.Values.map(String) : [] };
+                }),
+                Operations: (Array.isArray(s.Operations) ? s.Operations : []).filter(function (op) {
+                    return op && OPERATION_TYPES[op.Type];
+                }).map(function (op) {
+                    return Object.assign(newOperation(op.Type || 'RunCommand'), op);
+                }),
+                CooldownSeconds: parseInt(s.CooldownSeconds, 10) || 0
+            };
+        });
+    }
+
+    function importScripts() {
+        pickJsonFile().then(function (data) {
+            if (data === null) return;
+            var incoming = readImport(data);
+            if (!incoming || !incoming.length) {
+                Shared.setStatus('transferStatus', 'That file has no scripts in it.', true);
+                return;
+            }
+
+            var replacing = incoming.filter(function (s) {
+                return scripts.some(function (e) { return compactId(e.Id) === compactId(s.Id); });
+            });
+            var message = 'Import ' + incoming.length + ' script' + (incoming.length === 1 ? '' : 's') + '?' +
+                (replacing.length ? ' ' + replacing.length + ' will replace a script with the same ID: ' +
+                    replacing.map(function (s) { return '"' + s.Name + '"'; }).join(', ') + '.' : '') +
+                ' Imported scripts start disabled so you can review their steps, then save.';
+            return confirmDialog(message, { title: 'Import scripts', confirmText: 'Import' }).then(function (ok) {
+                if (!ok) return;
+                incoming.forEach(function (s) {
+                    var index = scripts.findIndex(function (e) { return compactId(e.Id) === compactId(s.Id); });
+                    if (index >= 0) scripts[index] = s;
+                    else scripts.push(s);
+                });
+                selectedId = incoming[0].Id;
+                changed();
+                renderEditor();
+                Shared.setStatus('transferStatus', 'Imported ' + incoming.length + '. They are disabled and not saved yet: review each one, enable it, and click Save.', false, { timeout: 0 });
+            });
+        }).catch(function () {
+            Shared.setStatus('transferStatus', 'That file is not valid JSON.', true);
+        });
     }
 
     // ---- Conditions ----
@@ -182,6 +290,7 @@ export default function (view) {
         var triggers = selectedTriggers(script);
         if (!triggers.length) return '';
         var info = fieldInfo(condition.Field);
+        if (!info) return '';
         var missing = triggers.filter(function (t) { return info.Triggers.indexOf(t.Key) < 0; });
         if (!missing.length) return '';
         if (missing.length === triggers.length) return 'None of the selected triggers supply this value, so this condition never matches.';
@@ -282,7 +391,7 @@ export default function (view) {
                 return input(op, index, 'Command', op.RunThroughShell ? 'Shell line' : 'Command', {
                     placeholder: op.RunThroughShell ? '/scripts/notify.sh "$JF_ITEM_NAME" >> /tmp/log.txt' : '/scripts/notify.sh',
                     help: op.RunThroughShell
-                        ? 'Runs through /bin/sh -c (cmd /c on Windows). Placeholders are not filled here, so event values cannot inject shell syntax. Read them from the environment, such as "$JF_ITEM_NAME".'
+                        ? 'Runs through /bin/sh -c. Placeholders are not filled here, so event values cannot inject shell syntax; read them from the environment, such as "$JF_ITEM_NAME". On Windows the line runs through cmd /c, which expands %JF_...% before parsing it, so there read event values inside a script file instead.'
                         : 'A path to a script or program, or a name on the server\'s PATH such as curl. The server must be able to reach the path. In Docker, mount it into the container and use the path inside it.'
                 }) +
                     (op.RunThroughShell ? '' : '<div class="scripts-path-check"><button is="emby-button" type="button" class="raised jpk-button-small" data-check-path="' + index + '"><span>Check path</span></button>' +
@@ -494,7 +603,7 @@ export default function (view) {
 
         el('btnNewScript').addEventListener('click', function () {
             var script = {
-                Id: generateGuid(), Name: 'New script', Enabled: true, Triggers: [], ItemKinds: [],
+                Id: generateGuid(), Name: 'New script', Enabled: true, Triggers: [], ItemKinds: [], UserIds: [],
                 Match: 'All', Conditions: [], Operations: [], CooldownSeconds: 0
             };
             scripts.push(script);
@@ -504,6 +613,9 @@ export default function (view) {
             el('scriptName').focus();
             el('scriptName').select();
         });
+
+        el('btnExportScripts').addEventListener('click', exportScripts);
+        el('btnImportScripts').addEventListener('click', importScripts);
 
         el('btnDeleteScript').addEventListener('click', function () {
             var script = current();
@@ -637,6 +749,7 @@ export default function (view) {
             scripts = (config.Scripts || []).map(function (s) {
                 s.Triggers = s.Triggers || [];
                 s.ItemKinds = s.ItemKinds || [];
+                s.UserIds = (s.UserIds || []).map(compactId);
                 s.Conditions = s.Conditions || [];
                 s.Operations = s.Operations || [];
                 return s;
@@ -654,6 +767,18 @@ export default function (view) {
                     }
                 }), true);
                 el('itemKindMount').appendChild(itemKindSelect.element);
+            }
+
+            if (!userSelect) {
+                userSelect = enterPicksSuggestion(createChipSelect({
+                    options: catalog.Users.map(function (u) { return { value: compactId(u.Id), label: u.Name }; }),
+                    placeholder: 'Everyone. Type a name to add a user',
+                    onChange: function (values) {
+                        current().UserIds = values;
+                        renderUserWarning();
+                    }
+                }), true);
+                el('userMount').appendChild(userSelect.element);
             }
 
             if (!scripts.some(function (s) { return s.Id === selectedId; })) {

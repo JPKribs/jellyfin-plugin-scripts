@@ -27,6 +27,13 @@ public class ScriptDefinition
     /// </summary>
     public List<BaseItemKind> ItemKinds { get; set; } = new();
 
+    /// <summary>
+    /// Gets or sets the users the script runs for. Empty runs for everyone. Only events that carry a user are
+    /// filtered (playback and sign ins); library events and scheduled tasks ignore it. A playback event
+    /// matches when any of the session's users is listed.
+    /// </summary>
+    public List<Guid> UserIds { get; set; } = new();
+
     /// <summary>Gets or sets how the conditions combine.</summary>
     public ConditionMatch Match { get; set; } = ConditionMatch.All;
 
@@ -37,8 +44,8 @@ public class ScriptDefinition
     public List<ScriptOperation> Operations { get; set; } = new();
 
     /// <summary>
-    /// Gets or sets the seconds after a run during which the same script does not run again for the same user
-    /// and item. Zero disables the cooldown.
+    /// Gets or sets the seconds after a run during which the same script does not run again for the same trigger,
+    /// user, and item. Zero disables the cooldown.
     /// </summary>
     public int CooldownSeconds { get; set; }
 }

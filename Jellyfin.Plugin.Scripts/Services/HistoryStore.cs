@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using Jellyfin.Plugin.Scripts.Models;
 using JPKribs.Jellyfin.Base;
 using Microsoft.Extensions.Logging;
@@ -7,10 +9,11 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.Scripts.Services;
 
 /// <summary>
-/// Keeps the most recent runs, newest first, in a JSON file beside the plugin configuration. Runs are kept
-/// out of the configuration itself so a busy server does not rewrite its settings on every event.
+/// Keeps the most recent runs, newest first. They are held in memory and written to a JSON file beside the
+/// plugin configuration shortly after they change, so a burst of runs costs one write rather than one each,
+/// and busy servers never rewrite their settings on every event.
 /// </summary>
-public class HistoryStore
+public sealed class HistoryStore : IDisposable
 {
     /// <summary>The filter value that keeps only failed runs.</summary>
     public const string FailedFilter = "failed";
@@ -18,7 +21,16 @@ public class HistoryStore
     /// <summary>The filter value that keeps only test runs.</summary>
     public const string TestFilter = "test";
 
+    /// <summary>The most output kept per step in the history, in characters.</summary>
+    public const int MaxStoredOutputChars = 8 * 1024;
+
+    private static readonly TimeSpan FlushDelay = TimeSpan.FromSeconds(2);
+
     private readonly JsonFileStore<ScriptHistory> _store;
+    private readonly object _lock = new();
+    private readonly Timer _flushTimer;
+    private List<ScriptRun>? _runs;
+    private bool _dirty;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="HistoryStore"/> class.
@@ -29,29 +41,44 @@ public class HistoryStore
     {
         ArgumentNullException.ThrowIfNull(paths);
         _store = new JsonFileStore<ScriptHistory>(paths.HistoryFile, logger);
+        _flushTimer = new Timer(_ => Flush(), null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
     }
 
     /// <summary>
-    /// Records a run, dropping the oldest past <paramref name="limit"/>.
+    /// Records a run, dropping the oldest past <paramref name="limit"/>. Each step's output is shortened to
+    /// <see cref="MaxStoredOutputChars"/>.
     /// </summary>
     /// <param name="run">The run.</param>
     /// <param name="limit">How many runs to keep. Zero keeps none.</param>
     public void Add(ScriptRun run, int limit)
     {
         ArgumentNullException.ThrowIfNull(run);
-        if (limit <= 0)
+        foreach (var step in run.Operations)
         {
-            return;
+            if (step.Output.Length > MaxStoredOutputChars)
+            {
+                step.Output = step.Output[..MaxStoredOutputChars] + "\n[output shortened in the history]";
+            }
         }
 
-        _store.Update(history =>
+        lock (_lock)
         {
-            history.Runs.Insert(0, run);
-            if (history.Runs.Count > limit)
+            var runs = Runs();
+            if (limit > 0)
             {
-                history.Runs.RemoveRange(limit, history.Runs.Count - limit);
+                runs.Insert(0, run);
             }
-        });
+
+            var keep = Math.Max(limit, 0);
+            if (runs.Count > keep)
+            {
+                runs.RemoveRange(keep, runs.Count - keep);
+            }
+
+            _dirty = true;
+        }
+
+        _flushTimer.Change(FlushDelay, Timeout.InfiniteTimeSpan);
     }
 
     /// <summary>
@@ -63,7 +90,11 @@ public class HistoryStore
     public PagedResult<ScriptRun> Query(PagedQuery query)
     {
         ArgumentNullException.ThrowIfNull(query);
-        var runs = _store.Load().Runs.AsEnumerable();
+        IEnumerable<ScriptRun> runs;
+        lock (_lock)
+        {
+            runs = Runs().ToList();
+        }
 
         var filter = query.Filter?.Trim();
         if (string.Equals(filter, FailedFilter, StringComparison.OrdinalIgnoreCase))
@@ -92,7 +123,46 @@ public class HistoryStore
     }
 
     /// <summary>
-    /// Deletes every run.
+    /// Deletes every run, on disk too.
     /// </summary>
-    public void Clear() => _store.Save(new ScriptHistory());
+    public void Clear()
+    {
+        lock (_lock)
+        {
+            _runs = new List<ScriptRun>();
+            _dirty = true;
+        }
+
+        Flush();
+    }
+
+    /// <summary>
+    /// Writes any unsaved runs now.
+    /// </summary>
+    public void Flush()
+    {
+        ScriptHistory snapshot;
+        lock (_lock)
+        {
+            if (!_dirty || _runs is null)
+            {
+                return;
+            }
+
+            snapshot = new ScriptHistory { Runs = _runs.ToList() };
+            _dirty = false;
+        }
+
+        _store.Save(snapshot);
+    }
+
+    /// <inheritdoc />
+    public void Dispose()
+    {
+        _flushTimer.Dispose();
+        Flush();
+    }
+
+    // Loaded on first use rather than at startup, so a large history never slows the server starting.
+    private List<ScriptRun> Runs() => _runs ??= _store.Load().Runs;
 }

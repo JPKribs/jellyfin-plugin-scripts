@@ -53,6 +53,23 @@ public class CommandRunnerTests
     }
 
     [Fact]
+    public async Task AScriptThatLeavesABackgroundProcessStillReportsItsExit()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var watch = Stopwatch.StartNew();
+        var result = await CommandRunner.RunAsync(Shell("echo started; sleep 8 & exit 0"), TimeSpan.FromSeconds(6), CancellationToken.None);
+
+        Assert.False(result.TimedOut);
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("started", result.Output, StringComparison.Ordinal);
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(5), "took " + watch.Elapsed);
+    }
+
+    [Fact]
     public async Task ReportsAMissingExecutable()
     {
         var result = await CommandRunner.RunAsync(new ProcessStartInfo("/definitely/not/here"), TimeSpan.FromSeconds(5), CancellationToken.None);

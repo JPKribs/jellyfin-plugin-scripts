@@ -75,6 +75,7 @@ public class ScriptsController : ControllerBase
             t.Category,
             t.HasItem,
             t.HasSession,
+            t.HasUser,
             Variables = t.Variables.Select(v => new { v.Name, v.Description })
         });
 

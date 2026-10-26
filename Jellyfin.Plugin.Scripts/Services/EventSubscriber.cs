@@ -33,7 +33,9 @@ public sealed class EventSubscriber : IHostedService, IDisposable
     private readonly PauseTracker _pauses = new();
     private readonly ConcurrentDictionary<Guid, DateTime> _pendingItems = new();
     private readonly ILogger<EventSubscriber> _logger;
+    private readonly ConcurrentDictionary<string, string> _playMethods = new(StringComparer.Ordinal);
     private Timer? _pendingTimer;
+    private volatile bool _stopping;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="EventSubscriber"/> class.
@@ -76,6 +78,7 @@ public sealed class EventSubscriber : IHostedService, IDisposable
     /// <inheritdoc />
     public Task StopAsync(CancellationToken cancellationToken)
     {
+        _stopping = true;
         _sessionManager.PlaybackStart -= OnPlaybackStart;
         _sessionManager.PlaybackProgress -= OnPlaybackProgress;
         _sessionManager.PlaybackStopped -= OnPlaybackStopped;
@@ -96,7 +99,9 @@ public sealed class EventSubscriber : IHostedService, IDisposable
     {
         Guard("playback start", () =>
         {
-            _pauses.Started(PlayKey(e));
+            var key = PlayKey(e);
+            _pauses.Started(key);
+            RememberPlayMethod(key, e);
             Dispatch(ScriptTrigger.PlaybackStart, e);
         });
     }
@@ -105,7 +110,9 @@ public sealed class EventSubscriber : IHostedService, IDisposable
     {
         Guard("playback progress", () =>
         {
-            var edge = _pauses.Progress(PlayKey(e), e.IsPaused);
+            var key = PlayKey(e);
+            RememberPlayMethod(key, e);
+            var edge = _pauses.Progress(key, e.IsPaused);
             if (edge is { } paused)
             {
                 Dispatch(paused ? ScriptTrigger.PlaybackPause : ScriptTrigger.PlaybackResume, e);
@@ -117,17 +124,36 @@ public sealed class EventSubscriber : IHostedService, IDisposable
     {
         Guard("playback stop", () =>
         {
-            _pauses.Stopped(PlayKey(e));
-            Dispatch(ScriptTrigger.PlaybackStop, e);
+            var key = PlayKey(e);
+            _pauses.Stopped(key);
+            _playMethods.TryRemove(key, out var playMethod);
+            Dispatch(ScriptTrigger.PlaybackStop, e, playMethod);
         });
     }
 
-    private void Dispatch(ScriptTrigger trigger, PlaybackProgressEventArgs e)
+    private void Dispatch(ScriptTrigger trigger, PlaybackProgressEventArgs e, string? playMethod = null)
     {
         if (ScriptDispatcher.HasScriptsFor(trigger))
         {
-            _dispatcher.Dispatch(_builder.FromPlayback(trigger, e));
+            _dispatcher.Dispatch(_builder.FromPlayback(trigger, e, playMethod));
         }
+    }
+
+    // The server clears a session's play state before it reports the stop, so the method seen while playing
+    // is kept for the stop event.
+    private void RememberPlayMethod(string key, PlaybackProgressEventArgs e)
+    {
+        if (e.Session?.PlayState?.PlayMethod is not { } method)
+        {
+            return;
+        }
+
+        if (_playMethods.Count >= 5000)
+        {
+            _playMethods.Clear();
+        }
+
+        _playMethods[key] = method.ToString();
     }
 
     private void OnItemAdded(object? sender, ItemChangeEventArgs e)
@@ -178,6 +204,11 @@ public sealed class EventSubscriber : IHostedService, IDisposable
 
     private void CheckPendingItems()
     {
+        if (_stopping)
+        {
+            return;
+        }
+
         try
         {
             var now = DateTime.UtcNow;
@@ -210,7 +241,10 @@ public sealed class EventSubscriber : IHostedService, IDisposable
             // Rescheduled after each pass rather than on a fixed period, so a slow pass never overlaps the next.
             try
             {
-                _pendingTimer?.Change(PendingInterval, Timeout.InfiniteTimeSpan);
+                if (!_stopping)
+                {
+                    _pendingTimer?.Change(PendingInterval, Timeout.InfiniteTimeSpan);
+                }
             }
             catch (ObjectDisposedException)
             {

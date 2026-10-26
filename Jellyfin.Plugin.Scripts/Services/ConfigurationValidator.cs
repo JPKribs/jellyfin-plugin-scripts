@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
+using System.Net.Http.Headers;
 using System.Text.RegularExpressions;
 using Jellyfin.Plugin.Scripts.Configuration;
 using Jellyfin.Plugin.Scripts.Models;
@@ -60,6 +61,7 @@ public static class ConfigurationValidator
         script.Name = (script.Name ?? string.Empty).Trim();
         script.Triggers = (script.Triggers ?? new()).Distinct().ToList();
         script.ItemKinds = (script.ItemKinds ?? new()).Distinct().ToList();
+        script.UserIds = (script.UserIds ?? new()).Where(id => id != Guid.Empty).Distinct().ToList();
         script.Conditions ??= new List<ScriptCondition>();
         script.Operations ??= new List<ScriptOperation>();
         foreach (var condition in script.Conditions)
@@ -191,6 +193,11 @@ public static class ConfigurationValidator
                 if (!url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) && !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
                 {
                     throw new ArgumentException(label + "needs a URL that starts with http:// or https://.");
+                }
+
+                if (!string.IsNullOrWhiteSpace(op.ContentType) && !MediaTypeHeaderValue.TryParse(op.ContentType, out _))
+                {
+                    throw new ArgumentException(label + "has an invalid content type.");
                 }
 
                 if (!HttpMethods.Contains(op.Method ?? string.Empty))

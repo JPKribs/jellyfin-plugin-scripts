@@ -24,7 +24,7 @@ public static class ConditionEvaluator
         ArgumentNullException.ThrowIfNull(script);
         ArgumentNullException.ThrowIfNull(context);
 
-        if (!MatchesItemKind(script, context))
+        if (!MatchesItemKind(script, context) || !MatchesUser(script, context))
         {
             return false;
         }
@@ -60,8 +60,30 @@ public static class ConditionEvaluator
     }
 
     /// <summary>
-    /// Gets whether one condition matches an event. A field the trigger does not supply never matches, so
-    /// under <see cref="ConditionMatch.All"/> such a condition keeps the script from running on that trigger.
+    /// Gets whether an event passes a script's users filter. An empty filter passes everything, and an event
+    /// whose trigger carries no user ignores the filter. A failed sign in for a name that matches no user never
+    /// passes a filter.
+    /// </summary>
+    /// <param name="script">The script.</param>
+    /// <param name="context">The event.</param>
+    /// <returns>True when the filter passes.</returns>
+    public static bool MatchesUser(ScriptDefinition script, EventContext context)
+    {
+        ArgumentNullException.ThrowIfNull(script);
+        ArgumentNullException.ThrowIfNull(context);
+
+        if (script.UserIds.Count == 0 || !TriggerCatalog.Get(context.Trigger).HasUser)
+        {
+            return true;
+        }
+
+        return context.UserIds.Any(script.UserIds.Contains);
+    }
+
+    /// <summary>
+    /// Gets whether one condition matches an event. A field the trigger does not supply, or a value this event
+    /// lacks, never matches, so under <see cref="ConditionMatch.All"/> such a condition keeps the script from
+    /// running.
     /// </summary>
     /// <param name="condition">The condition.</param>
     /// <param name="context">The event.</param>
@@ -85,7 +107,14 @@ public static class ConditionEvaluator
             return false;
         }
 
+        // A value this event does not have never matches, for negative operators too: "Library is not Kids"
+        // must not run for a removed item whose library can no longer be resolved.
         var candidates = context.CandidatesFor(condition.Field);
+        if (candidates.Count == 0)
+        {
+            return false;
+        }
+
         var any = candidates.Any(candidate => values.Any(value => Test(condition.Operator, candidate, value)));
         return condition.Operator is ConditionOperator.IsNot or ConditionOperator.DoesNotContain ? !any : any;
     }
