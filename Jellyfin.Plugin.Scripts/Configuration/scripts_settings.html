@@ -1,0 +1,59 @@
+<div id="ScriptsSettingsPage" data-role="page"
+     class="page type-interior pluginConfigurationPage withTabs"
+     data-require="emby-input,emby-button,emby-select,emby-checkbox"
+     data-controller="__plugin/scripts_settings.js">
+    <div data-role="content">
+        <div class="content-primary">
+            <form id="ScriptsSettingsForm">
+                <div class="verticalSection verticalSection-extrabottompadding">
+
+                    <!-- Page title -->
+                    <div class="sectionTitleContainer flex align-items-center">
+                        <h1 class="sectionTitle">Settings</h1>
+                    </div>
+
+                    <div class="jpk-section">
+                        <div class="jpk-section-title">Running</div>
+                        <div class="jpk-section-content">
+                            <div class="inputContainer">
+                                <label for="maxConcurrentRuns">Runs at once</label>
+                                <input is="emby-input" type="number" id="maxConcurrentRuns" min="1" max="32" />
+                                <div class="fieldDescription">How many scripts may run at the same time. Further runs wait their turn.</div>
+                            </div>
+                            <div class="inputContainer">
+                                <label for="defaultTimeout">Default command timeout in seconds</label>
+                                <input is="emby-input" type="number" id="defaultTimeout" min="1" max="3600" />
+                                <div class="fieldDescription">A command step that sets no timeout of its own is stopped after this long.</div>
+                            </div>
+                            <div class="inputContainer">
+                                <label for="historySize">Runs kept in the history</label>
+                                <input is="emby-input" type="number" id="historySize" min="0" max="5000" />
+                                <div class="fieldDescription">The oldest runs are dropped past this many. 0 keeps none.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="jpk-info">
+                        A <strong>Run command</strong> step runs a file at any path the server can reach. In Docker that is
+                        the path inside the container, so mount your scripts folder (for example
+                        <code>-v /srv/jellyfin-scripts:/scripts:ro</code>) and use <code>/scripts/your-script.sh</code>.
+                        The official image has a shell but no Python or most other interpreters, so a script should use
+                        <code>/bin/sh</code> or an interpreter you mount or install yourself.
+                    </div>
+                    <div class="jpk-warn">
+                        Commands run on the server as the account Jellyfin runs under. Only add commands you trust.
+                    </div>
+
+                    <button is="emby-button" type="button" id="btnSaveSettings" class="raised button-submit block">
+                        <span>Save</span>
+                    </button>
+                    <span id="settingsStatus" class="jpk-status-text"></span>
+
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <link rel="stylesheet" href="configurationpage?name=scripts_jpkribs_shared.css">
+    <link rel="stylesheet" href="configurationpage?name=scripts_shared.css">
+</div>

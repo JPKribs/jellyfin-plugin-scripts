@@ -1,0 +1,12 @@
+[
+  {
+    "guid": "449817c2-7661-46fb-b302-bbd6dd3b0a01",
+    "name": "Scripts",
+    "overview": "Run your own scripts when server events happen.",
+    "description": "Scripts lets administrators run their own commands when something happens on the server, such as playback starting or stopping, an item being added, a user signing in, or a scheduled task finishing. Each script can be narrowed with conditions and receives the event's details as environment variables.",
+    "imageUrl": "https://raw.githubusercontent.com/JPKribs/jellyfin-plugin-scripts/refs/heads/master/Jellyfin.Plugin.Scripts/Assets/Logo.png",
+    "owner": "JPKribs",
+    "category": "General",
+    "versions": []
+  }
+]

@@ -1,0 +1,49 @@
+<div id="ScriptsHistoryPage" data-role="page"
+     class="page type-interior pluginConfigurationPage withTabs"
+     data-require="emby-input,emby-button,emby-select,emby-checkbox"
+     data-controller="__plugin/scripts_history.js">
+    <div data-role="content">
+        <div class="content-primary">
+            <form id="ScriptsHistoryForm">
+                <div class="verticalSection verticalSection-extrabottompadding">
+
+                    <!-- Page title -->
+                    <div class="sectionTitleContainer flex align-items-center">
+                        <h1 class="sectionTitle">History</h1>
+                    </div>
+
+                    <div class="fieldDescription" style="margin-bottom: 12px;">
+                        The most recent runs, newest first, including test runs. Click a run to see each step, its
+                        output, and the variables it received. Settings sets how many runs are kept.
+                    </div>
+
+                    <div id="historyTable"></div>
+
+                    <div id="runDetail" class="jpk-section hidden">
+                        <div class="jpk-section-title" id="runDetailTitle"></div>
+                        <div class="jpk-section-content">
+                            <div id="runDetailSummary" class="scripts-run-summary"></div>
+                            <div id="runDetailSteps"></div>
+                            <div class="jpk-collapsible-section">
+                                <button type="button" class="jpk-collapsible-header collapsed" aria-expanded="false" data-target="runDetailVariables">
+                                    <span class="jpk-collapsible-title">Variables</span>
+                                    <span class="jpk-collapsible-icon">&#9660;</span>
+                                </button>
+                                <div id="runDetailVariables" class="jpk-collapsible-content collapsed"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button is="emby-button" type="button" id="btnClearHistory" class="raised jpk-button-destructive">
+                        <span>Clear history</span>
+                    </button>
+                    <span id="historyStatus" class="jpk-status-text"></span>
+
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <link rel="stylesheet" href="configurationpage?name=scripts_jpkribs_shared.css">
+    <link rel="stylesheet" href="configurationpage?name=scripts_shared.css">
+</div>

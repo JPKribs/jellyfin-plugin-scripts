@@ -1,0 +1,183 @@
+<div id="ScriptsScriptsPage" data-role="page"
+     class="page type-interior pluginConfigurationPage withTabs"
+     data-require="emby-input,emby-button,emby-select,emby-checkbox"
+     data-controller="__plugin/scripts_scripts.js">
+    <div data-role="content">
+        <div class="content-primary">
+            <form id="ScriptsScriptsForm">
+                <div class="verticalSection verticalSection-extrabottompadding">
+
+                    <!-- Page title -->
+                    <div class="sectionTitleContainer flex align-items-center">
+                        <h1 class="sectionTitle">Scripts</h1>
+                    </div>
+
+                    <div class="fieldDescription" style="margin-bottom: 12px;">
+                        A script runs its steps when one of its triggers happens on the server. Item kinds and
+                        conditions narrow which events it runs for. Steps can send an HTTP request, message or stop
+                        the session, refresh metadata, queue a scheduled task, write to the activity log, or run a
+                        command at any path the server can reach.
+                    </div>
+
+                    <div id="scriptCounts" class="jpk-cards"></div>
+
+                    <!-- Script selector -->
+                    <div class="jpk-selector">
+                        <select is="emby-select" id="selectScript" class="jpk-selector-dropdown" aria-label="Script"></select>
+                        <div class="jpk-selector-actions">
+                            <button is="emby-button" type="button" id="btnNewScript" class="raised jpk-icon-btn jpk-button-submit" title="New">
+                                <span class="material-icons" aria-hidden="true">add</span>
+                                <span class="icon-btn-label">New</span>
+                            </button>
+                            <button is="emby-button" type="button" id="btnDeleteScript" class="raised jpk-icon-btn jpk-button-destructive" title="Delete">
+                                <span class="material-icons" aria-hidden="true">delete</span>
+                                <span class="icon-btn-label">Delete</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="emptyState" class="jpk-empty-section hidden">No scripts yet. Click <strong>New</strong> to create one.</div>
+
+                    <div id="scriptEditor" class="hidden">
+
+                        <!-- General -->
+                        <div class="jpk-section">
+                            <div class="jpk-section-title">General</div>
+                            <div class="jpk-section-content">
+                                <div class="inputContainer">
+                                    <label for="scriptName">Name</label>
+                                    <input is="emby-input" type="text" id="scriptName" maxlength="200" />
+                                </div>
+                                <div class="checkboxContainer">
+                                    <label class="emby-checkbox-label">
+                                        <input type="checkbox" is="emby-checkbox" id="scriptEnabled" />
+                                        <span class="checkboxLabel">Enabled</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Triggers -->
+                        <div class="jpk-section">
+                            <div class="jpk-section-title">Triggers</div>
+                            <div class="jpk-section-content">
+                                <div class="fieldDescription">The script runs when any of these happen.</div>
+                                <div id="triggerList" class="scripts-trigger-groups"></div>
+                            </div>
+                        </div>
+
+                        <!-- Item kinds -->
+                        <div class="jpk-section">
+                            <div class="jpk-section-title">Item kinds</div>
+                            <div class="jpk-section-content">
+                                <div class="fieldDescription">
+                                    Run only for items of these kinds. Leave empty to run for every kind. Applies to
+                                    playback and library triggers; sign ins and scheduled tasks ignore it.
+                                </div>
+                                <div id="itemKindMount"></div>
+                                <div id="itemKindWarn" class="jpk-warn hidden"></div>
+                            </div>
+                        </div>
+
+                        <!-- Conditions -->
+                        <div class="jpk-section">
+                            <div class="jpk-section-title">Conditions</div>
+                            <div class="jpk-section-content">
+                                <div class="fieldDescription">
+                                    Narrow the events further. With no conditions the script runs for every event that
+                                    passes its triggers and item kinds.
+                                </div>
+                                <div class="selectContainer scripts-match">
+                                    <label for="conditionMatch">Run when</label>
+                                    <select is="emby-select" id="conditionMatch">
+                                        <option value="All">all conditions match</option>
+                                        <option value="Any">any condition matches</option>
+                                    </select>
+                                </div>
+                                <div id="conditionList"></div>
+                                <button is="emby-button" type="button" id="btnAddCondition" class="raised jpk-button-small">
+                                    <span>Add condition</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Steps -->
+                        <div class="jpk-section">
+                            <div class="jpk-section-title">Steps</div>
+                            <div class="jpk-section-content">
+                                <div class="fieldDescription">
+                                    Run in order. A failed step stops the rest unless it is set to continue on error.
+                                    Text fields accept <code>{{NAME}}</code> placeholders, listed under Variables below.
+                                </div>
+                                <div id="operationList"></div>
+                                <div class="scripts-add-step">
+                                    <select is="emby-select" id="newOperationType" aria-label="Step type"></select>
+                                    <button is="emby-button" type="button" id="btnAddOperation" class="raised jpk-button-small jpk-button-submit">
+                                        <span>Add step</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Behavior -->
+                        <div class="jpk-section">
+                            <div class="jpk-section-title">Behavior</div>
+                            <div class="jpk-section-content">
+                                <div class="inputContainer">
+                                    <label for="scriptCooldown">Cooldown in seconds</label>
+                                    <input is="emby-input" type="number" id="scriptCooldown" min="0" max="86400" />
+                                    <div class="fieldDescription">
+                                        After a run, skip this script for the same user and item until this many seconds
+                                        pass. Use it to keep pause and resume from running a script over and over. 0 turns
+                                        it off.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Variables -->
+                        <div class="jpk-collapsible-section">
+                            <button type="button" class="jpk-collapsible-header collapsed" aria-expanded="false" data-target="variableContent">
+                                <span class="jpk-collapsible-title">Variables</span>
+                                <span class="jpk-collapsible-icon">&#9660;</span>
+                            </button>
+                            <div id="variableContent" class="jpk-collapsible-content collapsed">
+                                <div class="fieldDescription">
+                                    A command receives each of these as an environment variable, such as
+                                    <code>$JF_ITEM_NAME</code>, plus <code>$JF_EVENT_JSON</code> with all of them.
+                                    In a step's text fields, use <code>{{ITEM_NAME}}</code>, <code>{{ITEM_NAME:json}}</code>
+                                    inside a JSON string, or <code>{{ITEM_NAME:url}}</code> in a URL. Click one to copy it.
+                                </div>
+                                <div id="variableList" class="scripts-variables"></div>
+                            </div>
+                        </div>
+
+                        <!-- Save and test -->
+                        <div class="scripts-actions">
+                            <button is="emby-button" type="button" id="btnSaveScripts" class="raised button-submit block">
+                                <span>Save</span>
+                            </button>
+                            <div class="scripts-test">
+                                <select is="emby-select" id="testTrigger" aria-label="Trigger to test with"></select>
+                                <button is="emby-button" type="button" id="btnTestScript" class="raised">
+                                    <span>Test</span>
+                                </button>
+                            </div>
+                        </div>
+                        <span id="scriptStatus" class="jpk-status-text"></span>
+                        <div class="fieldDescription">
+                            Test runs this script's steps now with sample values for the chosen trigger, including unsaved
+                            edits. Item kinds and conditions are not applied, and steps that act on a session or an item
+                            are skipped because the sample has none.
+                        </div>
+                        <div id="testResult"></div>
+                    </div>
+
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <link rel="stylesheet" href="configurationpage?name=scripts_jpkribs_shared.css">
+    <link rel="stylesheet" href="configurationpage?name=scripts_shared.css">
+</div>

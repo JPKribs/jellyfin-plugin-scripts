@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Jellyfin.Plugin.Scripts</RootNamespace>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Nullable>enable</Nullable>
+    <AnalysisMode>AllEnabledByDefault</AnalysisMode>
+    <CodeAnalysisRuleSet>../jellyfin.ruleset</CodeAnalysisRuleSet>
+    <NoWarn>NU1605;CA1002;CA2227;CA1305</NoWarn>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Jellyfin.Controller" Version="12.2.0">
+      <PrivateAssets>all</PrivateAssets>
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </PackageReference>
+    <PackageReference Include="Jellyfin.Model" Version="12.2.0">
+      <PrivateAssets>all</PrivateAssets>
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </PackageReference>
+    <PackageReference Include="JPKribs.Jellyfin.Base" Version="2026.10.19" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Admin dashboard pages -->
+    <EmbeddedResource Include="Configuration\scripts_scripts.html" />
+    <EmbeddedResource Include="Configuration\scripts_scripts.js" />
+    <EmbeddedResource Include="Configuration\scripts_history.html" />
+    <EmbeddedResource Include="Configuration\scripts_history.js" />
+    <EmbeddedResource Include="Configuration\scripts_settings.html" />
+    <EmbeddedResource Include="Configuration\scripts_settings.js" />
+    <EmbeddedResource Include="Configuration\scripts_common.js" />
+    <EmbeddedResource Include="Configuration\scripts_shared.css" />
+  </ItemGroup>
+
+</Project>
