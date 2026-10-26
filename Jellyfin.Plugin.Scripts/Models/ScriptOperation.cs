@@ -59,6 +59,9 @@ public class ScriptOperation
     /// <summary>Gets or sets the message text or activity log overview.</summary>
     public string Text { get; set; } = string.Empty;
 
+    /// <summary>Gets or sets which sessions a message is shown on.</summary>
+    public MessageTarget Target { get; set; } = MessageTarget.EventSession;
+
     /// <summary>Gets or sets how long a message shows, in seconds. Zero leaves it to the client.</summary>
     public int DisplaySeconds { get; set; }
 
@@ -73,4 +76,25 @@ public class ScriptOperation
 
     /// <summary>Gets or sets how long to wait, in seconds.</summary>
     public int WaitSeconds { get; set; }
+
+    /// <summary>Gets or sets how many times a failed HTTP request is retried, with backoff.</summary>
+    public int Retries { get; set; }
+
+    /// <summary>Gets or sets the tag to add or remove. Placeholders are filled.</summary>
+    public string Tag { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets the collection to add the item to or remove it from.</summary>
+    public string CollectionId { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets a value indicating whether <see cref="OperationType.SetFavorite"/> adds the favorite rather than removing it.</summary>
+    public bool Favorite { get; set; } = true;
+
+    /// <summary>Gets or sets a value indicating whether <see cref="OperationType.SetUserDisabled"/> disables the user rather than enabling them.</summary>
+    public bool Disable { get; set; } = true;
+
+    /// <summary>Gets or sets the script <see cref="OperationType.RunScript"/> runs.</summary>
+    public string ScriptId { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets the file <see cref="OperationType.AppendToFile"/> writes to. Its folder must exist.</summary>
+    public string FilePath { get; set; } = string.Empty;
 }

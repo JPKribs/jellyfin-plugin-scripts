@@ -21,5 +21,11 @@ public enum ConditionOperator
     StartsWith,
 
     /// <summary>The event value matches one of the values as a regular expression.</summary>
-    MatchesRegex
+    MatchesRegex,
+
+    /// <summary>The event value is a number no smaller than one of the values.</summary>
+    AtLeast,
+
+    /// <summary>The event value is a number no larger than one of the values.</summary>
+    AtMost
 }

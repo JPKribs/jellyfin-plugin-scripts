@@ -1,8 +1,8 @@
 ---
 name: "Scripts"
 guid: "449817c2-7661-46fb-b302-bbd6dd3b0a01"
-version: "12.2.0.0"
-targetAbi: "12.2.0.0"
+version: "12.3.0.0"
+targetAbi: "12.3.0.0"
 framework: "net10.0"
 overview: "Run your own scripts when server events happen."
 description: >
@@ -16,5 +16,12 @@ owner: "JPKribs"
 artifacts:
 - "Jellyfin.Plugin.Scripts.dll"
 changelog:
+  features:
+  - Run scripts on more than 45 server events, covering playback, library, collections, Live TV recordings, played and favorite changes, sessions, user accounts, scheduled tasks, plugins, settings, and the activity log
+  - Paused for a while and Playing for a while triggers, for jobs such as stopping playback left paused or asking whether someone is still watching
+  - Schedules that run a script every few minutes, daily at a time on chosen days, or monthly
+  - More than 20 built-in steps, including HTTP requests with presets for Discord, Slack, ntfy, Gotify, and Home Assistant, session messages, pausing and stopping playback, tags, collections, favorites, user sign out, library scans, and running programs on the server
+  - Filter by item kind, user, and conditions such as genre, year, play method, active transcodes, or time of day
+  - Encrypted secrets for tokens, templates for common scripts, export and import, test runs, and a searchable history
   developer:
-  - Initial project scaffold, built for Jellyfin 12.2 (target ABI 12.2.0.0).
+  - Initial release, built for Jellyfin 12.3 (target ABI 12.3.0.0).

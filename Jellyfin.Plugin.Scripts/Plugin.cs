@@ -16,6 +16,14 @@ namespace Jellyfin.Plugin.Scripts;
 public class Plugin : PluginBase<Plugin, PluginConfiguration>
 {
     /// <summary>
+    /// The name the secret keys are derived from: the key folder, the Data Protection application name, and the
+    /// purpose. Changing it makes every stored secret unreadable.
+    /// </summary>
+    public const string SecretsName = "Jellyfin.Plugin.Scripts";
+
+    private readonly Lazy<SecretProtector> _secrets;
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="Plugin"/> class.
     /// </summary>
     /// <param name="applicationPaths">The application paths.</param>
@@ -28,6 +36,7 @@ public class Plugin : PluginBase<Plugin, PluginConfiguration>
         : base(applicationPaths, xmlSerializer)
     {
         ArgumentNullException.ThrowIfNull(logger);
+        _secrets = new Lazy<SecretProtector>(() => StableSecretProtection.CreateProtector(applicationPaths, SecretsName, logger));
         logger.LogInformation("Scripts plugin initialized");
     }
 
@@ -49,8 +58,10 @@ public class Plugin : PluginBase<Plugin, PluginConfiguration>
     protected override void OnConfigurationSaving(PluginConfiguration incoming, PluginConfiguration stored)
     {
         ArgumentNullException.ThrowIfNull(incoming);
+        ArgumentNullException.ThrowIfNull(stored);
         ConfigurationValidator.Normalize(incoming);
         ConfigurationValidator.Validate(incoming);
+        ScriptSecrets.Protect(incoming, stored, _secrets.Value);
     }
 
     /// <inheritdoc />
@@ -104,6 +115,12 @@ public class Plugin : PluginBase<Plugin, PluginConfiguration>
         {
             Name = "scripts_common.js",
             EmbeddedResourcePath = $"{ns}.Configuration.scripts_common.js"
+        };
+
+        yield return new PluginPageInfo
+        {
+            Name = "scripts_templates.js",
+            EmbeddedResourcePath = $"{ns}.Configuration.scripts_templates.js"
         };
 
         yield return new PluginPageInfo

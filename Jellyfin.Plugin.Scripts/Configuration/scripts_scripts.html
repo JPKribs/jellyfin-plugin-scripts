@@ -13,10 +13,9 @@
                     </div>
 
                     <div class="fieldDescription" style="margin-bottom: 12px;">
-                        A script runs its steps when one of its triggers happens on the server. Item kinds and
-                        conditions narrow which events it runs for. Steps can send an HTTP request, message or stop
-                        the session, refresh metadata, queue a scheduled task, write to the activity log, or run a
-                        command at any path the server can reach.
+                        A script runs its steps when one of its triggers happens. Item kinds, users, and conditions
+                        narrow which events it runs for. Steps can message or control sessions, change items and
+                        users, call webhooks, queue server tasks, or run a command at any path the server can reach.
                     </div>
 
                     <div id="scriptCounts" class="jpk-cards"></div>
@@ -28,6 +27,10 @@
                             <button is="emby-button" type="button" id="btnNewScript" class="raised jpk-icon-btn jpk-button-submit" title="New">
                                 <span class="material-icons" aria-hidden="true">add</span>
                                 <span class="icon-btn-label">New</span>
+                            </button>
+                            <button is="emby-button" type="button" id="btnDuplicateScript" class="raised jpk-icon-btn" title="Duplicate">
+                                <span class="material-icons" aria-hidden="true">content_copy</span>
+                                <span class="icon-btn-label">Duplicate</span>
                             </button>
                             <button is="emby-button" type="button" id="btnDeleteScript" class="raised jpk-icon-btn jpk-button-destructive" title="Delete">
                                 <span class="material-icons" aria-hidden="true">delete</span>
@@ -43,10 +46,9 @@
                             </button>
                         </div>
                     </div>
-
                     <span id="transferStatus" class="jpk-status-text"></span>
 
-                    <div id="emptyState" class="jpk-empty-section hidden">No scripts yet. Click <strong>New</strong> to create one, or <strong>Import</strong> a file.</div>
+                    <div id="emptyState" class="jpk-empty-section hidden">No scripts yet. Click <strong>New</strong> to start from a template, or <strong>Import</strong> a file.</div>
 
                     <div id="scriptEditor" class="hidden">
 
@@ -71,32 +73,87 @@
                         <div class="jpk-section">
                             <div class="jpk-section-title">Triggers</div>
                             <div class="jpk-section-content">
-                                <div class="fieldDescription">The script runs when any of these happen.</div>
-                                <div id="triggerList" class="scripts-trigger-groups"></div>
+                                <div class="fieldDescription">The script runs when any checked trigger happens. Search to narrow the list.</div>
+                                <div id="triggerMount"></div>
+
+                                <div id="pausedOptions" class="scripts-trigger-options hidden">
+                                    <div class="inputContainer">
+                                        <label for="pausedMinutes">Paused for a while: minutes</label>
+                                        <input is="emby-input" type="number" id="pausedMinutes" min="1" max="1440" />
+                                        <div class="fieldDescription">Runs once per pause, after the session has stayed paused this long.</div>
+                                    </div>
+                                </div>
+
+                                <div id="playingOptions" class="scripts-trigger-options hidden">
+                                    <div class="inputContainer">
+                                        <label for="playingMinutes">Playing for a while: minutes</label>
+                                        <input is="emby-input" type="number" id="playingMinutes" min="1" max="1440" />
+                                        <div class="fieldDescription">Runs once per playback, after this much playing time. Pauses do not count.</div>
+                                    </div>
+                                </div>
+
+                                <div id="scheduleOptions" class="scripts-trigger-options hidden">
+                                    <div class="jpk-subsection-title">Schedule</div>
+                                    <div class="jpk-choice-group" id="scheduleMode" role="radiogroup" aria-label="Schedule">
+                                        <label class="jpk-choice">
+                                            <input type="radio" name="scheduleMode" value="Interval" />
+                                            <span class="jpk-choice-name">Every few minutes</span>
+                                            <span class="jpk-choice-text">Repeats on an interval, counted from when the server started or the script was enabled.</span>
+                                        </label>
+                                        <label class="jpk-choice">
+                                            <input type="radio" name="scheduleMode" value="Daily" />
+                                            <span class="jpk-choice-name">Days of the week</span>
+                                            <span class="jpk-choice-text">At a set time on the days you pick.</span>
+                                        </label>
+                                        <label class="jpk-choice">
+                                            <input type="radio" name="scheduleMode" value="Monthly" />
+                                            <span class="jpk-choice-name">Monthly</span>
+                                            <span class="jpk-choice-text">At a set time on one day of each month.</span>
+                                        </label>
+                                    </div>
+                                    <div id="scheduleInterval" class="inputContainer">
+                                        <label for="scheduleIntervalMinutes">Every how many minutes</label>
+                                        <input is="emby-input" type="number" id="scheduleIntervalMinutes" min="1" max="10080" />
+                                    </div>
+                                    <div id="scheduleTimeRow" class="inputContainer">
+                                        <label for="scheduleTime">Time (server's local time)</label>
+                                        <input is="emby-input" type="time" id="scheduleTime" />
+                                    </div>
+                                    <div id="scheduleDaysRow">
+                                        <div class="fieldDescription">Days. Leave all unchecked to run every day.</div>
+                                        <div id="scheduleDays" class="scripts-days"></div>
+                                    </div>
+                                    <div id="scheduleMonthDayRow" class="inputContainer">
+                                        <label for="scheduleMonthDay">Day of the month</label>
+                                        <input is="emby-input" type="number" id="scheduleMonthDay" min="1" max="31" />
+                                        <div class="fieldDescription">A month without this day runs on its last day.</div>
+                                    </div>
+                                    <div class="fieldDescription">
+                                        A schedule runs only while the server is up; one missed while it was off is not run late.
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
-                        <!-- Item kinds -->
+                        <!-- Filters -->
                         <div class="jpk-section">
                             <div class="jpk-section-title">Item kinds</div>
                             <div class="jpk-section-content">
                                 <div class="fieldDescription">
-                                    Run only for items of these kinds. Leave empty to run for every kind. Applies to
-                                    playback and library triggers; sign ins and scheduled tasks ignore it.
+                                    Run only for items of these kinds. Leave empty for every kind. Triggers without an
+                                    item ignore this.
                                 </div>
                                 <div id="itemKindMount"></div>
                                 <div id="itemKindWarn" class="jpk-warn hidden"></div>
                             </div>
                         </div>
 
-                        <!-- Users -->
                         <div class="jpk-section">
                             <div class="jpk-section-title">Users</div>
                             <div class="jpk-section-content">
                                 <div class="fieldDescription">
-                                    Run only for these users. Leave empty to run for everyone. Applies to playback and
-                                    sign in triggers; on playback, any of the session's users counts. Library events and
-                                    scheduled tasks ignore it.
+                                    Run only for these users. Leave all unchecked for everyone. On playback, any of the
+                                    session's users counts. Triggers without a user ignore this.
                                 </div>
                                 <div id="userMount"></div>
                                 <div id="userWarn" class="jpk-warn hidden"></div>
@@ -107,16 +164,17 @@
                         <div class="jpk-section">
                             <div class="jpk-section-title">Conditions</div>
                             <div class="jpk-section-content">
-                                <div class="fieldDescription">
-                                    Narrow the events further. With no conditions the script runs for every event that
-                                    passes its triggers and item kinds.
-                                </div>
-                                <div class="selectContainer scripts-match">
-                                    <label for="conditionMatch">Run when</label>
-                                    <select is="emby-select" id="conditionMatch">
-                                        <option value="All">all conditions match</option>
-                                        <option value="Any">any condition matches</option>
-                                    </select>
+                                <div class="jpk-choice-group" id="conditionMatch" role="radiogroup" aria-label="Condition match">
+                                    <label class="jpk-choice">
+                                        <input type="radio" name="conditionMatch" value="All" />
+                                        <span class="jpk-choice-name">All conditions</span>
+                                        <span class="jpk-choice-text">Run only when every condition matches.</span>
+                                    </label>
+                                    <label class="jpk-choice">
+                                        <input type="radio" name="conditionMatch" value="Any" />
+                                        <span class="jpk-choice-name">Any condition</span>
+                                        <span class="jpk-choice-text">Run when at least one condition matches.</span>
+                                    </label>
                                 </div>
                                 <div id="conditionList"></div>
                                 <button is="emby-button" type="button" id="btnAddCondition" class="raised jpk-button-small">
@@ -130,16 +188,35 @@
                             <div class="jpk-section-title">Steps</div>
                             <div class="jpk-section-content">
                                 <div class="fieldDescription">
-                                    Run in order. A failed step stops the rest unless it is set to continue on error.
-                                    Text fields accept <code>{{NAME}}</code> placeholders, listed under Variables below.
+                                    Run in order; drag or use the arrows to reorder. A failed step stops the rest unless it
+                                    continues on error. Text fields accept <code>{{NAME}}</code> placeholders, listed under
+                                    Variables.
                                 </div>
                                 <div id="operationList"></div>
+                                <div id="operationEmpty" class="jpk-empty-section hidden">No steps yet. Add one below.</div>
+                                <div id="operationEditor" class="scripts-op-editor"></div>
                                 <div class="scripts-add-step">
-                                    <select is="emby-select" id="newOperationType" aria-label="Step type"></select>
+                                    <div class="scripts-cell scripts-add-step-type"><select is="emby-select" id="newOperationType" aria-label="Step type"></select></div>
                                     <button is="emby-button" type="button" id="btnAddOperation" class="raised jpk-button-small jpk-button-submit">
                                         <span>Add step</span>
                                     </button>
                                 </div>
+                            </div>
+                        </div>
+
+                        <!-- Secrets -->
+                        <div class="jpk-section">
+                            <div class="jpk-section-title">Secrets</div>
+                            <div class="jpk-section-content">
+                                <div class="fieldDescription">
+                                    Tokens and passwords this script uses. Use one as <code>{{SECRET_NAME}}</code> in a step,
+                                    or <code>$JF_SECRET_NAME</code> in a command. Values are encrypted on the server, never
+                                    shown again, left out of exports, and left out of the variables the history records.
+                                </div>
+                                <div id="secretList"></div>
+                                <button is="emby-button" type="button" id="btnAddSecret" class="raised jpk-button-small">
+                                    <span>Add secret</span>
+                                </button>
                             </div>
                         </div>
 
@@ -152,8 +229,7 @@
                                     <input is="emby-input" type="number" id="scriptCooldown" min="0" max="86400" />
                                     <div class="fieldDescription">
                                         After a run, skip this script for the same trigger, user, and item until this many
-                                        seconds pass. Use it to keep pause and resume from running a script over and over. 0
-                                        turns it off.
+                                        seconds pass. 0 turns it off.
                                     </div>
                                 </div>
                             </div>
@@ -181,8 +257,11 @@
                             <button is="emby-button" type="button" id="btnSaveScripts" class="raised button-submit block">
                                 <span>Save</span>
                             </button>
+                            <span id="unsavedIndicator" class="jpk-unsaved">
+                                <span class="jpk-unsaved-dot"></span>Unsaved changes
+                            </span>
                             <div class="scripts-test">
-                                <select is="emby-select" id="testTrigger" aria-label="Trigger to test with"></select>
+                                <div class="scripts-cell scripts-test-trigger"><select is="emby-select" id="testTrigger" aria-label="Trigger to test with"></select></div>
                                 <button is="emby-button" type="button" id="btnTestScript" class="raised">
                                     <span>Test</span>
                                 </button>
@@ -191,10 +270,9 @@
                         <span id="scriptStatus" class="jpk-status-text"></span>
                         <div class="fieldDescription">
                             Test runs this script's steps now with sample values for the chosen trigger, including unsaved
-                            edits. Item kinds and conditions are not applied, and steps that act on a session or an item
+                            edits. Filters and conditions are not applied, and steps that act on a session, item, or user
                             are skipped because the sample has none.
                         </div>
-                        <div id="testResult"></div>
                     </div>
 
                 </div>

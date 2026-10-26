@@ -5,26 +5,33 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.Scripts.Models;
 using JPKribs.Jellyfin.Base;
+using MediaBrowser.Controller.Collections;
+using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Providers;
 using MediaBrowser.Controller.Session;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Session;
 using MediaBrowser.Model.Tasks;
+using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.Scripts.Services;
 
 /// <summary>
 /// Performs one step of a script.
 /// </summary>
-public class OperationExecutor
+public partial class OperationExecutor
 {
     /// <summary>The longest a single wait step may pause, in seconds.</summary>
     public const int MaxWaitSeconds = 3600;
+
+    /// <summary>The most times an HTTP step may retry.</summary>
+    public const int MaxRetries = 5;
 
     private const int MaxResponseChars = 4096;
 
@@ -34,6 +41,11 @@ public class OperationExecutor
     private readonly ITaskManager _taskManager;
     private readonly IFileSystem _fileSystem;
     private readonly ActivityLogger _activityLogger;
+    private readonly IUserManager _userManager;
+    private readonly IUserDataManager _userDataManager;
+    private readonly ILibraryManager _libraryManager;
+    private readonly ICollectionManager _collectionManager;
+    private readonly ILogger<OperationExecutor> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="OperationExecutor"/> class.
@@ -44,13 +56,23 @@ public class OperationExecutor
     /// <param name="taskManager">The scheduled task manager.</param>
     /// <param name="fileSystem">The file system.</param>
     /// <param name="activityLogger">The activity log writer.</param>
+    /// <param name="userManager">The user manager.</param>
+    /// <param name="userDataManager">The user data manager.</param>
+    /// <param name="libraryManager">The library manager.</param>
+    /// <param name="collectionManager">The collection manager.</param>
+    /// <param name="logger">The logger.</param>
     public OperationExecutor(
         IHttpClientFactory httpClientFactory,
         ISessionManager sessionManager,
         IProviderManager providerManager,
         ITaskManager taskManager,
         IFileSystem fileSystem,
-        ActivityLogger activityLogger)
+        ActivityLogger activityLogger,
+        IUserManager userManager,
+        IUserDataManager userDataManager,
+        ILibraryManager libraryManager,
+        ICollectionManager collectionManager,
+        ILogger<OperationExecutor> logger)
     {
         _httpClientFactory = httpClientFactory;
         _sessionManager = sessionManager;
@@ -58,6 +80,11 @@ public class OperationExecutor
         _taskManager = taskManager;
         _fileSystem = fileSystem;
         _activityLogger = activityLogger;
+        _userManager = userManager;
+        _userDataManager = userDataManager;
+        _libraryManager = libraryManager;
+        _collectionManager = collectionManager;
+        _logger = logger;
     }
 
     /// <summary>
@@ -82,6 +109,19 @@ public class OperationExecutor
             OperationType.RunScheduledTask => Task.FromResult(RunScheduledTask(operation, state)),
             OperationType.WriteActivityLog => Task.FromResult(WriteActivityLog(operation, state)),
             OperationType.Wait => WaitAsync(operation, cancellationToken),
+            OperationType.PausePlayback => PausePlaybackAsync(state, cancellationToken),
+            OperationType.MarkPlayed => Task.FromResult(SetPlayed(state, true)),
+            OperationType.MarkUnplayed => Task.FromResult(SetPlayed(state, false)),
+            OperationType.SetFavorite => Task.FromResult(SetFavorite(operation, state, cancellationToken)),
+            OperationType.AddTag => ChangeTagAsync(operation, state, true, cancellationToken),
+            OperationType.RemoveTag => ChangeTagAsync(operation, state, false, cancellationToken),
+            OperationType.AddToCollection => ChangeCollectionAsync(operation, state, true),
+            OperationType.RemoveFromCollection => ChangeCollectionAsync(operation, state, false),
+            OperationType.SetUserDisabled => SetUserDisabledAsync(operation, state),
+            OperationType.SignOutUser => SignOutUserAsync(state),
+            OperationType.ScanLibraries => Task.FromResult(ScanLibraries()),
+            OperationType.AppendToFile => AppendToFileAsync(operation, state, cancellationToken),
+            OperationType.RunScript => Task.FromResult(Result(OperationStatus.Failed, "Run script is handled by the runner.")),
             _ => Task.FromResult(Result(OperationStatus.Failed, "Unknown step type."))
         };
     }
@@ -208,7 +248,33 @@ public class OperationExecutor
         var contentType = mediaType.Length == 0 ? "application/json" : mediaType;
         var method = new HttpMethod(string.IsNullOrWhiteSpace(op.Method) ? "POST" : op.Method.Trim().ToUpperInvariant());
 
-        var response = await JpkHttp.SendAsync(_httpClientFactory, method, uri.ToString(), cancellationToken, headers, body, contentType).ConfigureAwait(false);
+        // JpkHttp never throws, so a response worth retrying (no answer, a 5xx, or a 429) is turned into the
+        // HttpRequestException RetryPolicy treats as transient. The last one is caught and reported below.
+        var retries = Math.Clamp(op.Retries, 0, MaxRetries);
+        HttpResult response;
+        try
+        {
+            response = await RetryPolicy.ExecuteWithRetryAsync(
+                async ct =>
+                {
+                    var result = await JpkHttp.SendAsync(_httpClientFactory, method, uri.ToString(), ct, headers, body, contentType).ConfigureAwait(false);
+                    if (retries > 0 && (result.Status == 0 || result.Status >= 500 || result.Status == 429))
+                    {
+                        throw new HttpRequestException(result.Status == 0 ? result.Body : "HTTP " + Number(result.Status), null, result.Status == 0 ? null : (HttpStatusCode)result.Status);
+                    }
+
+                    return result;
+                },
+                retries,
+                _logger,
+                "Scripts HTTP request to " + uri.Host,
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (HttpRequestException ex)
+        {
+            return Result(OperationStatus.Failed, "Failed after " + Number(retries + 1) + " attempts: " + ex.Message);
+        }
+
         var text = response.Body.Length > MaxResponseChars ? response.Body[..MaxResponseChars] + "\n[response truncated]" : response.Body;
 
         if (response.Status == 0)
@@ -222,13 +288,53 @@ public class OperationExecutor
 
     private async Task<OperationResult> SendMessageAsync(ScriptOperation op, RunState state, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrEmpty(state.Context.SessionId))
+        if (op.Target == MessageTarget.EventSession)
         {
-            return Result(OperationStatus.Skipped, "This event has no session to send a message to.");
+            if (string.IsNullOrEmpty(state.Context.SessionId))
+            {
+                return Result(OperationStatus.Skipped, "This event has no session to send a message to.");
+            }
+
+            await _sessionManager.SendMessageCommand(null, state.Context.SessionId, Message(op, state), cancellationToken).ConfigureAwait(false);
+            return Result(OperationStatus.Succeeded, "Sent the message to " + Describe(state) + ".");
         }
 
-        await _sessionManager.SendMessageCommand(null, state.Context.SessionId, Message(op, state), cancellationToken).ConfigureAwait(false);
-        return Result(OperationStatus.Succeeded, "Sent the message to " + Describe(state) + ".");
+        if (op.Target == MessageTarget.UserSessions && state.Context.UserIds.Count == 0)
+        {
+            return Result(OperationStatus.Skipped, "This event has no user whose sessions could get the message.");
+        }
+
+        var sessions = _sessionManager.Sessions
+            .Where(s => s.IsActive && s.SupportsRemoteControl)
+            .Where(s => op.Target switch
+            {
+                MessageTarget.UserSessions => state.Context.UserIds.Contains(s.UserId),
+                MessageTarget.AdminSessions => IsAdministrator(s.UserId),
+                _ => true
+            })
+            .ToList();
+        if (sessions.Count == 0)
+        {
+            return Result(OperationStatus.Skipped, "No active session can receive messages.");
+        }
+
+        var message = Message(op, state);
+        var sent = 0;
+        foreach (var session in sessions)
+        {
+            try
+            {
+                await _sessionManager.SendMessageCommand(null, session.Id, message, cancellationToken).ConfigureAwait(false);
+                sent++;
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // One client refusing the message does not stop the others.
+                _logger.LogDebug(ex, "Scripts: could not send a message to session {Session}", session.Id);
+            }
+        }
+
+        return Result(sent > 0 ? OperationStatus.Succeeded : OperationStatus.Failed, "Sent the message to " + Number(sent) + " of " + Number(sessions.Count) + " sessions.");
     }
 
     private async Task<OperationResult> StopPlaybackAsync(ScriptOperation op, RunState state, CancellationToken cancellationToken)

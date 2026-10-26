@@ -40,6 +40,35 @@ public class ScriptDefinition
     /// <summary>Gets or sets the conditions. Empty always matches.</summary>
     public List<ScriptCondition> Conditions { get; set; } = new();
 
+    /// <summary>Gets or sets how long a session must stay paused for <see cref="ScriptTrigger.PlaybackPausedFor"/>.</summary>
+    public int PausedForMinutes { get; set; } = 10;
+
+    /// <summary>
+    /// Gets or sets how long a session must play, not counting pauses, for <see cref="ScriptTrigger.PlaybackPlayingFor"/>.
+    /// </summary>
+    public int PlayingForMinutes { get; set; } = 60;
+
+    /// <summary>Gets or sets how <see cref="ScriptTrigger.Schedule"/> comes due.</summary>
+    public ScheduleMode ScheduleMode { get; set; } = ScheduleMode.Daily;
+
+    /// <summary>Gets or sets the minutes between runs in <see cref="ScheduleMode.Interval"/> mode.</summary>
+    public int ScheduleIntervalMinutes { get; set; } = 60;
+
+    /// <summary>Gets or sets the server's local time of day, <c>HH:mm</c>, in <see cref="ScheduleMode.Daily"/> mode.</summary>
+    public string ScheduleTime { get; set; } = "03:00";
+
+    /// <summary>
+    /// Gets or sets the day of the month a monthly schedule runs on, 1 to 31. A month without that day runs on its
+    /// last day instead.
+    /// </summary>
+    public int ScheduleMonthDay { get; set; } = 1;
+
+    /// <summary>Gets or sets the days a daily schedule runs on. Empty runs every day.</summary>
+    public List<DayOfWeek> ScheduleDays { get; set; } = new();
+
+    /// <summary>Gets or sets the script's secrets, encrypted at rest.</summary>
+    public List<ScriptSecret> Secrets { get; set; } = new();
+
     /// <summary>Gets or sets the steps, run in order.</summary>
     public List<ScriptOperation> Operations { get; set; } = new();
 

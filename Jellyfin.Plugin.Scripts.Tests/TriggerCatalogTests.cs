@@ -33,6 +33,33 @@ public class TriggerCatalogTests
     }
 
     [Fact]
+    public void EveryTriggerHasALabelCategoryAndDescription()
+    {
+        foreach (var trigger in TriggerCatalog.All)
+        {
+            Assert.False(string.IsNullOrWhiteSpace(trigger.Label));
+            Assert.False(string.IsNullOrWhiteSpace(trigger.Category));
+            Assert.False(string.IsNullOrWhiteSpace(trigger.Description));
+        }
+    }
+
+    [Fact]
+    public void EveryFieldHasAVariable()
+    {
+        foreach (var field in Enum.GetValues<ConditionField>())
+        {
+            Assert.False(string.IsNullOrEmpty(TriggerCatalog.VariableFor(field)));
+        }
+    }
+
+    [Fact]
+    public void PlaybackTriggersCountStreams()
+    {
+        Assert.True(TriggerCatalog.Supplies(ScriptTrigger.PlaybackStart, ConditionField.ActiveTranscodes));
+        Assert.False(TriggerCatalog.Supplies(ScriptTrigger.ItemAdded, ConditionField.ActiveTranscodes));
+    }
+
+    [Fact]
     public void OnlyPlaybackStopSuppliesPlayedToCompletion()
     {
         var supplying = TriggerCatalog.All.Where(t => TriggerCatalog.Supplies(t.Trigger, ConditionField.PlayedToCompletion)).Select(t => t.Trigger);

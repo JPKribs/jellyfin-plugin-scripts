@@ -12,11 +12,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Jellyfin.Controller" Version="12.2.0">
+    <PackageReference Include="Jellyfin.Controller" Version="12.3.0">
       <PrivateAssets>all</PrivateAssets>
       <ExcludeAssets>runtime</ExcludeAssets>
     </PackageReference>
-    <PackageReference Include="Jellyfin.Model" Version="12.2.0">
+    <PackageReference Include="Jellyfin.Model" Version="12.3.0">
       <PrivateAssets>all</PrivateAssets>
       <ExcludeAssets>runtime</ExcludeAssets>
     </PackageReference>
@@ -32,6 +32,7 @@
     <EmbeddedResource Include="Configuration\scripts_settings.html" />
     <EmbeddedResource Include="Configuration\scripts_settings.js" />
     <EmbeddedResource Include="Configuration\scripts_common.js" />
+    <EmbeddedResource Include="Configuration\scripts_templates.js" />
     <EmbeddedResource Include="Configuration\scripts_shared.css" />
   </ItemGroup>
 

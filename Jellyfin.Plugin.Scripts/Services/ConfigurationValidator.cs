@@ -15,13 +15,19 @@ namespace Jellyfin.Plugin.Scripts.Services;
 /// same rules in the browser, but configuration can arrive from any API client, so they are enforced server
 /// side as well.
 /// </summary>
-public static class ConfigurationValidator
+public static partial class ConfigurationValidator
 {
     /// <summary>The longest a command may run, in seconds.</summary>
     public const int MaxTimeoutSeconds = 3600;
 
     /// <summary>The longest cooldown, in seconds (one day).</summary>
     public const int MaxCooldownSeconds = 86_400;
+
+    /// <summary>The longest a "for a while" playback trigger may wait, in minutes (one day).</summary>
+    public const int MaxDurationMinutes = 1440;
+
+    /// <summary>The longest schedule interval, in minutes (one week).</summary>
+    public const int MaxIntervalMinutes = 10_080;
 
     /// <summary>The most runs that may execute at once.</summary>
     public const int MaxConcurrentRuns = 32;
@@ -62,6 +68,14 @@ public static class ConfigurationValidator
         script.Triggers = (script.Triggers ?? new()).Distinct().ToList();
         script.ItemKinds = (script.ItemKinds ?? new()).Distinct().ToList();
         script.UserIds = (script.UserIds ?? new()).Where(id => id != Guid.Empty).Distinct().ToList();
+        script.ScheduleDays = (script.ScheduleDays ?? new()).Distinct().ToList();
+        script.ScheduleTime = (script.ScheduleTime ?? string.Empty).Trim();
+        script.Secrets ??= new List<ScriptSecret>();
+        foreach (var secret in script.Secrets)
+        {
+            secret.Name = (secret.Name ?? string.Empty).Trim().ToUpperInvariant();
+            secret.Value ??= string.Empty;
+        }
         script.Conditions ??= new List<ScriptCondition>();
         script.Operations ??= new List<ScriptOperation>();
         foreach (var condition in script.Conditions)
@@ -134,14 +148,65 @@ public static class ConfigurationValidator
 
         Range(script.CooldownSeconds, 0, MaxCooldownSeconds, label + "cooldown");
 
+        if (script.Triggers.Contains(ScriptTrigger.PlaybackPausedFor))
+        {
+            Range(script.PausedForMinutes, 1, MaxDurationMinutes, label + "paused for minutes");
+        }
+
+        if (script.Triggers.Contains(ScriptTrigger.PlaybackPlayingFor))
+        {
+            Range(script.PlayingForMinutes, 1, MaxDurationMinutes, label + "playing for minutes");
+        }
+
+        if (script.Triggers.Contains(ScriptTrigger.Schedule))
+        {
+            if (!Enum.IsDefined(script.ScheduleMode))
+            {
+                throw new ArgumentException(label + "has an unknown schedule mode.");
+            }
+
+            if (script.ScheduleMode == ScheduleMode.Interval)
+            {
+                Range(script.ScheduleIntervalMinutes, 1, MaxIntervalMinutes, label + "schedule interval");
+            }
+            else if (!ScheduleTimes.TryParse(script.ScheduleTime, out _))
+            {
+                throw new ArgumentException(label + "the schedule time must be HH:mm, such as 03:00.");
+            }
+
+            if (script.ScheduleMode == ScheduleMode.Monthly)
+            {
+                Range(script.ScheduleMonthDay, 1, 31, label + "schedule day of the month");
+            }
+
+            if (script.ScheduleDays.Any(d => !Enum.IsDefined(d)))
+            {
+                throw new ArgumentException(label + "has an unknown schedule day.");
+            }
+        }
+
         foreach (var condition in script.Conditions)
         {
             ValidateCondition(condition, label);
         }
 
+        var secretNames = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var secret in script.Secrets)
+        {
+            if (!SecretName().IsMatch(secret.Name))
+            {
+                throw new ArgumentException(label + "the secret name \"" + secret.Name + "\" must be capital letters, digits, and underscores, up to 40.");
+            }
+
+            if (!secretNames.Add(secret.Name))
+            {
+                throw new ArgumentException(label + "has two secrets named " + secret.Name + ".");
+            }
+        }
+
         for (var i = 0; i < script.Operations.Count; i++)
         {
-            ValidateOperation(script.Operations[i], label + "step " + (i + 1).ToString(CultureInfo.InvariantCulture) + " ");
+            ValidateOperation(script.Operations[i], script.Id, label + "step " + (i + 1).ToString(CultureInfo.InvariantCulture) + " ");
         }
     }
 
@@ -156,6 +221,19 @@ public static class ConfigurationValidator
         if (condition.Values.Count == 0)
         {
             throw new ArgumentException(label + "the " + condition.Field + " condition has no value.");
+        }
+
+        if (condition.Operator is ConditionOperator.AtLeast or ConditionOperator.AtMost)
+        {
+            foreach (var number in condition.Values)
+            {
+                if (!double.TryParse(number, NumberStyles.Float, CultureInfo.InvariantCulture, out _))
+                {
+                    throw new ArgumentException(label + "\"" + number + "\" is not a number, which " + condition.Operator + " needs.");
+                }
+            }
+
+            return;
         }
 
         if (condition.Operator != ConditionOperator.MatchesRegex)
@@ -176,7 +254,7 @@ public static class ConfigurationValidator
         }
     }
 
-    private static void ValidateOperation(ScriptOperation op, string label)
+    private static void ValidateOperation(ScriptOperation op, Guid scriptId, string label)
     {
         switch (op.Type)
         {
@@ -200,6 +278,8 @@ public static class ConfigurationValidator
                     throw new ArgumentException(label + "has an invalid content type.");
                 }
 
+                Range(op.Retries, 0, OperationExecutor.MaxRetries, label + "retries");
+
                 if (!HttpMethods.Contains(op.Method ?? string.Empty))
                 {
                     throw new ArgumentException(label + "has an unsupported HTTP method.");
@@ -210,6 +290,11 @@ public static class ConfigurationValidator
                 if (string.IsNullOrWhiteSpace(op.Text))
                 {
                     throw new ArgumentException(label + "needs message text.");
+                }
+
+                if (!Enum.IsDefined(op.Target))
+                {
+                    throw new ArgumentException(label + "has an unknown message target.");
                 }
 
                 Range(op.DisplaySeconds, 0, 300, label + "display time");
@@ -227,13 +312,58 @@ public static class ConfigurationValidator
             case OperationType.Wait:
                 Range(op.WaitSeconds, 1, OperationExecutor.MaxWaitSeconds, label + "wait");
                 break;
+            case OperationType.AddTag:
+            case OperationType.RemoveTag:
+                if (string.IsNullOrWhiteSpace(op.Tag))
+                {
+                    throw new ArgumentException(label + "needs a tag.");
+                }
+
+                break;
+            case OperationType.AddToCollection:
+            case OperationType.RemoveFromCollection:
+                if (!Guid.TryParse(op.CollectionId, out _))
+                {
+                    throw new ArgumentException(label + "needs a collection.");
+                }
+
+                break;
+            case OperationType.RunScript:
+                if (!Guid.TryParse(op.ScriptId, out var target))
+                {
+                    throw new ArgumentException(label + "needs a script to run.");
+                }
+
+                if (target == scriptId)
+                {
+                    throw new ArgumentException(label + "cannot run its own script.");
+                }
+
+                break;
+            case OperationType.AppendToFile:
+                if (string.IsNullOrWhiteSpace(op.FilePath) || !System.IO.Path.IsPathRooted(op.FilePath.Trim()))
+                {
+                    throw new ArgumentException(label + "needs a full file path.");
+                }
+
+                break;
             case OperationType.RefreshMetadata:
             case OperationType.WriteActivityLog:
+            case OperationType.PausePlayback:
+            case OperationType.MarkPlayed:
+            case OperationType.MarkUnplayed:
+            case OperationType.SetFavorite:
+            case OperationType.SetUserDisabled:
+            case OperationType.SignOutUser:
+            case OperationType.ScanLibraries:
                 break;
             default:
                 throw new ArgumentException(label + "has an unknown type.");
         }
     }
+
+    [GeneratedRegex("^[A-Z0-9_]{1,40}$", RegexOptions.CultureInvariant)]
+    private static partial Regex SecretName();
 
     private static void Range(int value, int min, int max, string what)
     {

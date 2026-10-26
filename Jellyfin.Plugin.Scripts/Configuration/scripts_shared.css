@@ -1,43 +1,250 @@
-/* Scripts plugin styles on top of the shared jpk kit. */
+/* Scripts plugin styles on top of the shared jpk kit.
+   One spacing scale throughout: 6 / 10 / 16 / 24 / 36 px, and one control height so selects, text inputs, chip
+   inputs, and buttons on the same row line up. */
 
-.scripts-trigger-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px 24px; margin-top: 8px; }
-.scripts-trigger-category { font-weight: 600; opacity: .8; margin-bottom: 4px; text-transform: uppercase; font-size: .8em; letter-spacing: .04em; }
-.scripts-trigger { display: flex; margin: 4px 0; }
+.pluginConfigurationPage,
+.jpk-dialog {
+    --scripts-xs: 6px;
+    --scripts-sm: 10px;
+    --scripts-md: 16px;
+    --scripts-lg: 24px;
+    --scripts-xl: 36px;
+    --scripts-control: 43px;
+}
 
-.scripts-match { max-width: 320px; }
-.scripts-condition { margin-bottom: 10px; }
-.scripts-condition-line { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; }
-.scripts-condition-line select { width: auto; min-width: 150px; }
-.scripts-condition-values { flex: 1 1 240px; min-width: 200px; }
-.scripts-inline-warn { margin-top: 6px; }
+/* ---- Sections ---- */
 
-.scripts-op { border: 1px solid rgba(128, 128, 128, .3); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; }
-.scripts-op-head { display: flex; align-items: center; gap: 8px; }
-.scripts-op-spacer { flex: 1; }
-.scripts-op-body { margin-top: 10px; }
-.scripts-textarea { width: 100%; font-family: monospace; }
-.scripts-add-step { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
-.scripts-add-step select { width: auto; min-width: 220px; }
-.scripts-path-check { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: -6px 0 12px; }
+.pluginConfigurationPage .jpk-section { margin-bottom: var(--scripts-xl); }
+.pluginConfigurationPage .jpk-section-title { margin-bottom: var(--scripts-sm); }
+.pluginConfigurationPage .jpk-section-content > .fieldDescription:first-child { margin: 0 0 var(--scripts-md); }
+.pluginConfigurationPage .jpk-section-content > .jpk-warn,
+.pluginConfigurationPage .jpk-section-content > .jpk-info { margin-top: var(--scripts-md); }
+.pluginConfigurationPage .jpk-section-content .inputContainer,
+.pluginConfigurationPage .jpk-section-content .selectContainer { margin-bottom: var(--scripts-lg); }
+.pluginConfigurationPage .jpk-collapsible-section { margin: 0 0 var(--scripts-xl); }
+.pluginConfigurationPage .jpk-choice-group { margin-bottom: var(--scripts-lg); }
+.pluginConfigurationPage .jpk-subsection-title { margin: var(--scripts-md) 0 var(--scripts-sm); }
+.pluginConfigurationPage .jpk-selector { margin-bottom: var(--scripts-sm); }
+#transferStatus { display: block; margin: var(--scripts-xs) 0 var(--scripts-lg); }
+#transferStatus:empty { display: none; }
+.jpk-selector + #transferStatus:empty + #emptyState,
+.jpk-selector + #transferStatus:empty ~ #scriptEditor { margin-top: var(--scripts-lg); }
+#scriptCounts { margin-bottom: var(--scripts-lg); }
 
-.scripts-variables { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 6px; margin-top: 8px; }
-.scripts-variable { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; padding: 6px 8px; border: 1px solid rgba(128, 128, 128, .25); border-radius: 6px; background: transparent; color: inherit; cursor: pointer; font: inherit; }
-.scripts-variable:hover { border-color: rgba(128, 128, 128, .6); }
-.scripts-variable span { opacity: .75; font-size: .9em; }
+/* Kit text inputs (chip selects, list searches) at the dashboard's control size */
+/* Kit text inputs (chip selects, list searches) match the dashboard's own fields: 1.1em text, 0.55em padding */
+.pluginConfigurationPage .jpk-chip-select .jpk-edit-input,
+.pluginConfigurationPage .jpk-check-list-search {
+    height: var(--scripts-control);
+    padding: 0.55em 0.7em;
+    font-size: 1.1em;
+}
+/* The input first and the chosen values under it, so the input lines up with selects beside it */
+.pluginConfigurationPage .jpk-chip-select { gap: var(--scripts-sm); flex-direction: column-reverse; }
+.pluginConfigurationPage .jpk-tags { gap: var(--scripts-xs); }
 
-.scripts-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 16px; }
-.scripts-actions > .button-submit { flex: 1 1 200px; margin: 0; }
-.scripts-test { display: flex; gap: 8px; align-items: center; }
-.scripts-test select { width: auto; min-width: 180px; }
+/* ---- Triggers ---- */
 
-.scripts-run-summary { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 12px 0 8px; }
-.scripts-run-steps { padding-left: 20px; margin: 0; }
-.scripts-run-steps li { margin-bottom: 10px; }
-.scripts-run-step-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.scripts-output { max-height: 260px; overflow: auto; white-space: pre-wrap; margin-top: 6px; }
-.scripts-run-variables { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 8px 0; word-break: break-all; }
-.scripts-run-variables dt { font-family: monospace; opacity: .8; }
+.pluginConfigurationPage .jpk-check-list { gap: var(--scripts-sm); }
+.pluginConfigurationPage .jpk-check-list-body { max-height: 360px; padding-right: var(--scripts-xs); }
+.pluginConfigurationPage .jpk-check-row { padding: var(--scripts-xs) 0; }
+
+.scripts-trigger-options {
+    margin-top: var(--scripts-md);
+    padding: var(--scripts-md) var(--scripts-md) var(--scripts-xs);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(128, 128, 128, 0.25);
+}
+.scripts-trigger-options .jpk-subsection-title { margin-top: 0; }
+.scripts-days { display: flex; flex-wrap: wrap; gap: var(--scripts-xs) var(--scripts-lg); margin: var(--scripts-xs) 0 var(--scripts-lg); }
+.scripts-days > .emby-checkbox-label,
+.scripts-day { display: inline-flex; flex: 0 0 auto; width: auto; margin: 0; padding-right: var(--scripts-xs); }
+
+/* ---- Conditions ---- */
+
+#conditionList { display: flex; flex-direction: column; gap: var(--scripts-md); margin-bottom: var(--scripts-md); }
+#conditionList:empty { display: none; }
+.scripts-condition { display: flex; flex-direction: column; gap: var(--scripts-sm); }
+.scripts-condition-line {
+    display: grid;
+    grid-template-columns: minmax(170px, 220px) minmax(140px, 170px) minmax(200px, 1fr) var(--scripts-control);
+    gap: var(--scripts-sm);
+    align-items: start;
+}
+.scripts-cell { min-width: 0; }
+.scripts-cell .selectContainer, .scripts-cell .inputContainer { margin: 0; }
+.scripts-condition-line select { width: 100%; min-height: var(--scripts-control); margin: 0; }
+.scripts-condition-values { min-width: 0; }
+.scripts-condition-line > .scripts-cell:last-child,
+.scripts-secret > .scripts-cell:nth-last-child(-n+2) { height: var(--scripts-control); display: flex; align-items: center; justify-content: center; }
+.scripts-condition-line .jpk-row-btn,
+.scripts-secret .jpk-row-btn {
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.scripts-inline-warn { margin: 0; }
+
+/* ---- Steps ---- */
+
+.pluginConfigurationPage .jpk-card-list { gap: var(--scripts-sm); }
+.pluginConfigurationPage .jpk-card-item-body { padding: var(--scripts-md) var(--scripts-md) var(--scripts-md); }
+#operationEmpty { margin-bottom: var(--scripts-md); }
+.scripts-op-editor > .jpk-warn { margin: 0 0 var(--scripts-md); }
+.scripts-op-editor > .jpk-button-destructive { margin-top: var(--scripts-xs); }
+.scripts-op-note { margin: 0 0 var(--scripts-lg); }
+.scripts-command-mode { margin-bottom: var(--scripts-lg); }
+.scripts-textarea { width: 100%; font-family: var(--jpk-mono); box-sizing: border-box; }
+.scripts-path-check { display: flex; flex-wrap: wrap; align-items: center; gap: var(--scripts-sm); margin: calc(-1 * var(--scripts-sm)) 0 var(--scripts-lg); }
+.scripts-add-step { display: flex; flex-wrap: wrap; gap: var(--scripts-sm); align-items: center; margin-top: var(--scripts-md); }
+.scripts-add-step-type { min-width: 260px; }
+.scripts-add-step select { width: 100%; min-height: var(--scripts-control); margin: 0; }
+.scripts-add-step .emby-button { margin: 0; min-height: var(--scripts-control); }
+
+/* ---- Secrets ---- */
+
+#secretList { display: flex; flex-direction: column; gap: var(--scripts-sm); margin-bottom: var(--scripts-md); }
+#secretList:empty { display: none; }
+.scripts-secret {
+    display: grid;
+    grid-template-columns: minmax(150px, 240px) minmax(180px, 1fr) var(--scripts-control) var(--scripts-control);
+    gap: var(--scripts-sm);
+    align-items: start;
+}
+.scripts-secret .scripts-cell > * { margin-bottom: 0; }
+.scripts-secret input { width: 100%; height: var(--scripts-control); box-sizing: border-box; margin: 0; }
+.scripts-secret-name { font-family: var(--jpk-mono); }
+
+/* ---- Variables ---- */
+
+.scripts-variables { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--scripts-sm); margin-top: var(--scripts-md); }
+.scripts-variable {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    text-align: left;
+    padding: var(--scripts-sm) 12px;
+    border: 1px solid rgba(128, 128, 128, 0.25);
+    border-radius: 6px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+}
+.scripts-variable:hover { border-color: rgba(128, 128, 128, 0.6); }
+.scripts-variable code { font-family: var(--jpk-mono); }
+.scripts-variable span { opacity: 0.75; font-size: 0.9em; line-height: 1.35; }
+
+/* ---- Save and test ---- */
+
+.scripts-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--scripts-md);
+    align-items: center;
+    margin: 0 0 var(--scripts-sm);
+    padding-top: var(--scripts-lg);
+    border-top: 1px solid rgba(128, 128, 128, 0.25);
+}
+.scripts-actions > .button-submit { width: auto; min-width: 180px; margin: 0; min-height: var(--scripts-control); }
+.scripts-actions .jpk-unsaved { margin-right: auto; }
+.scripts-test { display: flex; gap: var(--scripts-sm); align-items: center; }
+.scripts-test-trigger { min-width: 240px; }
+.scripts-test select { width: 100%; min-height: var(--scripts-control); margin: 0; }
+.scripts-test .emby-button { margin: 0; min-height: var(--scripts-control); }
+#scriptStatus { display: block; min-height: 1.4em; margin-bottom: var(--scripts-sm); }
+
+/* ---- Runs (test dialog and history) ---- */
+
+.scripts-run-summary { display: flex; flex-wrap: wrap; gap: var(--scripts-sm) var(--scripts-md); align-items: center; margin: 0 0 var(--scripts-md); }
+.scripts-run-steps { padding-left: 22px; margin: 0 0 var(--scripts-md); }
+.scripts-run-steps li { margin-bottom: var(--scripts-md); }
+.scripts-run-step-head { display: flex; flex-wrap: wrap; gap: var(--scripts-sm); align-items: center; line-height: 1.4; }
+.scripts-run-step-message { margin-top: var(--scripts-xs); line-height: 1.5; opacity: 0.9; }
+.scripts-run-steps li::marker { color: rgba(255, 255, 255, 0.5); }
+.scripts-output { max-height: 260px; overflow: auto; white-space: pre-wrap; margin-top: var(--scripts-sm); }
+.scripts-run-variables { display: grid; grid-template-columns: max-content 1fr; gap: var(--scripts-xs) var(--scripts-md); margin: var(--scripts-sm) 0; word-break: break-all; }
+.scripts-run-variables dt { font-family: var(--jpk-mono); opacity: 0.8; }
 .scripts-run-variables dd { margin: 0; }
+.jpk-dialog .scripts-run-variables { max-height: 320px; overflow: auto; }
+.jpk-dialog .fieldDescription { margin-bottom: var(--scripts-md, 16px); }
 
-#historyTable { margin-bottom: 16px; }
-#btnClearHistory { margin-top: 8px; }
+#historyTable { margin-bottom: var(--scripts-lg); }
+#btnClearHistory { margin: 0 var(--scripts-md) 0 0; }
+
+/* ---- Settings ---- */
+
+#ScriptsSettingsPage .jpk-info,
+#ScriptsSettingsPage .jpk-warn { margin-bottom: var(--scripts-md); }
+#btnSaveSettings { margin-top: var(--scripts-sm); }
+
+/* ---- Phones ---- */
+
+@media (max-width: 700px) {
+    .scripts-condition-line { grid-template-columns: 1fr var(--scripts-control); }
+    .scripts-condition-line > .scripts-cell:nth-child(1) { grid-column: 1; grid-row: 1; }
+    .scripts-condition-line > .scripts-cell:nth-child(2) { grid-column: 1 / -1; grid-row: 2; }
+    .scripts-condition-values { grid-column: 1 / -1; grid-row: 3; }
+    .scripts-condition-line > .scripts-cell:last-child { grid-column: 2; grid-row: 1; }
+    .scripts-secret { grid-template-columns: 1fr var(--scripts-control) var(--scripts-control); }
+    .scripts-secret-value-cell { grid-column: 1 / -1; grid-row: 2; }
+    .scripts-actions > .button-submit,
+    .scripts-test,
+    .scripts-test-trigger,
+    .scripts-add-step-type { flex: 1 1 auto; width: 100%; min-width: 0; }
+    .scripts-test .emby-button { flex: 0 0 auto; }
+    .scripts-variables { grid-template-columns: 1fr; }
+}
+
+/* ---- Dialogs (New script, import, test, run details) ----
+   The kit's dialog fields and buttons default to small browser controls; these match the dashboard's. */
+
+.jpk-dialog .jpk-dialog-content { padding: 24px 28px; }
+.jpk-dialog .jpk-modal-title { margin: 0 0 18px; }
+.jpk-dialog .jpk-modal-field { margin-bottom: 18px; }
+.jpk-dialog .jpk-modal-field-label { margin-bottom: 8px; opacity: 0.85; }
+.jpk-dialog .jpk-modal-field .jpk-edit-input {
+    height: 43px;
+    padding: 0.55em 0.7em;
+    font-size: 1.05em;
+    font-family: inherit;
+    border-radius: 4px;
+}
+.jpk-dialog .jpk-modal-field textarea.jpk-edit-input { height: auto; min-height: 90px; }
+.jpk-dialog .jpk-modal-button-row { gap: 12px; margin-top: 24px; }
+.jpk-dialog .jpk-modal-button {
+    min-height: 42px;
+    padding: 0 1.4em;
+    font-size: 1em;
+    font-weight: 600;
+    font-family: inherit;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+}
+.jpk-dialog .jpk-modal-body > p { margin: 0 0 8px; line-height: 1.5; }
+
+/* History table: the run column gets the room, the rest size to their content */
+#historyTable .jpk-table-row { gap: var(--scripts-md); }
+#historyTable .scripts-col-run { flex: 3 1 0; min-width: 0; }
+#historyTable .scripts-col-run .jpk-table-item-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#historyTable .scripts-col-when { flex: 0 0 auto; white-space: nowrap; opacity: 0.85; }
+#historyTable .scripts-col-duration { flex: 0 0 5.5em; white-space: nowrap; text-align: right; opacity: 0.85; }
+#historyTable .scripts-col-result { flex: 0 0 7em; display: flex; justify-content: flex-end; }
+@media (max-width: 700px) {
+    #historyTable .scripts-col-duration { display: none; }
+    #historyTable .scripts-col-when { font-size: 0.85em; }
+}
+
+/* Row buttons center their icon on the row's inputs */
+.scripts-cell > .jpk-row-btn { margin: 0; padding: 0; line-height: 1; }
+.scripts-cell > .jpk-row-btn .material-icons { font-size: 22px; line-height: 1; display: block; }
+
+/* emby-input puts an empty label above an unlabelled input; rows label their inputs with aria-label instead */
+.scripts-secret .inputLabel,
+.scripts-condition-line .inputLabel,
+.scripts-cell > .selectLabel:empty { display: none; }

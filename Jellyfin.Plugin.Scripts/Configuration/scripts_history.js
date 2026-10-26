@@ -1,5 +1,5 @@
-import { createConfigPage, createPaginatedTable, confirmDialog } from './configurationpage?name=scripts_jpkribs_shared.js';
-import { PLUGIN_ID, TABS, renderRunSteps } from './configurationpage?name=scripts_common.js';
+import { createConfigPage, createPaginatedTable, confirmDialog, openDialog } from './configurationpage?name=scripts_jpkribs_shared.js';
+import { PLUGIN_ID, TABS, renderRunSteps, renderRunVariables, formatDuration } from './configurationpage?name=scripts_common.js';
 
 export default function (view) {
     'use strict';
@@ -15,33 +15,33 @@ export default function (view) {
     var Shared = page.shared;
 
     var table = null;
+    var triggerLabels = {};
 
     function el(id) { return view.querySelector('#' + id); }
     function esc(value) { return Shared.escapeHtml(value === null || value === undefined ? '' : String(value)); }
+    function triggerLabel(key) { return triggerLabels[key] || key; }
 
-    function duration(ms) {
-        return ms < 1000 ? ms + ' ms' : Shared.formatDuration(Math.round(ms / 1000));
+    // Short enough for one line in the table: "Oct 25, 10:27:20 PM".
+    function when(value) {
+        var date = new Date(value);
+        return isNaN(date) ? '' : date.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit' });
     }
 
     function showRun(run) {
-        el('runDetailTitle').textContent = run.ScriptName + ' · ' + run.Trigger + (run.IsTest ? ' (test)' : '');
-        el('runDetailSummary').innerHTML =
-            Shared.badge(run.Succeeded ? 'green' : 'red', run.Succeeded ? 'Succeeded' : 'Failed') +
-            '<span>' + esc(Shared.formatDate(run.StartedUtc)) + '</span>' +
-            '<span>' + esc(duration(run.DurationMs)) + '</span>' +
-            (run.Summary ? '<span>' + esc(run.Summary) + '</span>' : '');
-        el('runDetailSteps').innerHTML = renderRunSteps(Shared, run);
-
-        var variables = run.Variables || {};
-        var names = Object.keys(variables).sort();
-        el('runDetailVariables').innerHTML = names.length
-            ? '<dl class="scripts-run-variables">' + names.map(function (name) {
-                return '<dt>JF_' + esc(name) + '</dt><dd>' + esc(variables[name]) + '</dd>';
-            }).join('') + '</dl>'
-            : Shared.emptySection('No variables.');
-
-        Shared.setVisible('runDetail', true);
-        el('runDetail').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        openDialog({
+            title: run.ScriptName + (run.IsTest ? ' (test)' : ''),
+            body:
+                '<div class="scripts-run-summary">' +
+                    Shared.badge(run.Succeeded ? 'green' : 'red', run.Succeeded ? 'Succeeded' : 'Failed') +
+                    '<span>' + esc(triggerLabel(run.Trigger)) + '</span>' +
+                    '<span>' + esc(when(run.StartedUtc)) + '</span>' +
+                    '<span>' + esc(formatDuration(Shared, run.DurationMs)) + '</span>' +
+                '</div>' +
+                (run.Summary ? '<div class="fieldDescription">' + esc(run.Summary) + '</div>' : '') +
+                '<div class="jpk-subsection-title">Steps</div>' + renderRunSteps(Shared, run) +
+                '<div class="jpk-subsection-title">Variables</div>' + renderRunVariables(Shared, run),
+            buttons: [{ text: 'Close', className: 'jpk-secondary', action: function (close) { close(); } }]
+        });
     }
 
     function createTable(scripts) {
@@ -59,15 +59,15 @@ export default function (view) {
             emptyState: { message: 'No runs yet.' },
             columns: [
                 {
-                    key: 'ScriptName', type: 'custom', render: function (run) {
+                    key: 'ScriptName', type: 'custom', className: 'scripts-col-run', render: function (run) {
                         return '<div class="jpk-table-item-info"><div class="jpk-table-item-title">' + esc(run.ScriptName) + (run.IsTest ? ' (test)' : '') + '</div>' +
-                            '<div class="jpk-table-item-sub">' + esc(run.Trigger) + (run.Summary ? ' · ' + esc(run.Summary) : '') + '</div></div>';
+                            '<div class="jpk-table-item-sub">' + esc(triggerLabel(run.Trigger)) + (run.Summary ? ' · ' + esc(run.Summary) : '') + '</div></div>';
                     }
                 },
-                { key: 'StartedUtc', type: 'custom', render: function (run) { return esc(Shared.formatDate(run.StartedUtc)); } },
-                { key: 'DurationMs', type: 'custom', render: function (run) { return esc(duration(run.DurationMs)); } },
+                { key: 'StartedUtc', type: 'custom', className: 'scripts-col-when', render: function (run) { return esc(when(run.StartedUtc)); } },
+                { key: 'DurationMs', type: 'custom', className: 'scripts-col-duration', render: function (run) { return esc(formatDuration(Shared, run.DurationMs)); } },
                 {
-                    key: 'Succeeded', type: 'custom', render: function (run) {
+                    key: 'Succeeded', type: 'custom', className: 'scripts-col-result', render: function (run) {
                         return Shared.badge(run.Succeeded ? 'green' : 'red', run.Succeeded ? 'Succeeded' : 'Failed');
                     }
                 }
@@ -82,7 +82,6 @@ export default function (view) {
             confirmDialog('Delete every recorded run?', { title: 'Clear history', confirmText: 'Clear', destructive: true }).then(function (ok) {
                 if (!ok) return;
                 Shared.apiRequest('Scripts/History', 'DELETE').then(function () {
-                    Shared.setVisible('runDetail', false);
                     Shared.setStatus('historyStatus', 'History cleared.', false);
                     if (table) table.reload();
                 }).catch(function () {
@@ -90,13 +89,12 @@ export default function (view) {
                 });
             });
         });
-        Shared.initCollapsibles();
     }
 
     function load() {
-        Shared.setVisible('runDetail', false);
-        Shared.getConfig().then(function (config) {
-            createTable(config.Scripts || []);
+        Promise.all([Shared.getConfig(), Shared.apiRequest('Scripts/Catalog', 'GET')]).then(function (results) {
+            (results[1].Triggers || []).forEach(function (t) { triggerLabels[t.Key] = t.Label; });
+            createTable(results[0].Scripts || []);
             return table.load();
         }).catch(function () {
             Shared.setStatus('historyStatus', 'Could not load the history.', true, { timeout: 0 });

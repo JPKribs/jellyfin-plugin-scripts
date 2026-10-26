@@ -14,25 +14,10 @@
 
                     <div class="fieldDescription" style="margin-bottom: 12px;">
                         The most recent runs, newest first, including test runs. Click a run to see each step, its
-                        output, and the variables it received. Settings sets how many runs are kept.
+                        output, and the variables it received. Runs started by another script's Run another script step are listed too. Settings sets how many runs are kept.
                     </div>
 
                     <div id="historyTable"></div>
-
-                    <div id="runDetail" class="jpk-section hidden">
-                        <div class="jpk-section-title" id="runDetailTitle"></div>
-                        <div class="jpk-section-content">
-                            <div id="runDetailSummary" class="scripts-run-summary"></div>
-                            <div id="runDetailSteps"></div>
-                            <div class="jpk-collapsible-section">
-                                <button type="button" class="jpk-collapsible-header collapsed" aria-expanded="false" data-target="runDetailVariables">
-                                    <span class="jpk-collapsible-title">Variables</span>
-                                    <span class="jpk-collapsible-icon">&#9660;</span>
-                                </button>
-                                <div id="runDetailVariables" class="jpk-collapsible-content collapsed"></div>
-                            </div>
-                        </div>
-                    </div>
 
                     <button is="emby-button" type="button" id="btnClearHistory" class="raised jpk-button-destructive">
                         <span>Clear history</span>

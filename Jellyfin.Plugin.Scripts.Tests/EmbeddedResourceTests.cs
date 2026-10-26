@@ -16,6 +16,7 @@ public class EmbeddedResourceTests
     [InlineData("scripts_settings.html")]
     [InlineData("scripts_settings.js")]
     [InlineData("scripts_common.js")]
+    [InlineData("scripts_templates.js")]
     [InlineData("scripts_shared.css")]
     public void DashboardFileIsEmbedded(string file)
     {

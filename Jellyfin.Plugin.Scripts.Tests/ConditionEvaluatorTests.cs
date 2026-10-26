@@ -157,6 +157,32 @@ public class ConditionEvaluatorTests
         Assert.False(ConditionEvaluator.Matches(Condition(ConditionField.SeriesName, op, "Kids Show"), Playback()));
     }
 
+    [Theory]
+    [InlineData(ConditionOperator.AtLeast, "4", true)]
+    [InlineData(ConditionOperator.AtLeast, "5", false)]
+    [InlineData(ConditionOperator.AtMost, "4", true)]
+    [InlineData(ConditionOperator.AtMost, "3.5", false)]
+    [InlineData(ConditionOperator.AtLeast, "lots", false)]
+    public void NumericOperatorsCompareNumbers(ConditionOperator op, string value, bool expected)
+    {
+        var context = Playback();
+        context.Set("ACTIVE_TRANSCODES", "4");
+
+        Assert.Equal(expected, ConditionEvaluator.Matches(Condition(ConditionField.ActiveTranscodes, op, value), context));
+    }
+
+    [Fact]
+    public void GenreMatchesAnyOfTheItemsGenres()
+    {
+        var context = Playback();
+        context.Set("GENRES", "Action, Comedy");
+        context.AddCandidate(ConditionField.Genre, "Action");
+        context.AddCandidate(ConditionField.Genre, "Comedy");
+
+        Assert.True(ConditionEvaluator.Matches(Condition(ConditionField.Genre, ConditionOperator.Is, "comedy"), context));
+        Assert.False(ConditionEvaluator.Matches(Condition(ConditionField.Genre, ConditionOperator.IsNot, "comedy"), context));
+    }
+
     [Fact]
     public void AConditionWithoutValuesNeverMatches()
     {

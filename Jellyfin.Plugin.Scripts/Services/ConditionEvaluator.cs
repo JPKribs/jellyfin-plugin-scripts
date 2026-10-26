@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Jellyfin.Plugin.Scripts.Models;
@@ -119,6 +120,14 @@ public static class ConditionEvaluator
         return condition.Operator is ConditionOperator.IsNot or ConditionOperator.DoesNotContain ? !any : any;
     }
 
+    // Both sides must read as numbers; text such as "PG-13" never satisfies a numeric comparison.
+    private static bool Numbers(string candidate, string value, out double left, out double right)
+    {
+        right = 0;
+        return double.TryParse(candidate, NumberStyles.Float, CultureInfo.InvariantCulture, out left)
+            && double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out right);
+    }
+
     private static bool Test(ConditionOperator op, string candidate, string value)
     {
         switch (op)
@@ -131,6 +140,10 @@ public static class ConditionEvaluator
                 return candidate.Contains(value, StringComparison.OrdinalIgnoreCase);
             case ConditionOperator.StartsWith:
                 return candidate.StartsWith(value, StringComparison.OrdinalIgnoreCase);
+            case ConditionOperator.AtLeast:
+                return Numbers(candidate, value, out var a, out var b) && a >= b;
+            case ConditionOperator.AtMost:
+                return Numbers(candidate, value, out var c, out var d) && c <= d;
             case ConditionOperator.MatchesRegex:
                 try
                 {

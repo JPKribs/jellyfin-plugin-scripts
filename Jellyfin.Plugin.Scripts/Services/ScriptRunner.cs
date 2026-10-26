@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
@@ -30,7 +31,11 @@ public class ScriptRunner : BackgroundService
     });
 
     private readonly SemaphoreSlim _slotFreed = new(0);
+    /// <summary>How deep Run script steps may nest, so two scripts that run each other stop.</summary>
+    public const int MaxScriptDepth = 3;
+
     private readonly OperationExecutor _executor;
+    private readonly SecretProtector _secrets;
     private readonly HistoryStore _history;
     private readonly ActivityLogger _activityLogger;
     private readonly ILogger<ScriptRunner> _logger;
@@ -43,13 +48,16 @@ public class ScriptRunner : BackgroundService
     /// <param name="executor">The step executor.</param>
     /// <param name="history">The run history.</param>
     /// <param name="activityLogger">The activity log writer.</param>
+    /// <param name="secrets">Decrypts script secrets at run time.</param>
     /// <param name="logger">The logger.</param>
     public ScriptRunner(
         OperationExecutor executor,
         HistoryStore history,
         ActivityLogger activityLogger,
+        SecretProtector secrets,
         ILogger<ScriptRunner> logger)
     {
+        _secrets = secrets;
         _executor = executor;
         _history = history;
         _activityLogger = activityLogger;
@@ -82,7 +90,10 @@ public class ScriptRunner : BackgroundService
     /// <param name="isTest">Whether this is a run from the test button.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The run record.</returns>
-    public async Task<ScriptRun> RunAsync(ScriptDefinition script, EventContext context, bool isTest, CancellationToken cancellationToken)
+    public Task<ScriptRun> RunAsync(ScriptDefinition script, EventContext context, bool isTest, CancellationToken cancellationToken)
+        => RunAsync(script, context, isTest, 0, cancellationToken);
+
+    private async Task<ScriptRun> RunAsync(ScriptDefinition script, EventContext context, bool isTest, int depth, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(script);
         ArgumentNullException.ThrowIfNull(context);
@@ -93,7 +104,18 @@ public class ScriptRunner : BackgroundService
             ["SCRIPT_NAME"] = script.Name
         };
 
-        var environment = variables.ToDictionary(v => TriggerCatalog.EnvironmentPrefix + v.Key, v => v.Value, StringComparer.Ordinal);
+        // Secrets are decrypted only for the run: they fill placeholders and the environment, but are left out
+        // of EVENT_JSON and of the variables the history records.
+        var withSecrets = new Dictionary<string, string>(variables, StringComparer.Ordinal);
+        foreach (var secret in script.Secrets)
+        {
+            if (secret.Name.Length > 0)
+            {
+                withSecrets[TriggerCatalog.SecretPrefix + secret.Name] = _secrets.Unprotect(secret.Value);
+            }
+        }
+
+        var environment = withSecrets.ToDictionary(v => TriggerCatalog.EnvironmentPrefix + v.Key, v => v.Value, StringComparer.Ordinal);
         environment[TriggerCatalog.EnvironmentPrefix + "EVENT_JSON"] = JsonSerializer.Serialize(variables);
 
         // Values the event lacks still reach the script, empty, so a script under `set -u` can test them.
@@ -102,7 +124,7 @@ public class ScriptRunner : BackgroundService
             environment.TryAdd(TriggerCatalog.EnvironmentPrefix + variable.Name, string.Empty);
         }
 
-        var state = new RunState(script, context, variables, environment, settings.DefaultTimeoutSeconds);
+        var state = new RunState(script, context, withSecrets, environment, settings.DefaultTimeoutSeconds);
         var run = new ScriptRun
         {
             Id = Guid.NewGuid(),
@@ -133,7 +155,9 @@ public class ScriptRunner : BackgroundService
             OperationResult result;
             try
             {
-                result = await _executor.ExecuteAsync(operation, state, cancellationToken).ConfigureAwait(false);
+                result = operation.Type == OperationType.RunScript
+                    ? await RunNestedAsync(operation, context, isTest, depth, cancellationToken).ConfigureAwait(false)
+                    : await _executor.ExecuteAsync(operation, state, cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -209,6 +233,34 @@ public class ScriptRunner : BackgroundService
         _slotFreed.Dispose();
         base.Dispose();
         GC.SuppressFinalize(this);
+    }
+
+    // Runs another script with the same event, in this run's slot, and reports its outcome as one step.
+    private async Task<OperationResult> RunNestedAsync(ScriptOperation op, EventContext context, bool isTest, int depth, CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(op.ScriptId, out var id))
+        {
+            return new OperationResult { Status = OperationStatus.Failed, Message = "No script is chosen." };
+        }
+
+        var target = Plugin.Instance?.ReadConfiguration(c => c.Scripts.FirstOrDefault(s => s.Id == id));
+        if (target is null)
+        {
+            return new OperationResult { Status = OperationStatus.Failed, Message = "The chosen script no longer exists." };
+        }
+
+        if (depth + 1 >= MaxScriptDepth)
+        {
+            return new OperationResult { Status = OperationStatus.Failed, Message = "Not run: scripts may only run each other " + MaxScriptDepth.ToString(CultureInfo.InvariantCulture) + " levels deep." };
+        }
+
+        var nested = await RunAsync(target, context, isTest, depth + 1, cancellationToken).ConfigureAwait(false);
+        var failed = nested.Operations.FirstOrDefault(o => o.Status == OperationStatus.Failed);
+        return new OperationResult
+        {
+            Status = nested.Succeeded ? OperationStatus.Succeeded : OperationStatus.Failed,
+            Message = "Ran \"" + target.Name + "\"" + (failed is null ? "." : ": " + failed.Message)
+        };
     }
 
     private static int MaxConcurrentRuns()

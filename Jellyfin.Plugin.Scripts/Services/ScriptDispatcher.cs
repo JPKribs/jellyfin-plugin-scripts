@@ -85,10 +85,51 @@ public class ScriptDispatcher
         return queued;
     }
 
-    private static IEnumerable<ScriptDefinition> ScriptsFor(ScriptTrigger trigger)
+    /// <summary>
+    /// Gets the enabled scripts that run on a trigger.
+    /// </summary>
+    /// <param name="trigger">The trigger.</param>
+    /// <returns>The scripts.</returns>
+    public static IEnumerable<ScriptDefinition> ScriptsFor(ScriptTrigger trigger)
     {
         var scripts = Plugin.Instance?.ReadConfiguration(c => c.Scripts.ToList()) ?? new List<ScriptDefinition>();
         return scripts.Where(s => s.Enabled && s.Triggers.Contains(trigger));
+    }
+
+    /// <summary>
+    /// Queues one script for an event its own threshold made due, such as a pause that has lasted long enough,
+    /// if its filters, conditions, and cooldown allow it.
+    /// </summary>
+    /// <param name="context">The event.</param>
+    /// <param name="script">The script.</param>
+    /// <returns>True when queued.</returns>
+    public bool DispatchTo(EventContext context, ScriptDefinition script)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(script);
+        if (!ConditionEvaluator.Matches(script, context))
+        {
+            return false;
+        }
+
+        var now = DateTime.UtcNow;
+        var claim = ClaimCooldown(script, context, now);
+        if (claim is { Allowed: false })
+        {
+            return false;
+        }
+
+        if (_runner.TryEnqueue(new ScriptJob(script, context)))
+        {
+            return true;
+        }
+
+        if (claim is { } dropped)
+        {
+            _cooldowns.TryRemove(new KeyValuePair<string, DateTime>(dropped.Key, dropped.Until));
+        }
+
+        return false;
     }
 
     // Claims the cooldown window atomically, so two events arriving together cannot both run. Returns null when

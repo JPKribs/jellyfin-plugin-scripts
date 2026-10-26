@@ -91,6 +91,54 @@ public class ConfigurationValidatorTests
         Assert.Equal(valid, error is null);
     }
 
+    [Theory]
+    [InlineData("HA_TOKEN", true)]
+    [InlineData("token", false)]
+    [InlineData("HA-TOKEN", false)]
+    public void ChecksSecretNames(string name, bool valid)
+    {
+        var script = Valid();
+        script.Secrets.Add(new ScriptSecret { Name = name, Value = "x" });
+        var error = Record.Exception(() => ConfigurationValidator.Validate(script));
+        Assert.Equal(valid, error is null);
+    }
+
+    [Fact]
+    public void NormalizeUppercasesSecretNames()
+    {
+        var script = Valid();
+        script.Secrets.Add(new ScriptSecret { Name = " ha_token ", Value = "x" });
+        ConfigurationValidator.Normalize(script);
+        Assert.Equal("HA_TOKEN", script.Secrets[0].Name);
+    }
+
+    [Fact]
+    public void RejectsABadScheduleTime()
+    {
+        var script = Valid();
+        script.Triggers.Add(ScriptTrigger.Schedule);
+        script.ScheduleMode = ScheduleMode.Daily;
+        script.ScheduleTime = "25:00";
+        Assert.Throws<ArgumentException>(() => ConfigurationValidator.Validate(script));
+    }
+
+    [Fact]
+    public void RejectsAScriptThatRunsItself()
+    {
+        var script = Valid();
+        script.Id = Guid.NewGuid();
+        script.Operations = new List<ScriptOperation> { new() { Type = OperationType.RunScript, ScriptId = script.Id.ToString() } };
+        Assert.Throws<ArgumentException>(() => ConfigurationValidator.Validate(script));
+    }
+
+    [Fact]
+    public void RejectsANonNumericValueForANumericOperator()
+    {
+        var script = Valid();
+        script.Conditions.Add(new ScriptCondition { Field = ConditionField.ActiveTranscodes, Operator = ConditionOperator.AtLeast, Values = new List<string> { "three" } });
+        Assert.Throws<ArgumentException>(() => ConfigurationValidator.Validate(script));
+    }
+
     [Fact]
     public void RejectsOutOfRangeSettings()
     {

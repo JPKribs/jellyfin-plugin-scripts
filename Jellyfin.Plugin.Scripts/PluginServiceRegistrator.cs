@@ -1,8 +1,12 @@
+using System;
+using Jellyfin.Data.Events.System;
+using Jellyfin.Data.Events.Users;
 using Jellyfin.Plugin.Scripts.Services;
 using JPKribs.Jellyfin.Base;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Events;
 using MediaBrowser.Controller.Events.Authentication;
+using MediaBrowser.Controller.Events.Updates;
 using MediaBrowser.Controller.Plugins;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -20,6 +24,10 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
         // dashboard surfaces plugin events to administrators.
         serviceCollection.AddActivityLogger();
 
+        // Encrypts script secrets at rest. Keys live in a fixed directory under the Jellyfin data folder with a
+        // pinned application name, so moving the host does not leave stored secrets undecryptable.
+        serviceCollection.AddPluginSecretProtector(Plugin.SecretsName);
+
         serviceCollection.AddSingleton<ScriptPaths>();
         serviceCollection.AddSingleton<HistoryStore>();
         serviceCollection.AddSingleton<EventContextBuilder>();
@@ -32,8 +40,24 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<ScriptDispatcher>();
 
         serviceCollection.AddHostedService<EventSubscriber>();
-        serviceCollection.AddSingleton<AuthenticationConsumers>();
-        serviceCollection.AddSingleton<IEventConsumer<AuthenticationResultEventArgs>>(provider => provider.GetRequiredService<AuthenticationConsumers>());
-        serviceCollection.AddSingleton<IEventConsumer<AuthenticationRequestEventArgs>>(provider => provider.GetRequiredService<AuthenticationConsumers>());
+        // One instance answers every event the server publishes through its event bus.
+        serviceCollection.AddSingleton<ServerEventConsumers>();
+        AddConsumer<AuthenticationResultEventArgs>(serviceCollection);
+        AddConsumer<AuthenticationRequestEventArgs>(serviceCollection);
+        AddConsumer<UserCreatedEventArgs>(serviceCollection);
+        AddConsumer<UserDeletedEventArgs>(serviceCollection);
+        AddConsumer<UserUpdatedEventArgs>(serviceCollection);
+        AddConsumer<UserLockedOutEventArgs>(serviceCollection);
+        AddConsumer<UserPasswordChangedEventArgs>(serviceCollection);
+        AddConsumer<PluginInstalledEventArgs>(serviceCollection);
+        AddConsumer<PluginUpdatedEventArgs>(serviceCollection);
+        AddConsumer<PluginUninstalledEventArgs>(serviceCollection);
+        AddConsumer<PluginInstallingEventArgs>(serviceCollection);
+        AddConsumer<PluginInstallationCancelledEventArgs>(serviceCollection);
+        AddConsumer<PendingRestartEventArgs>(serviceCollection);
     }
+
+    private static void AddConsumer<T>(IServiceCollection serviceCollection)
+        where T : EventArgs
+        => serviceCollection.AddSingleton<IEventConsumer<T>>(provider => (IEventConsumer<T>)provider.GetRequiredService<ServerEventConsumers>());
 }

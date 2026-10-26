@@ -77,6 +77,7 @@ validate_resources() {
         "$PROJECT_DIR/Configuration/scripts_settings.html"
         "$PROJECT_DIR/Configuration/scripts_settings.js"
         "$PROJECT_DIR/Configuration/scripts_common.js"
+        "$PROJECT_DIR/Configuration/scripts_templates.js"
         "$PROJECT_DIR/Configuration/scripts_shared.css"
     )
 
@@ -229,7 +230,7 @@ main() {
         cp "$logo_src" "$temp_dir/Logo.png"
 
         local target_abi=$(grep '^targetAbi:' build.yaml | cut -d':' -f2 | tr -d ' "')
-        [[ -z "$target_abi" ]] && target_abi="12.2.0.0"
+        [[ -z "$target_abi" ]] && target_abi="12.3.0.0"
         local meta_timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
         # Build the "assemblies" array from the artifacts already copied to temp.

@@ -10,6 +10,7 @@ using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.Scripts.Models;
 using Jellyfin.Plugin.Scripts.Services;
 using JPKribs.Jellyfin.Base;
+using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Model.Tasks;
 using Microsoft.AspNetCore.Authorization;
@@ -33,6 +34,7 @@ public class ScriptsController : ControllerBase
     private readonly EventContextBuilder _builder;
     private readonly ScriptRunner _runner;
     private readonly HistoryStore _history;
+    private readonly SecretProtector _secrets;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ScriptsController"/> class.
@@ -43,14 +45,17 @@ public class ScriptsController : ControllerBase
     /// <param name="builder">The event context builder.</param>
     /// <param name="runner">The script runner.</param>
     /// <param name="history">The run history.</param>
+    /// <param name="secrets">Encrypts secrets sent with a test run.</param>
     public ScriptsController(
         ILibraryManager libraryManager,
         IUserManager userManager,
         ITaskManager taskManager,
         EventContextBuilder builder,
         ScriptRunner runner,
-        HistoryStore history)
+        HistoryStore history,
+        SecretProtector secrets)
     {
+        _secrets = secrets;
         _libraryManager = libraryManager;
         _userManager = userManager;
         _taskManager = taskManager;
@@ -73,6 +78,7 @@ public class ScriptsController : ControllerBase
             Key = t.Trigger.ToString(),
             t.Label,
             t.Category,
+            t.Description,
             t.HasItem,
             t.HasSession,
             t.HasUser,
@@ -94,6 +100,10 @@ public class ScriptsController : ControllerBase
             .Select(u => new { Id = u.Id.ToString("N", CultureInfo.InvariantCulture), Name = u.Username })
             .OrderBy(u => u.Name, StringComparer.OrdinalIgnoreCase);
 
+        var collections = _libraryManager.GetItemList(new InternalItemsQuery { IncludeItemTypes = new[] { BaseItemKind.BoxSet }, Recursive = true })
+            .Select(c => new { Id = c.Id.ToString("N", CultureInfo.InvariantCulture), c.Name })
+            .OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase);
+
         var tasks = _taskManager.ScheduledTasks
             .Select(t => new { t.ScheduledTask.Key, t.Name, t.Category })
             .OrderBy(t => t.Name, StringComparer.OrdinalIgnoreCase);
@@ -102,7 +112,10 @@ public class ScriptsController : ControllerBase
         {
             Triggers = triggers,
             Fields = fields,
-            ItemKinds = Enum.GetNames<BaseItemKind>().Order(StringComparer.Ordinal),
+            ItemKinds = Enum.GetValues<BaseItemKind>()
+                .Select(k => new { Value = k.ToString(), Label = ItemKindLabels.For(k) })
+                .OrderBy(k => k.Label, StringComparer.OrdinalIgnoreCase),
+            Collections = collections,
             Libraries = libraries,
             Users = users,
             Tasks = tasks
@@ -131,6 +144,10 @@ public class ScriptsController : ControllerBase
         {
             ConfigurationValidator.Normalize(request.Script);
             ConfigurationValidator.Validate(request.Script);
+
+            // Untouched secrets arrive as the kept sentinel, so they resolve against the saved script.
+            var stored = Plugin.Instance?.ReadConfiguration(c => c.Scripts.FirstOrDefault(s => s.Id == request.Script.Id));
+            ScriptSecrets.Protect(request.Script, stored, _secrets);
         }
         catch (ArgumentException ex)
         {
