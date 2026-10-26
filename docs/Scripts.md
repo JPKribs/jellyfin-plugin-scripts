@@ -10,7 +10,7 @@ Each script has **triggers**, optional **item kinds**, **users**, and **conditio
 | Playback stopped | Playback ends. `PLAYED_TO_COMPLETION` says whether it reached the end. | Yes | Yes |
 | Playback paused / resumed | A playing session pauses or resumes. Fires once per change. | Yes | Yes |
 | Item added | An item is added to a library. It waits up to a minute for the item's metadata, so names and provider IDs are filled. Placeholder items, such as missing episodes from the series metadata, are skipped. | Yes | No |
-| Item removed | An item is removed from a library. | Yes | No |
+| Item removed | An item is removed from a library, for example when it is deleted. By then it has left its library, so `LIBRARY_ID` and `LIBRARY_NAME` are empty and a **Library** condition never matches. | Yes | No |
 | Signed in | A user signs in. | No | No |
 | Sign in failed | A sign in attempt fails for an existing user. Jellyfin reports no event for a username that doesn't exist. | No | No |
 | Scheduled task finished | A scheduled task finishes, whatever its outcome. | No | No |
