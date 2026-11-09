@@ -145,6 +145,8 @@ public static class ConditionEvaluator
             case ConditionOperator.AtMost:
                 return Numbers(candidate, value, out var c, out var d) && c <= d;
             case ConditionOperator.MatchesRegex:
+                // The static Regex cache holds the 15 most recent patterns (Regex.CacheSize). Past that, a
+                // pattern is parsed again on every check. docs/Scripts.md tells admins about the limit.
                 try
                 {
                     return Regex.IsMatch(candidate, value, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, RegexTimeout);

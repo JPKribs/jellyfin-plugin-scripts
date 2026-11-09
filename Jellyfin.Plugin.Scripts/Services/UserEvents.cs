@@ -20,17 +20,20 @@ public static class UserEvents
     public static bool ShouldDispatch(Guid userId)
     {
         var now = DateTime.UtcNow;
+        // The add factory resets the outcome, since an update attempt that lost to a Clear may already have set it.
         var allowed = true;
-        LastDispatched.AddOrUpdate(userId, now, (_, last) =>
-        {
-            if (now - last < Window)
+        LastDispatched.AddOrUpdate(
+            userId,
+            _ =>
             {
-                allowed = false;
-                return last;
-            }
-
-            return now;
-        });
+                allowed = true;
+                return now;
+            },
+            (_, last) =>
+            {
+                allowed = now - last >= Window;
+                return allowed ? now : last;
+            });
 
         if (LastDispatched.Count > 1000)
         {

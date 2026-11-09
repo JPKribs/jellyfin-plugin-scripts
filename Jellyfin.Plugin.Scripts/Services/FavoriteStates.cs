@@ -29,12 +29,20 @@ public sealed class FavoriteStates
             _favorites.Clear();
         }
 
+        // The add factory resets the outcome, since an update attempt that lost to a Clear may already have set it.
         var changed = true;
-        _favorites.AddOrUpdate((userId, itemId), isFavorite, (_, previous) =>
-        {
-            changed = previous != isFavorite;
-            return isFavorite;
-        });
+        _favorites.AddOrUpdate(
+            (userId, itemId),
+            _ =>
+            {
+                changed = true;
+                return isFavorite;
+            },
+            (_, previous) =>
+            {
+                changed = previous != isFavorite;
+                return isFavorite;
+            });
         return changed;
     }
 }

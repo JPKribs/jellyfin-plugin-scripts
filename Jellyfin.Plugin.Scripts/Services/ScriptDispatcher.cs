@@ -136,19 +136,19 @@ public class ScriptDispatcher
         // Per trigger, so a start held off by its cooldown never swallows the stop that follows it.
         var key = script.Id.ToString("N", CultureInfo.InvariantCulture) + "|" + context.Trigger + "|" + context.Get("USER_ID") + "|" + context.Get("ITEM_ID");
         var until = now + TimeSpan.FromSeconds(script.CooldownSeconds);
+        // Either factory may run more than once under contention, so each sets the outcome of the value it returns.
         var allowed = true;
         var stored = _cooldowns.AddOrUpdate(
             key,
-            until,
+            _ =>
+            {
+                allowed = true;
+                return until;
+            },
             (_, existing) =>
             {
-                if (existing > now)
-                {
-                    allowed = false;
-                    return existing;
-                }
-
-                return until;
+                allowed = existing <= now;
+                return allowed ? until : existing;
             });
         return (allowed, key, stored);
     }

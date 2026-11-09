@@ -23,6 +23,6 @@ public sealed record TriggerInfo(
     bool HasSession,
     IReadOnlyList<VariableInfo> Variables)
 {
-    /// <summary>Gets a value indicating whether the event carries a user, so the users filter applies.</summary>
-    public bool HasUser => Variables.Any(v => v.Name == "USER_ID");
+    /// <summary>Gets a value indicating whether the event carries a user, so the users filter applies. Worked out once, since every dispatch asks.</summary>
+    public bool HasUser { get; } = Variables.Any(v => v.Name == "USER_ID");
 }

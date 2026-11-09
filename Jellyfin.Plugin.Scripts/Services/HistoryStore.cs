@@ -24,7 +24,8 @@ public sealed class HistoryStore : IDisposable
     /// <summary>The most output kept per step in the history, in characters.</summary>
     public const int MaxStoredOutputChars = 8 * 1024;
 
-    private static readonly TimeSpan FlushDelay = TimeSpan.FromSeconds(2);
+    /// <summary>How long after the first unsaved run the history is written.</summary>
+    public static readonly TimeSpan FlushDelay = TimeSpan.FromSeconds(2);
 
     private readonly JsonFileStore<ScriptHistory> _store;
     private readonly object _lock = new();
@@ -32,6 +33,7 @@ public sealed class HistoryStore : IDisposable
     private readonly Timer _flushTimer;
     private List<ScriptRun>? _runs;
     private bool _dirty;
+    private bool _flushPending;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="HistoryStore"/> class.
@@ -77,6 +79,15 @@ public sealed class HistoryStore : IDisposable
             }
 
             _dirty = true;
+
+            // The timer is armed once per batch, so a steady stream of runs is written within FlushDelay of the
+            // first unsaved one.
+            if (_flushPending)
+            {
+                return;
+            }
+
+            _flushPending = true;
         }
 
         _flushTimer.Change(FlushDelay, Timeout.InfiniteTimeSpan);
@@ -149,6 +160,7 @@ public sealed class HistoryStore : IDisposable
             ScriptHistory snapshot;
             lock (_lock)
             {
+                _flushPending = false;
                 if (!_dirty || _runs is null)
                 {
                     return;
