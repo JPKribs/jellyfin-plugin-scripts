@@ -56,6 +56,42 @@ public sealed class EventContext
     public Guid? TesterId { get; set; }
 
     /// <summary>
+    /// Gets or sets what this run is for beyond the event itself: an item or a user a script running for each
+    /// one picked, whose variables the event's own trigger does not list.
+    /// </summary>
+    public ForEachMode ForEach { get; set; }
+
+    /// <summary>
+    /// Copies the event, so a script running for each item or user can add one to its own copy.
+    /// </summary>
+    /// <returns>The copy.</returns>
+    public EventContext Copy()
+    {
+        var copy = new EventContext(Trigger)
+        {
+            ItemKind = ItemKind,
+            ItemId = ItemId,
+            SessionId = SessionId,
+            Summary = Summary,
+            QueuedByScript = QueuedByScript,
+            TesterId = TesterId,
+            ForEach = ForEach
+        };
+        foreach (var (name, value) in Variables)
+        {
+            copy.Variables[name] = value;
+        }
+
+        copy.UserIds.AddRange(UserIds);
+        foreach (var (field, values) in _candidates)
+        {
+            copy._candidates[field] = new List<string>(values);
+        }
+
+        return copy;
+    }
+
+    /// <summary>
     /// Gets a variable, or an empty string when the event lacks it.
     /// </summary>
     /// <param name="name">The variable name without the prefix.</param>

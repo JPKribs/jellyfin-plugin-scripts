@@ -39,6 +39,7 @@ public class ScriptsController : ControllerBase
     private readonly HistoryStore _history;
     private readonly SecretProtector _secrets;
     private readonly SecretVault _vault;
+    private readonly ScriptDispatcher _dispatcher;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ScriptsController"/> class.
@@ -51,6 +52,7 @@ public class ScriptsController : ControllerBase
     /// <param name="history">The run history.</param>
     /// <param name="secrets">Encrypts secrets sent with a test run.</param>
     /// <param name="vault">The stored secret values.</param>
+    /// <param name="dispatcher">Queues a script a webhook asked for.</param>
     public ScriptsController(
         ILibraryManager libraryManager,
         IUserManager userManager,
@@ -59,8 +61,10 @@ public class ScriptsController : ControllerBase
         ScriptRunner runner,
         HistoryStore history,
         SecretProtector secrets,
-        SecretVault vault)
+        SecretVault vault,
+        ScriptDispatcher dispatcher)
     {
+        _dispatcher = dispatcher;
         _secrets = secrets;
         _vault = vault;
         _libraryManager = libraryManager;
@@ -80,7 +84,7 @@ public class ScriptsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     public ActionResult<object> GetCatalog()
     {
-        var triggers = TriggerCatalog.All.Select(t => new
+        var triggers = TriggerCatalog.All.Where(t => t.Selectable).Select(t => new
         {
             Key = t.Trigger.ToString(),
             t.Label,
@@ -96,7 +100,10 @@ public class ScriptsController : ControllerBase
         {
             Key = f.ToString(),
             Variable = TriggerCatalog.VariableFor(f),
-            Triggers = TriggerCatalog.All.Where(t => TriggerCatalog.Supplies(t.Trigger, f)).Select(t => t.Trigger.ToString())
+            Triggers = TriggerCatalog.All.Where(t => TriggerCatalog.Supplies(t.Trigger, f)).Select(t => t.Trigger.ToString()),
+            ForEach = new[] { ForEachMode.Items, ForEachMode.Users }
+                .Where(mode => TriggerCatalog.ForEachVariables(mode).Any(v => v.Name == TriggerCatalog.VariableFor(f)))
+                .Select(mode => mode.ToString())
         });
 
         var libraries = _libraryManager.GetVirtualFolders()
@@ -125,7 +132,13 @@ public class ScriptsController : ControllerBase
             Collections = collections,
             Libraries = libraries,
             Users = users,
-            Tasks = tasks
+            Tasks = tasks,
+            ForEachVariables = new
+            {
+                Items = TriggerCatalog.ForEachVariables(ForEachMode.Items).Select(v => new { v.Name, v.Description }),
+                Users = TriggerCatalog.ForEachVariables(ForEachMode.Users).Select(v => new { v.Name, v.Description })
+            },
+            FailureVariables = TriggerCatalog.FailureVariables.Select(v => new { v.Name, v.Description })
         });
     }
 
@@ -161,10 +174,89 @@ public class ScriptsController : ControllerBase
             return BadRequest(ex.Message);
         }
 
-        var context = _builder.Sample(request.Trigger);
+        var context = _builder.Sample(request.Trigger, request.Script.ForEach);
         context.TesterId = Guid.TryParse(User.FindFirst(UserIdClaim)?.Value, out var tester) ? tester : Guid.Empty;
         return await _runner.RunAsync(request.Script, context, true, cancellationToken).ConfigureAwait(false);
     }
+
+    /// <summary>
+    /// Runs a saved script now, whatever its triggers, filters, and cooldown say. The run is queued like any
+    /// other and shows up in the history.
+    /// </summary>
+    /// <param name="id">The script's ID.</param>
+    /// <returns>Accepted when queued.</returns>
+    [HttpPost("Run/{id}")]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
+    public ActionResult RunNow([FromRoute] Guid id)
+    {
+        var script = Plugin.Instance?.ReadConfiguration(c => c.Scripts.FirstOrDefault(s => s.Id == id));
+        if (script is null)
+        {
+            return NotFound("No saved script has this ID. Save the script first.");
+        }
+
+        var user = Guid.TryParse(User.FindFirst(UserIdClaim)?.Value, out var userId) && userId != Guid.Empty ? _userManager.GetUserById(userId) : null;
+        return _runner.TryEnqueue(new ScriptJob(script, _builder.FromManual(user)))
+            ? Accepted()
+            : StatusCode(StatusCodes.Status503ServiceUnavailable, "Too many runs are waiting. Try again in a moment.");
+    }
+
+    /// <summary>
+    /// Runs the script a webhook token belongs to. The caller must also be authorized as an administrator, which
+    /// for another service means sending a Jellyfin API key: the token only picks the script. The script's users
+    /// filter, conditions, and cooldown still apply.
+    /// </summary>
+    /// <param name="token">The script's webhook token.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>Accepted, saying whether a run was queued.</returns>
+    [HttpPost("Webhook/{token}")]
+    [RequestSizeLimit(WebhookVariables.MaxBodyBytes)]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status413PayloadTooLarge)]
+    public async Task<ActionResult<object>> Webhook([FromRoute] string token, CancellationToken cancellationToken)
+    {
+        var script = FindByWebhookToken(token);
+        if (script is null)
+        {
+            return NotFound();
+        }
+
+        // The body is read by hand and capped, whatever its content type, so any service's payload is accepted.
+        var buffer = new char[WebhookVariables.MaxBodyBytes + 1];
+        int read;
+        using (var reader = new StreamReader(Request.Body, System.Text.Encoding.UTF8))
+        {
+            read = await reader.ReadBlockAsync(buffer.AsMemory(), cancellationToken).ConfigureAwait(false);
+        }
+
+        if (read > WebhookVariables.MaxBodyBytes)
+        {
+            return StatusCode(StatusCodes.Status413PayloadTooLarge);
+        }
+
+        var query = Request.Query.Select(q => new KeyValuePair<string, string>(q.Key, q.Value.ToString()));
+        var values = WebhookVariables.Read(new string(buffer, 0, read), query);
+        var remote = HttpContext.Connection.RemoteIpAddress;
+        var context = _builder.FromWebhook(values, (remote is { IsIPv4MappedToIPv6: true } ? remote.MapToIPv4() : remote)?.ToString());
+        return Accepted(new { Queued = _dispatcher.DispatchTo(context, script), Script = script.Name });
+    }
+
+    /// <summary>
+    /// Gets each script's most recent run, for the script list.
+    /// </summary>
+    /// <returns>One entry per script that has run.</returns>
+    [HttpGet("Status")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<object> GetStatus()
+        => Ok(_history.LastRuns().Select(r => new
+        {
+            ScriptId = r.ScriptId.ToString("N", CultureInfo.InvariantCulture),
+            r.StartedUtc,
+            r.Succeeded
+        }));
 
     /// <summary>
     /// Gets a page of the run history, newest first.
@@ -244,6 +336,24 @@ public class ScriptsController : ControllerBase
         }
 
         return check;
+    }
+
+    // Every enabled webhook script is compared in constant time, so a response's timing says nothing about how
+    // close a guessed token came.
+    private static ScriptDefinition? FindByWebhookToken(string? token)
+    {
+        var given = System.Text.Encoding.UTF8.GetBytes((token ?? string.Empty).ToLowerInvariant());
+        ScriptDefinition? found = null;
+        foreach (var script in ScriptDispatcher.ScriptsFor(ScriptTrigger.Webhook))
+        {
+            var expected = System.Text.Encoding.UTF8.GetBytes(script.WebhookToken.ToLowerInvariant());
+            if (expected.Length > 0 && System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(given, expected))
+            {
+                found = script;
+            }
+        }
+
+        return found;
     }
 
     private static string NormalizeId(string? id)

@@ -148,5 +148,26 @@ public enum ScriptTrigger
     PluginInstalling,
 
     /// <summary>A plugin installation was cancelled.</summary>
-    PluginInstallationCancelled
+    PluginInstallationCancelled,
+
+    /// <summary>A request arrived at the script's own webhook address.</summary>
+    Webhook,
+
+    /// <summary>An administrator ran the script from the dashboard. Never chosen as a trigger.</summary>
+    Manual,
+
+    /// <summary>The number of active streams rose to the script's <see cref="ScriptDefinition.StreamCountThreshold"/>.</summary>
+    StreamCountReached,
+
+    /// <summary>The number of transcoding streams rose to the script's <see cref="ScriptDefinition.TranscodeCountThreshold"/>.</summary>
+    TranscodeCountReached,
+
+    /// <summary>Playback passed the script's <see cref="ScriptDefinition.ProgressPercentThreshold"/>.</summary>
+    PlaybackProgressReached,
+
+    /// <summary>A stream that was playing directly started transcoding.</summary>
+    SwitchedToTranscode,
+
+    /// <summary>A device the server has not seen before started a session.</summary>
+    NewDeviceSeen
 }

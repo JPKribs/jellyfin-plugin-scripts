@@ -36,7 +36,17 @@ export var FIELD_GROUPS = [
         { key: 'Year', label: 'Year', numeric: true },
         { key: 'VideoHeight', label: 'Video height', numeric: true },
         { key: 'CommunityRating', label: 'Community rating', numeric: true },
+        { key: 'DaysSinceAdded', label: 'Days since added', numeric: true },
+        { key: 'HasSubtitles', label: 'Has subtitles' },
         { key: 'CollectionName', label: 'Collection' }
+    ] },
+    { label: 'For each library item', fields: [
+        { key: 'PlayedByAnyone', label: 'Played by anyone' },
+        { key: 'DaysSincePlayed', label: 'Days since last played', numeric: true }
+    ] },
+    { label: 'For each user', fields: [
+        { key: 'DaysSinceActive', label: 'Days since last active', numeric: true },
+        { key: 'IsDisabled', label: 'Is disabled' }
     ] },
     { label: 'Playback', fields: [
         { key: 'PlayMethod', label: 'Play method' },
@@ -92,6 +102,7 @@ export var OPERATION_TYPES = {
     HttpRequest: { label: 'HTTP request', group: 'Run', needs: null },
     RunScript: { label: 'Run another script', group: 'Run', needs: null },
     Wait: { label: 'Wait', group: 'Run', needs: null },
+    StopScript: { label: 'Stop here', group: 'Run', needs: null },
     SendMessage: { label: 'Send message', group: 'Sessions', needs: null },
     PausePlayback: { label: 'Pause playback', group: 'Sessions', needs: 'session' },
     StopPlayback: { label: 'Stop playback', group: 'Sessions', needs: 'session' },

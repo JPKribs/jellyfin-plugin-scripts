@@ -127,5 +127,23 @@ public enum ConditionField
     ActivityType,
 
     /// <summary>The activity log entry's severity, such as Information or Warning.</summary>
-    ActivitySeverity
+    ActivitySeverity,
+
+    /// <summary>How many days ago the item was added.</summary>
+    DaysSinceAdded,
+
+    /// <summary>Whether the item has subtitles, <c>true</c> or <c>false</c>.</summary>
+    HasSubtitles,
+
+    /// <summary>Whether any user has played the item, <c>true</c> or <c>false</c>. For each item only.</summary>
+    PlayedByAnyone,
+
+    /// <summary>How many days ago anyone last played the item, or it was added when nobody has. For each item only.</summary>
+    DaysSincePlayed,
+
+    /// <summary>How many days ago the user was last active. For each user only.</summary>
+    DaysSinceActive,
+
+    /// <summary>Whether the user is disabled, <c>true</c> or <c>false</c>. For each user only.</summary>
+    IsDisabled
 }

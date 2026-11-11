@@ -19,6 +19,8 @@ public class ScriptPaths
         ArgumentNullException.ThrowIfNull(applicationPaths);
         HistoryFile = Path.Combine(applicationPaths.PluginConfigurationsPath, "Jellyfin.Plugin.Scripts.History.json");
         ScheduleFile = Path.Combine(applicationPaths.PluginConfigurationsPath, "Jellyfin.Plugin.Scripts.Schedule.json");
+        TasksFile = Path.Combine(applicationPaths.PluginConfigurationsPath, "Jellyfin.Plugin.Scripts.Tasks.json");
+        DevicesFile = Path.Combine(applicationPaths.PluginConfigurationsPath, "Jellyfin.Plugin.Scripts.Devices.json");
     }
 
     /// <summary>Gets the file that records when each scheduled script last ran.</summary>
@@ -26,4 +28,10 @@ public class ScriptPaths
 
     /// <summary>Gets the run history file.</summary>
     public string HistoryFile { get; }
+
+    /// <summary>Gets the file that remembers which devices the server has seen.</summary>
+    public string DevicesFile { get; }
+
+    /// <summary>Gets the file that remembers which scripts have a scheduled task.</summary>
+    public string TasksFile { get; }
 }

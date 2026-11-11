@@ -15,6 +15,9 @@ public class ScriptDefinition
     /// <summary>Gets or sets the display name.</summary>
     public string Name { get; set; } = string.Empty;
 
+    /// <summary>Gets or sets what the script is for. Shown under its name, and as its scheduled task's description.</summary>
+    public string Description { get; set; } = string.Empty;
+
     /// <summary>Gets or sets a value indicating whether the script runs on events.</summary>
     public bool Enabled { get; set; } = true;
 
@@ -77,4 +80,31 @@ public class ScriptDefinition
     /// user, and item. Zero disables the cooldown.
     /// </summary>
     public int CooldownSeconds { get; set; }
+
+    /// <summary>
+    /// Gets or sets what the script runs once for when its event has no item or user of its own. Items are chosen
+    /// by <see cref="ItemKinds"/> and <see cref="Conditions"/>, users by <see cref="UserIds"/> and the conditions.
+    /// </summary>
+    public ForEachMode ForEach { get; set; }
+
+    /// <summary>Gets or sets the most items or users one event may run the script for.</summary>
+    public int ForEachLimit { get; set; } = 50;
+
+    /// <summary>Gets or sets the script that runs when this one fails. Empty runs none.</summary>
+    public string OnFailureScriptId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the token in the script's webhook address. It picks the script; the request must also carry a
+    /// Jellyfin API key.
+    /// </summary>
+    public string WebhookToken { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets how many active streams <see cref="ScriptTrigger.StreamCountReached"/> waits for.</summary>
+    public int StreamCountThreshold { get; set; } = 3;
+
+    /// <summary>Gets or sets how many transcoding streams <see cref="ScriptTrigger.TranscodeCountReached"/> waits for.</summary>
+    public int TranscodeCountThreshold { get; set; } = 2;
+
+    /// <summary>Gets or sets the percentage <see cref="ScriptTrigger.PlaybackProgressReached"/> waits for.</summary>
+    public int ProgressPercentThreshold { get; set; } = 90;
 }

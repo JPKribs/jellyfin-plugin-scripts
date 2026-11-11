@@ -122,6 +122,7 @@ public partial class OperationExecutor
             OperationType.ScanLibraries => Task.FromResult(ScanLibraries()),
             OperationType.AppendToFile => AppendToFileAsync(operation, state, cancellationToken),
             OperationType.RunScript => Task.FromResult(Result(OperationStatus.Failed, "Run script is handled by the runner.")),
+            OperationType.StopScript => Task.FromResult(Result(OperationStatus.Succeeded, "Stopped the script here.")),
             _ => Task.FromResult(Result(OperationStatus.Failed, "Unknown step type."))
         };
     }
@@ -226,9 +227,12 @@ public partial class OperationExecutor
             return Result(OperationStatus.Failed, "Timed out after " + Number(seconds) + " seconds and was stopped.", result.Output);
         }
 
-        return result.ExitCode == 0
+        var finished = result.ExitCode == 0
             ? Result(OperationStatus.Succeeded, "Exited with code 0.", result.Output)
             : Result(OperationStatus.Failed, "Exited with code " + Number(result.ExitCode ?? -1) + ".", result.Output);
+        finished.Captured = result.Output;
+        finished.CapturedStatus = Number(result.ExitCode ?? -1);
+        return finished;
     }
 
     private async Task<OperationResult> HttpRequestAsync(ScriptOperation op, RunState state, CancellationToken cancellationToken)
@@ -300,7 +304,10 @@ public partial class OperationExecutor
 
         var message = method + " " + uri.Host + " returned " + Number(response.Status)
             + (!response.Ok && retries > 0 ? " after " + Number(retries + 1) + " attempts." : ".");
-        return Result(response.Ok ? OperationStatus.Succeeded : OperationStatus.Failed, message, text);
+        var answered = Result(response.Ok ? OperationStatus.Succeeded : OperationStatus.Failed, message, text);
+        answered.Captured = response.Body;
+        answered.CapturedStatus = Number(response.Status);
+        return answered;
     }
 
     private async Task<OperationResult> SendMessageAsync(ScriptOperation op, RunState state, CancellationToken cancellationToken)

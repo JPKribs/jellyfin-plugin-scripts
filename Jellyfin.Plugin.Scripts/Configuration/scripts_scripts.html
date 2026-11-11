@@ -60,6 +60,11 @@
                                     <label for="scriptName">Name</label>
                                     <input is="emby-input" type="text" id="scriptName" maxlength="200" />
                                 </div>
+                                <div class="inputContainer">
+                                    <label for="scriptDescription">Description</label>
+                                    <input is="emby-input" type="text" id="scriptDescription" maxlength="500" />
+                                    <div class="fieldDescription">What the script is for. Shown with its scheduled task when it runs on a schedule.</div>
+                                </div>
                                 <div class="checkboxContainer">
                                     <label class="emby-checkbox-label">
                                         <input type="checkbox" is="emby-checkbox" id="scriptEnabled" />
@@ -92,45 +97,57 @@
                                     </div>
                                 </div>
 
+                                <div id="progressOptions" class="scripts-trigger-options hidden">
+                                    <div class="inputContainer">
+                                        <label for="progressPercent">Playback passed a percentage: percent</label>
+                                        <input is="emby-input" type="number" id="progressPercent" min="1" max="99" />
+                                        <div class="fieldDescription">Runs once per playback, when it goes from below this percentage to at or past it.</div>
+                                    </div>
+                                </div>
+
+                                <div id="streamOptions" class="scripts-trigger-options hidden">
+                                    <div class="inputContainer">
+                                        <label for="streamCount">Stream count reached: streams</label>
+                                        <input is="emby-input" type="number" id="streamCount" min="1" max="100" />
+                                        <div class="fieldDescription">Runs when the number of active streams rises to this many. The event is the stream that reached it.</div>
+                                    </div>
+                                </div>
+
+                                <div id="transcodeOptions" class="scripts-trigger-options hidden">
+                                    <div class="inputContainer">
+                                        <label for="transcodeCount">Transcode count reached: transcodes</label>
+                                        <input is="emby-input" type="number" id="transcodeCount" min="1" max="100" />
+                                        <div class="fieldDescription">Runs when the number of transcoding streams rises to this many. The event is the stream that reached it.</div>
+                                    </div>
+                                </div>
+
+                                <div id="webhookOptions" class="scripts-trigger-options hidden">
+                                    <div class="jpk-subsection-title">Webhook</div>
+                                    <div class="inputContainer">
+                                        <label for="webhookUrl">Address</label>
+                                        <input is="emby-input" type="text" id="webhookUrl" readonly />
+                                        <div class="fieldDescription">
+                                            Send a <code>POST</code> here with a Jellyfin API key from Dashboard, API Keys. The address
+                                            picks the script and the key proves the caller may run it; a request with either one
+                                            missing is refused. Query parameters and JSON fields arrive as <code>{{WEBHOOK_NAME}}</code>.
+                                        </div>
+                                    </div>
+                                    <div class="scripts-webhook-actions">
+                                        <button is="emby-button" type="button" id="btnCopyWebhook" class="raised jpk-button-small"><span>Copy address</span></button>
+                                        <button is="emby-button" type="button" id="btnNewWebhook" class="raised jpk-button-small" title="The old address stops working once you save."><span>New address</span></button>
+                                    </div>
+                                    <pre id="webhookExample" class="jpk-code jpk-code-block"></pre>
+                                </div>
+
                                 <div id="scheduleOptions" class="scripts-trigger-options hidden">
                                     <div class="jpk-subsection-title">Schedule</div>
-                                    <div class="jpk-choice-group" id="scheduleMode" role="radiogroup" aria-label="Schedule">
-                                        <label class="jpk-choice">
-                                            <input type="radio" name="scheduleMode" value="Interval" />
-                                            <span class="jpk-choice-name">Every few minutes</span>
-                                            <span class="jpk-choice-text">Repeats on an interval, counted from when the server started or the script was enabled.</span>
-                                        </label>
-                                        <label class="jpk-choice">
-                                            <input type="radio" name="scheduleMode" value="Daily" />
-                                            <span class="jpk-choice-name">Days of the week</span>
-                                            <span class="jpk-choice-text">At a set time on the days you pick.</span>
-                                        </label>
-                                        <label class="jpk-choice">
-                                            <input type="radio" name="scheduleMode" value="Monthly" />
-                                            <span class="jpk-choice-name">Monthly</span>
-                                            <span class="jpk-choice-text">At a set time on one day of each month.</span>
-                                        </label>
+                                    <div class="fieldDescription scripts-schedule-note">
+                                        A script on a schedule runs as a Jellyfin scheduled task. Once you save, it is listed under
+                                        <a is="emby-linkbutton" class="button-link" href="#/dashboard/tasks">Dashboard, Scheduled Tasks</a>
+                                        in the <strong>Scripts</strong> section, under this script's name and description. Set when
+                                        it runs there, or run it by hand. It only runs on its schedule while the script is enabled.
                                     </div>
-                                    <div id="scheduleInterval" class="inputContainer">
-                                        <label for="scheduleIntervalMinutes">Every how many minutes</label>
-                                        <input is="emby-input" type="number" id="scheduleIntervalMinutes" min="1" max="10080" />
-                                    </div>
-                                    <div id="scheduleTimeRow" class="inputContainer">
-                                        <label for="scheduleTime">Time (server's local time)</label>
-                                        <input is="emby-input" type="time" id="scheduleTime" />
-                                    </div>
-                                    <div id="scheduleDaysRow">
-                                        <div class="fieldDescription">Days. Leave all unchecked to run every day.</div>
-                                        <div id="scheduleDays" class="scripts-days"></div>
-                                    </div>
-                                    <div id="scheduleMonthDayRow" class="inputContainer">
-                                        <label for="scheduleMonthDay">Day of the month</label>
-                                        <input is="emby-input" type="number" id="scheduleMonthDay" min="1" max="31" />
-                                        <div class="fieldDescription">A month without this day runs on its last day.</div>
-                                    </div>
-                                    <div class="fieldDescription">
-                                        A schedule runs only while the server is up; one missed while it was off is not run late.
-                                    </div>
+                                    <div id="scheduleStart" class="fieldDescription scripts-schedule-note"></div>
                                 </div>
                             </div>
                         </div>
@@ -190,7 +207,8 @@
                                 <div class="fieldDescription">
                                     Run in order; drag or use the arrows to reorder. A failed step stops the rest unless it
                                     continues on error. Text fields accept <code>{{NAME}}</code> placeholders, listed under
-                                    Variables.
+                                    Variables. A step can have its own condition, and a command or HTTP request can save its
+                                    output for the steps after it.
                                 </div>
                                 <div id="operationList"></div>
                                 <div id="operationEmpty" class="jpk-empty-section hidden">No steps yet. Add one below.</div>
@@ -224,6 +242,34 @@
                         <div class="jpk-section">
                             <div class="jpk-section-title">Behavior</div>
                             <div class="jpk-section-content">
+                                <div class="selectContainer">
+                                    <label for="forEachMode">Run</label>
+                                    <select is="emby-select" id="forEachMode">
+                                        <option value="None">Once per event</option>
+                                        <option value="Items">Once for each library item</option>
+                                        <option value="Users">Once for each user</option>
+                                    </select>
+                                    <div class="fieldDescription">
+                                        A schedule, a webhook, and Run now have no item or user of their own. Running for each
+                                        gives the steps one: every library item of the script's item kinds, or every user, that
+                                        passes its conditions. A trigger that already has one runs once as usual.
+                                    </div>
+                                </div>
+                                <div id="forEachLimitRow" class="inputContainer hidden">
+                                    <label for="forEachLimit">Most runs per event</label>
+                                    <input is="emby-input" type="number" id="forEachLimit" min="1" max="500" />
+                                    <div class="fieldDescription">Stops after this many matches. Each one is its own run in the history.</div>
+                                </div>
+                                <div id="forEachWarn" class="jpk-warn hidden"></div>
+                                <div class="selectContainer">
+                                    <label for="onFailureScript">When this script fails, run</label>
+                                    <select is="emby-select" id="onFailureScript"></select>
+                                    <div class="fieldDescription">
+                                        That script gets the same event plus <code>{{FAILED_SCRIPT_NAME}}</code>,
+                                        <code>{{FAILED_STEP}}</code>, and <code>{{FAILED_MESSAGE}}</code>. It must be enabled, and
+                                        needs no triggers of its own.
+                                    </div>
+                                </div>
                                 <div class="inputContainer">
                                     <label for="scriptCooldown">Cooldown in seconds</label>
                                     <input is="emby-input" type="number" id="scriptCooldown" min="0" max="86400" />
@@ -265,13 +311,17 @@
                                 <button is="emby-button" type="button" id="btnTestScript" class="raised">
                                     <span>Test</span>
                                 </button>
+                                <button is="emby-button" type="button" id="btnRunScript" class="raised">
+                                    <span>Run now</span>
+                                </button>
                             </div>
                         </div>
                         <span id="scriptStatus" class="jpk-status-text"></span>
                         <div class="fieldDescription">
                             Test runs this script's steps now with sample values for the chosen trigger, including unsaved
                             edits. Filters and conditions are not applied, and steps that act on a session, item, or user
-                            are skipped because the sample has none.
+                            are skipped because the sample has none. Run now runs the saved script for real, whatever its
+                            triggers, filters, and cooldown say.
                         </div>
                     </div>
 

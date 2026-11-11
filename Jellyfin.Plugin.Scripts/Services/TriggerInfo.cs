@@ -25,4 +25,7 @@ public sealed record TriggerInfo(
 {
     /// <summary>Gets a value indicating whether the event carries a user, so the users filter applies. Worked out once, since every dispatch asks.</summary>
     public bool HasUser { get; } = Variables.Any(v => v.Name == "USER_ID");
+
+    /// <summary>Gets a value indicating whether a script can choose this trigger. Run now is never chosen.</summary>
+    public bool Selectable { get; init; } = true;
 }

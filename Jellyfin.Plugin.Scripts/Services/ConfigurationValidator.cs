@@ -35,6 +35,15 @@ public static partial class ConfigurationValidator
     /// <summary>The most runs the history may keep.</summary>
     public const int MaxHistorySize = 5000;
 
+    /// <summary>The most items or users one event may run a script for.</summary>
+    public const int MaxForEachLimit = 500;
+
+    /// <summary>The most streams a stream or transcode count trigger may wait for.</summary>
+    public const int MaxStreamCount = 100;
+
+    /// <summary>How many random bytes a webhook token is made from.</summary>
+    public const int WebhookTokenBytes = 24;
+
     private static readonly HashSet<string> HttpMethods = new(StringComparer.OrdinalIgnoreCase) { "GET", "POST", "PUT", "PATCH", "DELETE" };
 
     /// <summary>
@@ -65,7 +74,17 @@ public static partial class ConfigurationValidator
         }
 
         script.Name = (script.Name ?? string.Empty).Trim();
-        script.Triggers = (script.Triggers ?? new()).Distinct().ToList();
+        script.Description = (script.Description ?? string.Empty).Trim();
+
+        // Run now is how an administrator starts any script, never a trigger one listens for.
+        script.Triggers = (script.Triggers ?? new()).Where(t => t != ScriptTrigger.Manual).Distinct().ToList();
+        script.OnFailureScriptId = (script.OnFailureScriptId ?? string.Empty).Trim();
+        script.WebhookToken = (script.WebhookToken ?? string.Empty).Trim();
+        if (script.WebhookToken.Length == 0 && script.Triggers.Contains(ScriptTrigger.Webhook))
+        {
+            script.WebhookToken = NewWebhookToken();
+        }
+
         script.ItemKinds = (script.ItemKinds ?? new()).Distinct().ToList();
         script.UserIds = (script.UserIds ?? new()).Where(id => id != Guid.Empty).Distinct().ToList();
         script.ScheduleDays = (script.ScheduleDays ?? new()).Distinct().ToList();
@@ -78,6 +97,14 @@ public static partial class ConfigurationValidator
         }
         script.Conditions ??= new List<ScriptCondition>();
         script.Operations ??= new List<ScriptOperation>();
+        foreach (var operation in script.Operations)
+        {
+            operation.OutputName = (operation.OutputName ?? string.Empty).Trim().ToUpperInvariant();
+            operation.OutputJsonPath = (operation.OutputJsonPath ?? string.Empty).Trim();
+            operation.OnlyIfVariable = ConditionEvaluator.StepVariable(operation.OnlyIfVariable);
+            operation.OnlyIfValue ??= string.Empty;
+        }
+
         foreach (var condition in script.Conditions)
         {
             condition.Values = (condition.Values ?? new())
@@ -93,6 +120,13 @@ public static partial class ConfigurationValidator
     /// </summary>
     /// <param name="config">The incoming configuration.</param>
     /// <exception cref="ArgumentException">When a setting or a script is invalid.</exception>
+    /// <summary>
+    /// Makes a webhook token: random, and long enough that it cannot be guessed.
+    /// </summary>
+    /// <returns>The token, in lowercase hexadecimal.</returns>
+    public static string NewWebhookToken()
+        => Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(WebhookTokenBytes)).ToLowerInvariant();
+
     public static void Validate(PluginConfiguration config)
     {
         ArgumentNullException.ThrowIfNull(config);
@@ -101,11 +135,17 @@ public static partial class ConfigurationValidator
         Range(config.HistorySize, 0, MaxHistorySize, "History size");
 
         var ids = new HashSet<Guid>();
+        var tokens = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var script in config.Scripts)
         {
             if (!ids.Add(script.Id))
             {
                 throw new ArgumentException("Two scripts share the ID " + script.Id.ToString("N", CultureInfo.InvariantCulture) + ".");
+            }
+
+            if (script.WebhookToken.Length > 0 && !tokens.Add(script.WebhookToken))
+            {
+                throw new ArgumentException("Script \"" + script.Name + "\": another script already uses its webhook address. Make a new one.");
             }
 
             Validate(script);
@@ -129,6 +169,11 @@ public static partial class ConfigurationValidator
         if (script.Name.Length > 200)
         {
             throw new ArgumentException(label + "the name is longer than 200 characters.");
+        }
+
+        if (script.Description.Length > 500)
+        {
+            throw new ArgumentException(label + "the description is longer than 500 characters.");
         }
 
         if (script.Triggers.Any(t => !Enum.IsDefined(t)))
@@ -182,6 +227,55 @@ public static partial class ConfigurationValidator
             if (script.ScheduleDays.Any(d => !Enum.IsDefined(d)))
             {
                 throw new ArgumentException(label + "has an unknown schedule day.");
+            }
+        }
+
+        if (script.Triggers.Contains(ScriptTrigger.StreamCountReached))
+        {
+            Range(script.StreamCountThreshold, 1, MaxStreamCount, label + "stream count");
+        }
+
+        if (script.Triggers.Contains(ScriptTrigger.TranscodeCountReached))
+        {
+            Range(script.TranscodeCountThreshold, 1, MaxStreamCount, label + "transcode count");
+        }
+
+        if (script.Triggers.Contains(ScriptTrigger.PlaybackProgressReached))
+        {
+            Range(script.ProgressPercentThreshold, 1, 99, label + "playback percentage");
+        }
+
+        if (script.Triggers.Contains(ScriptTrigger.Webhook) && !WebhookToken().IsMatch(script.WebhookToken))
+        {
+            throw new ArgumentException(label + "the webhook token must be 32 to 64 hexadecimal characters. Make a new address.");
+        }
+
+        if (!Enum.IsDefined(script.ForEach))
+        {
+            throw new ArgumentException(label + "has an unknown run-for-each setting.");
+        }
+
+        if (script.ForEach != ForEachMode.None)
+        {
+            Range(script.ForEachLimit, 1, MaxForEachLimit, label + "run-for-each limit");
+        }
+
+        // Without a kind, "every item" would also mean every person, genre, studio, and folder.
+        if (script.ForEach == ForEachMode.Items && script.ItemKinds.Count == 0)
+        {
+            throw new ArgumentException(label + "running for each item needs at least one item kind.");
+        }
+
+        if (script.OnFailureScriptId.Length > 0)
+        {
+            if (!Guid.TryParse(script.OnFailureScriptId, out var handler))
+            {
+                throw new ArgumentException(label + "the script to run on failure is not valid.");
+            }
+
+            if (handler == script.Id)
+            {
+                throw new ArgumentException(label + "cannot be its own script to run on failure.");
             }
         }
 
@@ -254,8 +348,76 @@ public static partial class ConfigurationValidator
         }
     }
 
+    [SuppressMessage("Security", "CA3012:Review code for regex injection vulnerabilities", Justification = "Administrators only, and every pattern runs with a timeout.")]
+    private static void ValidateStepExtras(ScriptOperation op, string label)
+    {
+        if (op.OutputName.Length > 0)
+        {
+            if (op.Type is not (OperationType.RunCommand or OperationType.HttpRequest))
+            {
+                throw new ArgumentException(label + "cannot save an output: only commands and HTTP requests have one.");
+            }
+
+            if (!SecretName().IsMatch(op.OutputName))
+            {
+                throw new ArgumentException(label + "the name its output is saved as must be capital letters, digits, and underscores, up to 40.");
+            }
+
+            if (TriggerCatalog.IsReserved(op.OutputName) || TriggerCatalog.IsReserved(op.OutputName + "_STATUS") || op.OutputName is "SCRIPT_NAME" or "EVENT_JSON")
+            {
+                throw new ArgumentException(label + "cannot save its output as " + op.OutputName + ", which the event already uses.");
+            }
+
+            if (!OutputCapture.IsValidPath(op.OutputJsonPath))
+            {
+                throw new ArgumentException(label + "the JSON field \"" + op.OutputJsonPath + "\" is not a path such as data.items[0].name.");
+            }
+        }
+
+        if (op.OnlyIfVariable.Length == 0)
+        {
+            return;
+        }
+
+        if (!StepVariableName().IsMatch(op.OnlyIfVariable))
+        {
+            throw new ArgumentException(label + "its condition needs a variable name, such as ITEM_KIND.");
+        }
+
+        if (!Enum.IsDefined(op.OnlyIfOperator))
+        {
+            throw new ArgumentException(label + "has an unknown condition.");
+        }
+
+        // A value holding a placeholder is only known at run time.
+        var value = op.OnlyIfValue.Trim();
+        if (Placeholders.Names(value).Any())
+        {
+            return;
+        }
+
+        if (op.OnlyIfOperator is ConditionOperator.AtLeast or ConditionOperator.AtMost
+            && !double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out _))
+        {
+            throw new ArgumentException(label + "its condition needs a number.");
+        }
+
+        if (op.OnlyIfOperator == ConditionOperator.MatchesRegex)
+        {
+            try
+            {
+                _ = new Regex(value, RegexOptions.None, ConditionEvaluator.RegexTimeout);
+            }
+            catch (ArgumentException ex)
+            {
+                throw new ArgumentException(label + "its condition's pattern is not a valid regular expression: " + ex.Message, ex);
+            }
+        }
+    }
+
     private static void ValidateOperation(ScriptOperation op, Guid scriptId, string label)
     {
+        ValidateStepExtras(op, label);
         switch (op.Type)
         {
             case OperationType.RunCommand:
@@ -356,6 +518,7 @@ public static partial class ConfigurationValidator
             case OperationType.SetUserDisabled:
             case OperationType.SignOutUser:
             case OperationType.ScanLibraries:
+            case OperationType.StopScript:
                 break;
             default:
                 throw new ArgumentException(label + "has an unknown type.");
@@ -364,6 +527,12 @@ public static partial class ConfigurationValidator
 
     [GeneratedRegex("^[A-Z0-9_]{1,40}$", RegexOptions.CultureInvariant)]
     private static partial Regex SecretName();
+
+    [GeneratedRegex("^[A-Z0-9_]{1,80}$", RegexOptions.CultureInvariant)]
+    private static partial Regex StepVariableName();
+
+    [GeneratedRegex("^[A-Fa-f0-9]{32,64}$", RegexOptions.CultureInvariant)]
+    private static partial Regex WebhookToken();
 
     private static void Range(int value, int min, int max, string what)
     {

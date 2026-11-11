@@ -4,13 +4,13 @@ Each script has **triggers**, optional **item kinds**, **users**, and **conditio
 
 ![The Scripts tab](screenshots/Scripts.png)
 
-**New script** starts from a blank script or a template, such as stopping playback paused for 30 minutes, limiting the server to 3 transcodes, asking "Still watching?" after 3 hours, posting new items to Discord, or scanning every library nightly. **Duplicate** copies the open script. Changes are kept until you **Save**, and leaving the page with unsaved changes asks first.
+Each script has a **name** and an optional **description** saying what it is for. **New script** asks for both and starts from a blank script or a template, such as stopping playback paused for 30 minutes, limiting the server to 3 transcodes, asking "Still watching?" after 3 hours, posting new items to Discord, or scanning every library nightly. **Duplicate** copies the open script. Changes are kept until you **Save**, and leaving the page with unsaved changes asks first.
 
 ![Starting from a template](screenshots/NewScript.png)
 
 ## Triggers
 
-A script runs on any of the triggers it lists. The list is grouped and searchable.
+A script runs on any of the triggers it lists. The list is grouped and searchable. A script with no triggers still runs from **Run now**, from another script's **Run another script** step, or as another script's failure script.
 
 ![Choosing triggers](screenshots/Triggers.png)
 
@@ -23,6 +23,10 @@ A script runs on any of the triggers it lists. The list is grouped and searchabl
 | Playback paused, Playback resumed | A playing client pauses or resumes. Fires once per change. |
 | Paused for a while | A client stays paused for the minutes you set. Fires once per pause. |
 | Playing for a while | A client plays for the minutes you set, not counting pauses. Fires once per playback. |
+| Playback passed a percentage | Playback goes from below the percentage you set to at or past it. Fires once per playback. A playback that starts past it, such as one resumed near the end, does not count. |
+| Switched to transcoding | A stream that was playing directly starts transcoding. A stream that transcodes from the start is a **Playback started** with **Play method is Transcode**. |
+| Stream count reached | The number of active streams rises from below the number you set to at or past it. The event is the stream that reached it. |
+| Transcode count reached | The same, counting only transcoding streams. |
 
 Every playback trigger carries the user, session, and item, plus `ACTIVE_STREAMS` and `ACTIVE_TRANSCODES` counted across the server.
 
@@ -59,6 +63,7 @@ Every playback trigger carries the user, session, and item, plus `ACTIVE_STREAMS
 |---|---|
 | Session started, Session ended | A client session starts or ends. |
 | Signed in | A user signs in. |
+| New device seen | A device the server has not seen before starts a session. The plugin remembers devices from the moment it is installed, and takes the ones connected at that moment as already known. |
 | Client connected | A client opens its live connection, so it can receive messages and commands. Use this, not **Signed in**, to message a client as it arrives. |
 | Device settings changed | A device's settings, such as its custom name, change. |
 | Sign in failed | A sign in fails for an existing user. Jellyfin reports no event for a username that doesn't exist. |
@@ -86,13 +91,49 @@ Every playback trigger carries the user, session, and item, plus `ACTIVE_STREAMS
 
 ### Schedule
 
-**On a schedule** runs the script without an event:
+**On a schedule** turns the script into a Jellyfin scheduled task. Once the script is saved, the task is listed under **Dashboard → Scheduled Tasks**, in the **Scripts** section, under the script's name and with its description. Set when it runs there, with Jellyfin's own daily, weekly, interval, and startup triggers, or run it by hand. Its last run and result show there like any other task's, and a run with a failed step shows the task as failed.
 
-* **Interval**: every so many minutes. The first run comes one interval after the server first sees the schedule, not the moment it is saved, and the same after the script is enabled again. An interval that passed while the server was off runs once when it starts.
-* **Daily**: at a time of day, on the days of the week you pick, or every day when none are picked.
-* **Monthly**: at a time on a day of the month. A day past the end of a short month runs on its last day.
+* The task only runs on its triggers while the script is enabled. Run by hand while the script is disabled, it does nothing.
+* Renaming the script or editing its description changes the task at once.
+* A script from a template, or one saved by an earlier version with a schedule of its own, starts its task on that schedule: every so many minutes, daily, or on the chosen days at the chosen time. Jellyfin has no monthly trigger, so a script that ran monthly starts with no trigger and needs one set.
+* Deleting the script, or removing **On a schedule** from it, hides and disables the task at once and removes the files Jellyfin kept for it. Jellyfin only drops the task itself when the server restarts.
 
-Times are the server's local time. A daily or monthly run is still made if the server was busy for up to two minutes past the time, and never twice for the same time. One missed while the server was off is skipped, not made up. A time the clocks skip when daylight saving starts runs when they jump, and a time that happens twice when it ends runs once.
+The script's conditions still apply to each run, and its steps see the event as **On a schedule**.
+
+### Webhook
+
+**Webhook received** gives the script its own address, shown in the editor with **Copy** and an example `curl` command. Another service runs the script by sending a `POST` there.
+
+The request needs two things, and is refused when either is missing:
+
+* The **address**, whose last part is a random token that picks the script. **New address** replaces it, and the old one stops working once you save.
+* A **Jellyfin API key**, from **Dashboard → API Keys**, sent as `Authorization: MediaBrowser Token="..."`. An administrator's own access token works too.
+
+```sh
+curl -X POST "https://jellyfin.example.com/Scripts/Webhook/TOKEN" \
+  -H 'Authorization: MediaBrowser Token="YOUR_API_KEY"' \
+  -H "Content-Type: application/json" \
+  -d '{"eventType": "Download", "series": {"title": "A Show"}}'
+```
+
+The body, up to 64 KB, arrives as `WEBHOOK_BODY`. Each query parameter and each JSON field also becomes its own variable, named `WEBHOOK_` and then the field in capitals, with nested fields joined by underscores: the request above sets `WEBHOOK_EVENTTYPE` and `WEBHOOK_SERIES_TITLE`. Use them as placeholders or in a step's own condition. The answer is `202` with `Queued` saying whether the script's conditions and cooldown let it run.
+
+The token is kept in the plugin's configuration, readable by administrators, and left out of exports. A duplicated or imported script gets its own address.
+
+### Run now
+
+**Run now** in the editor runs the saved script at once, whatever its triggers, filters, and cooldown say, and records the run in the history as **Run now**. It carries no user, session, or item. Save first: it runs the saved script, not unsaved edits.
+
+## Running for each item or user
+
+A schedule, a webhook, **Run now**, and most system triggers carry no item and no user, so steps such as **Add tag** or **Disable or enable user** have nothing to act on. Under **Behavior**, set **Run** to **once for each library item** or **once for each user** and the script runs its steps once per match instead:
+
+* **Each library item** goes through the items of the script's **item kinds**, which must list at least one, and runs for each one that passes the **conditions**. Besides the usual item fields, conditions can use **Days since added**, **Has subtitles**, **Played by anyone**, and **Days since last played**, which counts from when the item was added if nobody has played it.
+* **Each user** goes through the users in the script's **users** list, or everyone when it is empty, and runs for each one that passes the conditions, which can also use **Days since last active** and **Is disabled**.
+
+Each match is its own run in the history. **Most runs per event** caps how many one event may start, 50 unless you change it, at most 500. On a trigger that already has an item or a user, such as **Playback started**, the script runs once as usual.
+
+For example, a script on a weekly schedule, for each **Movie** where **Days since last played is at least 90**, with an **Add tag** step, tags every movie nobody has watched in three months.
 
 ## Item kinds
 
@@ -119,7 +160,9 @@ Each condition compares one event value with one or more values, using **is**, *
 |---|---|
 | Who | User (ID or name; on playback, any of the session's users), Is administrator, Username attempted |
 | Where | Client, Client version, Device name, Device ID, Remote address, Is local network |
-| What | Library, Item name, Series name, Item path, Genre, Tag, Studio, Parental rating, Year, Video height, Community rating, Collection |
+| What | Library, Item name, Series name, Item path, Genre, Tag, Studio, Parental rating, Year, Video height, Community rating, Days since added, Has subtitles, Collection |
+| For each library item | Played by anyone, Days since last played |
+| For each user | Days since last active, Is disabled |
 | Playback | Play method, Progress percent, Played to completion, Transcode reasons, Video codec, Audio codec, Active streams, Active transcodes, Is played, Is favorite |
 | When | Hour (0 to 23), Day of week |
 | System | Scheduled task, Task status, Task category, Plugin name, Provider, Update reason, Activity type, Activity severity |
@@ -142,6 +185,7 @@ Steps run in order. Drag a step, or use its arrows, to reorder it, and open it t
 | | HTTP request | Sends a GET, POST, PUT, PATCH, or DELETE with your headers and body. | |
 | | Run another script | Runs another script's steps with this event, skipping its triggers and filters. Up to 3 levels deep. A disabled script is not run, so enable a helper script and give it no triggers. | |
 | | Wait | Pauses before the next step. | |
+| | Stop here | Ends the run. The steps after it are skipped and the run still counts as succeeded. Give it a condition so it only stops when you want. | |
 | Sessions | Send message | Shows a message on the event's session, all of the event's user's sessions, every session, or every administrator's session. | |
 | | Pause playback | Pauses the event's session. | A session |
 | | Stop playback | Stops the event's session, optionally after a message. | A session |
@@ -158,6 +202,20 @@ Steps run in order. Drag a step, or use its arrows, to reorder it, and open it t
 | | Append to file | Appends a line to a file, creating the file if its folder exists. | |
 
 A step that needs something the event lacks is skipped. A failed step stops the rest unless it is set to **Continue on error**. A run with a failed step is also written to the activity log.
+
+### Step conditions and saved output
+
+Every step also has:
+
+* **Only run this step if** tests one variable, such as `ITEM_KIND` **is** `Movie` or `PROGRESS_PERCENT` **is at least** `90`. Any variable works, including a webhook field and one an earlier step saved. The value may hold placeholders. Leave the value empty with **is** or **is not** to test whether the variable has a value at all. A step whose condition does not match is skipped, which is not a failure, and the run carries on.
+* **Save the output for later steps**, on **Run command** and **HTTP request**, keeps the command's output or the response body under a name you choose, such as `RESULT`. Later steps use it as `{{RESULT}}`, commands read `$JF_RESULT`, and `{{RESULT_STATUS}}` holds the exit code or HTTP status. When the output is JSON, name a field such as `data.items[0].name` to save just that. A saved value is at most 8,192 characters and is saved even when the step failed, so with **Continue on error** a later step can act on the failure.
+* **Continue on error** runs the following steps even if this one fails.
+
+Together these branch a script. A health check, for instance: an HTTP request saved as `HEALTH` that continues on error, then **Stop here** only if `HEALTH_STATUS` is `200`, then a message to the administrators.
+
+### On failure
+
+Under **Behavior**, **When this script fails, run** names another script to run when this one has a failed run. It gets the same event, including the item or user of a script running for each, plus `FAILED_SCRIPT_NAME`, `FAILED_STEP`, `FAILED_MESSAGE`, and `FAILED_COUNT`. It runs once per event however many runs failed, must be enabled, and needs no triggers of its own. Its own failure is recorded but starts nothing further. Tests do not run it.
 
 ### HTTP request
 
@@ -214,10 +272,17 @@ In a step's text fields, write a variable as `{{ITEM_NAME}}`. Use `{{ITEM_NAME:j
 | Sign in failed | `USERNAME_ATTEMPTED`, `USER_ID` |
 | Scheduled task | `TASK_NAME`, `TASK_KEY`, `TASK_CATEGORY`, and when it finishes `TASK_STATUS`, `TASK_ERROR`, `TASK_DURATION_SECONDS` |
 | Plugins | `PLUGIN_ID`, `PLUGIN_NAME`, `PLUGIN_VERSION` |
+| Webhook | `WEBHOOK_BODY`, `REMOTE_ADDRESS`, `IS_LOCAL`, and `WEBHOOK_` plus the name of each query parameter and JSON field |
+| For each library item | Every item variable, plus `PLAYED_BY_ANYONE`, `DAYS_SINCE_PLAYED` |
+| For each user | `USER_ID`, `USER_NAME`, `IS_ADMIN`, `DAYS_SINCE_ACTIVE`, `IS_DISABLED` |
+| Saved by a step | The name you chose, and that name with `_STATUS` |
+| Failure script | `FAILED_SCRIPT_NAME`, `FAILED_STEP`, `FAILED_MESSAGE`, `FAILED_COUNT` |
+
+Item variables now include `DAYS_SINCE_ADDED` and, for video, `HAS_SUBTITLES`.
 
 ## Export and import
 
-**Export** on the Scripts tab saves every script, including unsaved edits, to a JSON file. Secret values are left out. **Import** reads one back, adding its scripts or replacing ones with the same ID. Imported scripts start **disabled** and unsaved, so review each one's steps and fill in its secrets before enabling it and saving, since a command runs on your server.
+**Export** on the Scripts tab saves every script, including unsaved edits, to a JSON file. Secret values and webhook addresses are left out. **Import** reads one back, adding its scripts or replacing ones with the same ID. Imported scripts start **disabled** and unsaved, so review each one's steps and fill in its secrets before enabling it and saving, since a command runs on your server.
 
 Users are stored by ID, so on another server a script's users show as unknown until you pick them again.
 
@@ -226,6 +291,8 @@ Users are stored by ID, so on another server a script's users show as unknown un
 **Test** runs the open script's steps right away, including unsaved edits and its secrets, with sample values for the chosen trigger. Item kinds and conditions are not applied, and steps that act on the event's session, user, or item are skipped, because the sample has none. A message for every session or every administrator goes only to your own sessions. Other steps, such as a command, an HTTP request, a library scan, or a queued task, really run.
 
 ![A test run](screenshots/TestRun.png)
+
+A test of a script that runs for each item or user uses one sample item or user. To run the script for real, use **Run now**.
 
 ## History
 

@@ -142,6 +142,50 @@ export var TEMPLATES = [
         }
     },
     {
+        key: 'tag-unwatched',
+        label: 'Tag movies nobody has watched in 90 days',
+        build: function () {
+            return {
+                Triggers: ['Schedule'],
+                ScheduleMode: 'Daily',
+                ScheduleTime: '04:00',
+                ScheduleDays: ['Sunday'],
+                ForEach: 'Items',
+                ForEachLimit: 100,
+                ItemKinds: ['Movie'],
+                Conditions: [condition('DaysSincePlayed', 'AtLeast', ['90'])],
+                Operations: [step('AddTag', { Tag: 'unwatched' })]
+            };
+        }
+    },
+    {
+        key: 'webhook-scan',
+        label: 'Scan libraries when another service calls a webhook',
+        build: function () {
+            return {
+                Triggers: ['Webhook'],
+                CooldownSeconds: 60,
+                Operations: [step('ScanLibraries'), step('WriteActivityLog', { Title: 'Library scan requested by webhook', Text: 'From {{REMOTE_ADDRESS}}' })]
+            };
+        }
+    },
+    {
+        key: 'check-then-notify',
+        label: 'Call a service, then message administrators if it is down',
+        build: function () {
+            return {
+                Triggers: ['Schedule'],
+                ScheduleMode: 'Interval',
+                ScheduleIntervalMinutes: 15,
+                Operations: [
+                    step('HttpRequest', { Method: 'GET', Url: 'https://example.com/health', Body: '', OutputName: 'HEALTH', ContinueOnError: true }),
+                    step('StopScript', { OnlyIfVariable: 'HEALTH_STATUS', OnlyIfOperator: 'Is', OnlyIfValue: '200' }),
+                    step('SendMessage', { Target: 'AdminSessions', Title: 'Service check failed', Text: 'example.com answered {{HEALTH_STATUS}}.', DisplaySeconds: 15 })
+                ]
+            };
+        }
+    },
+    {
         key: 'tag-new',
         label: 'Tag new items "new"',
         build: function () {

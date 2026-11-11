@@ -43,6 +43,14 @@ internal sealed class TestServices : IDisposable
             LibraryManager,
             Substitute.For<ICollectionManager>(),
             NullLogger<OperationExecutor>.Instance);
+        UserManager = Substitute.For<IUserManager>();
+        Builder = new EventContextBuilder(
+            LibraryManager,
+            Substitute.For<MediaBrowser.Common.Net.INetworkManager>(),
+            Substitute.For<MediaBrowser.Controller.IServerApplicationHost>(),
+            SessionManager,
+            NullLogger<EventContextBuilder>.Instance);
+        Expander = new ForEachExpander(LibraryManager, UserManager, Substitute.For<IUserDataManager>(), Builder);
         History = new HistoryStore(new ScriptPaths(paths), NullLogger<HistoryStore>.Instance);
         Runner = new ScriptRunner(
             Executor,
@@ -50,6 +58,7 @@ internal sealed class TestServices : IDisposable
             activityLogger,
             new SecretProtector("test", NullLogger.Instance),
             new SecretVault(Path.Combine(Folder, "secrets.json"), NullLogger.Instance),
+            Expander,
             NullLogger<ScriptRunner>.Instance);
     }
 
@@ -60,6 +69,12 @@ internal sealed class TestServices : IDisposable
     public ISessionManager SessionManager { get; }
 
     public ILibraryManager LibraryManager { get; }
+
+    public IUserManager UserManager { get; }
+
+    public EventContextBuilder Builder { get; }
+
+    public ForEachExpander Expander { get; }
 
     public OperationExecutor Executor { get; }
 

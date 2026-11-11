@@ -18,6 +18,11 @@ public static class TriggerCatalog
     /// <summary>The prefix a script secret's variable carries, so secrets cannot shadow event values.</summary>
     public const string SecretPrefix = "SECRET_";
 
+    /// <summary>The prefix every variable read from a webhook request carries.</summary>
+    public const string WebhookPrefix = "WEBHOOK_";
+
+    private static HashSet<string>? _reserved;
+
     private static readonly VariableInfo[] Common =
     {
         new("EVENT", "The trigger that ran the script, such as PlaybackStart."),
@@ -74,6 +79,8 @@ public static class TriggerCatalog
         new("VIDEO_WIDTH", "The video width in pixels."),
         new("VIDEO_HEIGHT", "The video height in pixels."),
         new("DATE_ADDED", "When the item was added, in UTC (ISO 8601)."),
+        new("DAYS_SINCE_ADDED", "How many days ago the item was added."),
+        new("HAS_SUBTITLES", "true when the item has subtitles, otherwise false. Video only."),
         new("PROVIDER_IMDB", "The IMDb ID."),
         new("PROVIDER_TMDB", "The TMDb ID."),
         new("PROVIDER_TVDB", "The TVDb ID."),
@@ -89,6 +96,25 @@ public static class TriggerCatalog
         new("VIDEO_CODEC", "The video codec sent to the client, when transcoding."),
         new("AUDIO_CODEC", "The audio codec sent to the client, when transcoding."),
         new("TRANSCODE_REASONS", "Why the server is transcoding, comma separated."),
+    };
+
+    private static readonly VariableInfo[] ForEachItem =
+    {
+        new("PLAYED_BY_ANYONE", "true when any user has played the item, otherwise false."),
+        new("DAYS_SINCE_PLAYED", "How many days ago anyone last played the item, or it was added when nobody has."),
+    };
+
+    private static readonly VariableInfo[] ForEachUser =
+    {
+        new("DAYS_SINCE_ACTIVE", "How many days ago the user was last active. Absent for a user who never was."),
+        new("IS_DISABLED", "true when the user is disabled, otherwise false."),
+    };
+
+    private static readonly VariableInfo[] WebhookVars =
+    {
+        new("WEBHOOK_BODY", "The request body as it was sent."),
+        new("REMOTE_ADDRESS", "The caller's IP address."),
+        new("IS_LOCAL", "true when the caller is inside the local network, otherwise false."),
     };
 
     private static readonly VariableInfo[] Stop = { new("PLAYED_TO_COMPLETION", "true when playback reached the end, otherwise false.") };
@@ -176,6 +202,10 @@ public static class TriggerCatalog
         new("PLUGIN_VERSION", "The plugin's version."),
     };
 
+    private static readonly VariableInfo[] ItemAll = Item.Concat(ForEachItem).ToArray();
+
+    private static readonly VariableInfo[] UserAll = User.Concat(ForEachUser).ToArray();
+
     private static readonly Dictionary<ConditionField, string> FieldVariables = new()
     {
         [ConditionField.User] = "USER_ID",
@@ -219,6 +249,12 @@ public static class TriggerCatalog
         [ConditionField.ActiveStreams] = "ACTIVE_STREAMS",
         [ConditionField.ActivityType] = "ACTIVITY_TYPE",
         [ConditionField.ActivitySeverity] = "ACTIVITY_SEVERITY",
+        [ConditionField.DaysSinceAdded] = "DAYS_SINCE_ADDED",
+        [ConditionField.HasSubtitles] = "HAS_SUBTITLES",
+        [ConditionField.PlayedByAnyone] = "PLAYED_BY_ANYONE",
+        [ConditionField.DaysSincePlayed] = "DAYS_SINCE_PLAYED",
+        [ConditionField.DaysSinceActive] = "DAYS_SINCE_ACTIVE",
+        [ConditionField.IsDisabled] = "IS_DISABLED",
     };
 
     private static readonly Dictionary<ScriptTrigger, TriggerInfo> Triggers = new[]
@@ -229,6 +265,10 @@ public static class TriggerCatalog
         PlaybackTrigger(ScriptTrigger.PlaybackResume, "Playback resumed", "A paused client resumes."),
         PlaybackTrigger(ScriptTrigger.PlaybackPausedFor, "Paused for a while", "A client stays paused for the minutes you set, once per pause.", Paused),
         PlaybackTrigger(ScriptTrigger.PlaybackPlayingFor, "Playing for a while", "A client plays for the minutes you set, not counting pauses, once per playback.", Playing),
+        PlaybackTrigger(ScriptTrigger.PlaybackProgressReached, "Playback passed a percentage", "Playback passes the percentage you set, once per playback."),
+        PlaybackTrigger(ScriptTrigger.SwitchedToTranscode, "Switched to transcoding", "A stream that was playing directly starts transcoding."),
+        PlaybackTrigger(ScriptTrigger.StreamCountReached, "Stream count reached", "The number of active streams rises to the number you set. The event is the stream that reached it."),
+        PlaybackTrigger(ScriptTrigger.TranscodeCountReached, "Transcode count reached", "The number of transcoding streams rises to the number you set. The event is the stream that reached it."),
 
         Build(ScriptTrigger.ItemAdded, "Item added", "Library", "An item arrives in a library, once its metadata is in.", true, false, Item),
         Build(ScriptTrigger.ItemUpdated, "Item updated", "Library", "An item's metadata or images change. Busy during scans.", true, false, Item, Update),
@@ -254,6 +294,7 @@ public static class TriggerCatalog
         Build(ScriptTrigger.SessionStarted, "Session started", "Sessions", "A client connects and starts a session.", false, true, User, Session),
         Build(ScriptTrigger.SessionEnded, "Session ended", "Sessions", "A client session ends.", false, true, User, Session),
         Build(ScriptTrigger.AuthenticationSuccess, "Signed in", "Sessions", "A user signs in.", false, true, User, Session),
+        Build(ScriptTrigger.NewDeviceSeen, "New device seen", "Sessions", "A device the server has not seen before starts a session.", false, true, User, Session),
         Build(ScriptTrigger.ClientConnected, "Client connected", "Sessions", "A client opens its live connection, so it can receive messages and commands.", false, true, User, Session),
         Build(ScriptTrigger.DeviceSettingsChanged, "Device settings changed", "Sessions", "A device's settings, such as its custom name, change.", false, false, Device),
         Build(ScriptTrigger.AuthenticationFailure, "Sign in failed", "Sessions", "A sign in fails for an existing user.", false, false, AuthFailure, Session.Where(v => v.Name != "SESSION_ID")),
@@ -277,11 +318,44 @@ public static class TriggerCatalog
         Build(ScriptTrigger.PluginUpdated, "Plugin updated", "System", "A plugin is updated.", false, false, PluginVars),
         Build(ScriptTrigger.PluginUninstalled, "Plugin uninstalled", "System", "A plugin is uninstalled.", false, false, PluginVars),
 
-        Build(ScriptTrigger.Schedule, "On a schedule", "Schedule", "Every few minutes, or daily at a set time on the days you pick.", false, false),
+        Build(ScriptTrigger.Schedule, "On a schedule", "Schedule", "Runs as a Jellyfin scheduled task named after the script. Set when under Dashboard, Scheduled Tasks.", false, false),
+        Build(ScriptTrigger.Webhook, "Webhook received", "On demand", "Another service calls the script's own address with a Jellyfin API key.", false, false, WebhookVars),
+        Build(ScriptTrigger.Manual, "Run now", "On demand", "An administrator runs the script from the dashboard.", false, false) with { Selectable = false },
     }.ToDictionary(t => t.Trigger);
+
+    /// <summary>Gets the variables a run started by another script's failure also receives.</summary>
+    public static IReadOnlyList<VariableInfo> FailureVariables { get; } = new VariableInfo[]
+    {
+        new("FAILED_SCRIPT_NAME", "The script that failed."),
+        new("FAILED_STEP", "The number of the step that failed."),
+        new("FAILED_MESSAGE", "Why that step failed."),
+        new("FAILED_COUNT", "How many runs failed, when the script ran for each item or user."),
+    };
 
     /// <summary>Gets every trigger, in editor order.</summary>
     public static IReadOnlyList<TriggerInfo> All { get; } = Triggers.Values.ToList();
+
+    /// <summary>
+    /// Gets whether a name is one the plugin fills itself, so a step may not save its output under it.
+    /// </summary>
+    /// <param name="name">The variable name without the prefix.</param>
+    /// <returns>True when the name is taken.</returns>
+    public static bool IsReserved(string name)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        return name.StartsWith(SecretPrefix, StringComparison.Ordinal)
+            || name.StartsWith(WebhookPrefix, StringComparison.Ordinal)
+            || ReservedNames().Contains(name);
+    }
+
+    private static HashSet<string> ReservedNames()
+        => _reserved ??= All
+            .SelectMany(t => t.Variables)
+            .Concat(ItemAll)
+            .Concat(UserAll)
+            .Concat(FailureVariables)
+            .Select(v => v.Name)
+            .ToHashSet(StringComparer.Ordinal);
 
     /// <summary>
     /// Gets what a trigger supplies.
@@ -308,6 +382,53 @@ public static class TriggerCatalog
         var name = VariableFor(field);
         return Get(trigger).Variables.Any(v => v.Name == name);
     }
+
+    /// <summary>
+    /// Gets whether a run supplies the value a condition field reads, counting what running for each item or
+    /// user adds to the event.
+    /// </summary>
+    /// <param name="trigger">The trigger.</param>
+    /// <param name="field">The field.</param>
+    /// <param name="forEach">What the run is for, beyond the event itself.</param>
+    /// <returns>True when the field applies.</returns>
+    public static bool Supplies(ScriptTrigger trigger, ConditionField field, ForEachMode forEach)
+    {
+        if (Supplies(trigger, field))
+        {
+            return true;
+        }
+
+        var name = VariableFor(field);
+        return ForEachVariables(forEach).Any(v => v.Name == name);
+    }
+
+    /// <summary>
+    /// Gets whether a script set to run for each item or user does so on a trigger: only when the event has no
+    /// item, or no user, of its own.
+    /// </summary>
+    /// <param name="trigger">The trigger.</param>
+    /// <param name="forEach">The script's setting.</param>
+    /// <returns>True when the event is expanded.</returns>
+    public static bool Expands(ScriptTrigger trigger, ForEachMode forEach)
+        => forEach switch
+        {
+            ForEachMode.Items => !Get(trigger).HasItem,
+            ForEachMode.Users => !Get(trigger).HasUser,
+            _ => false
+        };
+
+    /// <summary>
+    /// Gets the variables running for each item or user adds to an event.
+    /// </summary>
+    /// <param name="forEach">The mode.</param>
+    /// <returns>The variables, empty for <see cref="ForEachMode.None"/>.</returns>
+    public static IReadOnlyList<VariableInfo> ForEachVariables(ForEachMode forEach)
+        => forEach switch
+        {
+            ForEachMode.Items => ItemAll,
+            ForEachMode.Users => UserAll,
+            _ => Array.Empty<VariableInfo>()
+        };
 
     private static TriggerInfo PlaybackTrigger(ScriptTrigger trigger, string label, string description, params VariableInfo[] extra)
         => Build(trigger, label, "Playback", description, true, true, User, Session, Item, PlaybackVars, Streams, extra);

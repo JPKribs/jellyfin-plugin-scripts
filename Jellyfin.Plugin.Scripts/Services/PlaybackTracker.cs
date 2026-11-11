@@ -17,6 +17,8 @@ public sealed class PlaybackTracker
     // which at worst misses one edge per active session.
     private const int MaxTracked = 5000;
 
+    private const string TranscodeMethod = "Transcode";
+
     private readonly ConcurrentDictionary<string, PlaybackState> _sessions = new(StringComparer.Ordinal);
 
     /// <summary>
@@ -61,17 +63,42 @@ public sealed class PlaybackTracker
     public string? Stopped(string key) => _sessions.TryRemove(key, out var state) ? state.PlayMethod : null;
 
     /// <summary>
-    /// Records the play method a session reports, for the events that come after the server has cleared it.
+    /// Records a session's play method, so the stop event can report it.
     /// </summary>
-    /// <param name="key">The playback session key.</param>
+    /// <param name="key">The playback's key.</param>
     /// <param name="playMethod">The play method.</param>
-    public void RememberPlayMethod(string key, string playMethod)
+    /// <returns>True when a playback that was playing directly has just started transcoding.</returns>
+    public bool RememberPlayMethod(string key, string playMethod)
     {
-        if (_sessions.TryGetValue(key, out var state))
+        if (!_sessions.TryGetValue(key, out var state))
         {
-            state.PlayMethod = playMethod;
+            return false;
         }
+
+        var previous = state.PlayMethod;
+        state.PlayMethod = playMethod;
+        return previous is not null
+            && !string.Equals(previous, TranscodeMethod, StringComparison.Ordinal)
+            && string.Equals(playMethod, TranscodeMethod, StringComparison.Ordinal);
     }
+
+    /// <summary>
+    /// Records how far through its item a playback is.
+    /// </summary>
+    /// <param name="key">The playback's key.</param>
+    /// <param name="percent">The position as a percentage of the runtime.</param>
+    /// <returns>The percentage last recorded, or null when this is the first.</returns>
+    public double? AdvanceProgress(string key, double percent)
+        => _sessions.TryGetValue(key, out var state) ? state.Advance(percent) : null;
+
+    /// <summary>
+    /// Claims a playback's one run of a script's percentage trigger.
+    /// </summary>
+    /// <param name="key">The playback's key.</param>
+    /// <param name="scriptId">The script.</param>
+    /// <returns>True the first time per playback.</returns>
+    public bool ClaimProgress(string key, Guid scriptId)
+        => _sessions.TryGetValue(key, out var state) && state.ClaimProgress(scriptId);
 
     /// <summary>
     /// Gets the play method last seen for a session.
@@ -123,6 +150,8 @@ public sealed class PlaybackTracker
         private readonly object _lock = new();
         private readonly HashSet<Guid> _firedThisPause = new();
         private readonly HashSet<Guid> _firedThisPlayback = new();
+        private readonly HashSet<Guid> _firedProgress = new();
+        private double? _percent;
         private PlaybackProgressEventArgs? _args;
         private bool _isPaused;
         private DateTime _since;
@@ -159,6 +188,24 @@ public sealed class PlaybackTracker
                 _isPaused = isPaused;
                 _since = now;
                 return isPaused;
+            }
+        }
+
+        public double? Advance(double percent)
+        {
+            lock (_lock)
+            {
+                var previous = _percent;
+                _percent = percent;
+                return previous;
+            }
+        }
+
+        public bool ClaimProgress(Guid scriptId)
+        {
+            lock (_lock)
+            {
+                return _firedProgress.Add(scriptId);
             }
         }
 

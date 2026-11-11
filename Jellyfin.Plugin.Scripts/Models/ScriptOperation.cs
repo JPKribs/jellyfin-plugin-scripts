@@ -97,4 +97,31 @@ public class ScriptOperation
 
     /// <summary>Gets or sets the file <see cref="OperationType.AppendToFile"/> writes to. Its folder must exist.</summary>
     public string FilePath { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the name a command's output or an HTTP response is saved under, so later steps can use it as
+    /// <c>{{NAME}}</c>. The exit code or HTTP status is saved as <c>{{NAME_STATUS}}</c>. Empty saves nothing.
+    /// </summary>
+    public string OutputName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the field to save when the output is JSON, such as <c>data.items[0].name</c>. Empty saves the
+    /// whole output.
+    /// </summary>
+    public string OutputJsonPath { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the variable the step's own condition tests. Empty always runs the step. Any variable works,
+    /// including one an earlier step saved.
+    /// </summary>
+    public string OnlyIfVariable { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets how <see cref="OnlyIfVariable"/> is compared with <see cref="OnlyIfValue"/>.</summary>
+    public ConditionOperator OnlyIfOperator { get; set; }
+
+    /// <summary>
+    /// Gets or sets the value the step's condition compares against. Placeholders are filled. Empty with
+    /// <see cref="ConditionOperator.Is"/> or <see cref="ConditionOperator.IsNot"/> tests for a missing value.
+    /// </summary>
+    public string OnlyIfValue { get; set; } = string.Empty;
 }

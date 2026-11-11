@@ -32,7 +32,7 @@ namespace Jellyfin.Plugin.Scripts.Services;
 /// <summary>
 /// Listens to the server's playback, library, collection, user activity, session, task, and subtitle events for
 /// as long as the server runs, and hands each one to the dispatcher. A tick every few seconds also releases items
-/// waiting for metadata, fires the "for a while" playback triggers, and runs schedules. Sign ins, accounts,
+/// waiting for metadata, and fires the "for a while" playback triggers. Schedules are Jellyfin scheduled tasks, see <see cref="ScriptScheduledTasks"/>. Sign ins, accounts,
 /// plugins, and restarts arrive through <see cref="ServerEventConsumers"/> instead.
 /// </summary>
 public sealed class EventSubscriber : IHostedService, IDisposable
@@ -42,6 +42,9 @@ public sealed class EventSubscriber : IHostedService, IDisposable
 
     /// <summary>How long a new item may wait for metadata before it is dispatched without it.</summary>
     public static readonly TimeSpan MetadataWaitLimit = TimeSpan.FromSeconds(60);
+
+    // Past this many remembered devices the list starts over, which at worst reports a known device as new once.
+    private const int MaxKnownDevices = 20_000;
 
     private readonly ISessionManager _sessionManager;
     private readonly ILibraryManager _libraryManager;
@@ -64,8 +67,12 @@ public sealed class EventSubscriber : IHostedService, IDisposable
     private readonly PlaybackTracker _playback = new();
     private readonly FavoriteStates _favorites = new();
     private readonly ConcurrentDictionary<Guid, PendingItem> _pendingItems = new();
-    private readonly JsonFileStore<ScheduleState> _scheduleStore;
-    private ScheduleState? _scheduleState;
+    private readonly JsonFileStore<DeviceState> _deviceStore;
+    private readonly object _deviceLock = new();
+    private readonly object _countLock = new();
+    private HashSet<string>? _knownDevices;
+    private int _lastStreams = -1;
+    private int _lastTranscodes = -1;
     private Timer? _tickTimer;
     private CancellationTokenRegistration _startedRegistration;
     private volatile bool _stopping;
@@ -129,7 +136,7 @@ public sealed class EventSubscriber : IHostedService, IDisposable
         _configurationManager = configurationManager;
         _networkManager = networkManager;
         ArgumentNullException.ThrowIfNull(paths);
-        _scheduleStore = new JsonFileStore<ScheduleState>(paths.ScheduleFile, logger);
+        _deviceStore = new JsonFileStore<DeviceState>(paths.DevicesFile, logger);
         _builder = builder;
         _dispatcher = dispatcher;
         _logger = logger;
@@ -227,6 +234,8 @@ public sealed class EventSubscriber : IHostedService, IDisposable
             _playback.Started(key, e, DateTime.UtcNow);
             RememberPlayMethod(key, e);
             DispatchPlayback(ScriptTrigger.PlaybackStart, e);
+            FireProgress(key, e);
+            FireStreamCounts(e);
         });
     }
 
@@ -236,11 +245,19 @@ public sealed class EventSubscriber : IHostedService, IDisposable
         {
             var key = PlayKey(e);
             var edge = _playback.Progress(key, e.IsPaused, e, DateTime.UtcNow);
-            RememberPlayMethod(key, e);
+            var switched = RememberPlayMethod(key, e);
             if (edge is { } paused)
             {
                 DispatchPlayback(paused ? ScriptTrigger.PlaybackPause : ScriptTrigger.PlaybackResume, e);
             }
+
+            if (switched)
+            {
+                DispatchPlayback(ScriptTrigger.SwitchedToTranscode, e);
+            }
+
+            FireProgress(key, e);
+            FireStreamCounts(e);
         });
     }
 
@@ -250,6 +267,7 @@ public sealed class EventSubscriber : IHostedService, IDisposable
         {
             var playMethod = _playback.Stopped(PlayKey(e));
             DispatchPlayback(ScriptTrigger.PlaybackStop, e, playMethod);
+            FireStreamCounts(null);
         });
     }
 
@@ -263,17 +281,142 @@ public sealed class EventSubscriber : IHostedService, IDisposable
 
     // The server clears a session's play state before it reports the stop, so the method seen while playing
     // is kept with the rest of the playback's state for the stop event.
-    private void RememberPlayMethod(string key, PlaybackProgressEventArgs e)
+    private bool RememberPlayMethod(string key, PlaybackProgressEventArgs e)
+        => e.Session?.PlayState?.PlayMethod is { } method && _playback.RememberPlayMethod(key, method.ToString());
+
+    // Runs a script the first time a playback goes from below its percentage to at or past it. A playback that
+    // starts past it, such as one resumed near the end, has not passed it.
+    private void FireProgress(string key, PlaybackProgressEventArgs e)
     {
-        if (e.Session?.PlayState?.PlayMethod is { } method)
+        if (e.PlaybackPositionTicks is not { } position || e.Item?.RunTimeTicks is not { } runtime || runtime <= 0)
         {
-            _playback.RememberPlayMethod(key, method.ToString());
+            return;
+        }
+
+        var percent = Math.Clamp(position * 100.0 / runtime, 0, 100);
+        if (_playback.AdvanceProgress(key, percent) is not { } previous)
+        {
+            return;
+        }
+
+        foreach (var script in ScriptDispatcher.ScriptsFor(ScriptTrigger.PlaybackProgressReached))
+        {
+            var threshold = script.ProgressPercentThreshold;
+            if (previous < threshold && percent >= threshold && _playback.ClaimProgress(key, script.Id))
+            {
+                _dispatcher.DispatchTo(_builder.FromPlayback(ScriptTrigger.PlaybackProgressReached, e, _playback.PlayMethodOf(key)), script);
+            }
+        }
+    }
+
+    // Runs a script when the number of streams, or of transcodes, rises from below its number to at or past it.
+    // A stop or the tick passes no event: they only record the count, so the next rise is seen.
+    private void FireStreamCounts(PlaybackProgressEventArgs? e)
+    {
+        var watchesStreams = ScriptDispatcher.HasScriptsFor(ScriptTrigger.StreamCountReached);
+        var watchesTranscodes = ScriptDispatcher.HasScriptsFor(ScriptTrigger.TranscodeCountReached);
+        int previousStreams;
+        int previousTranscodes;
+        int streams;
+        int transcodes;
+        lock (_countLock)
+        {
+            if (!watchesStreams && !watchesTranscodes)
+            {
+                _lastStreams = -1;
+                _lastTranscodes = -1;
+                return;
+            }
+
+            (streams, transcodes) = _builder.CountStreams();
+            previousStreams = _lastStreams;
+            previousTranscodes = _lastTranscodes;
+            _lastStreams = streams;
+            _lastTranscodes = transcodes;
+        }
+
+        // The first count after the server starts, or after the first such script is added, has nothing to
+        // compare with.
+        if (e is null || previousStreams < 0)
+        {
+            return;
+        }
+
+        FireCount(ScriptTrigger.StreamCountReached, e, previousStreams, streams, s => s.StreamCountThreshold);
+        FireCount(ScriptTrigger.TranscodeCountReached, e, previousTranscodes, transcodes, s => s.TranscodeCountThreshold);
+    }
+
+    private void FireCount(ScriptTrigger trigger, PlaybackProgressEventArgs e, int previous, int current, Func<ScriptDefinition, int> threshold)
+    {
+        foreach (var script in ScriptDispatcher.ScriptsFor(trigger))
+        {
+            var wanted = threshold(script);
+            if (previous < wanted && current >= wanted)
+            {
+                _dispatcher.DispatchTo(_builder.FromPlayback(trigger, e, _playback.PlayMethodOf(PlayKey(e))), script);
+            }
         }
     }
 
     // ---- Sessions ----
 
-    private void OnSessionStarted(object? sender, SessionEventArgs e) => DispatchSession(ScriptTrigger.SessionStarted, e);
+    private void OnSessionStarted(object? sender, SessionEventArgs e)
+    {
+        DispatchSession(ScriptTrigger.SessionStarted, e);
+        Guard("new device", () =>
+        {
+            if (e.SessionInfo is { } session && IsNewDevice(session.DeviceId) && ScriptDispatcher.HasScriptsFor(ScriptTrigger.NewDeviceSeen))
+            {
+                var user = session.UserId == Guid.Empty ? null : _userManager.GetUserById(session.UserId);
+                _dispatcher.Dispatch(_builder.FromSession(ScriptTrigger.NewDeviceSeen, session, user));
+            }
+        });
+    }
+
+    // Every session's device is remembered, listened for or not, so a script added later is not told that every
+    // device is new. The first time through, the devices connected right now are taken as already known.
+    private bool IsNewDevice(string? deviceId)
+    {
+        if (string.IsNullOrEmpty(deviceId))
+        {
+            return false;
+        }
+
+        lock (_deviceLock)
+        {
+            var seeded = true;
+            if (_knownDevices is null)
+            {
+                var stored = _deviceStore.Load();
+                seeded = stored.Seeded;
+                _knownDevices = new HashSet<string>(stored.DeviceIds, StringComparer.Ordinal);
+                if (!seeded)
+                {
+                    foreach (var session in _sessionManager.Sessions)
+                    {
+                        if (!string.IsNullOrEmpty(session.DeviceId))
+                        {
+                            _knownDevices.Add(session.DeviceId);
+                        }
+                    }
+                }
+            }
+
+            var added = _knownDevices.Add(deviceId);
+            if (added || !seeded)
+            {
+                if (_knownDevices.Count > MaxKnownDevices)
+                {
+                    _knownDevices.Clear();
+                    _knownDevices.Add(deviceId);
+                }
+
+                _deviceStore.Save(new DeviceState { Seeded = true, DeviceIds = _knownDevices.ToList() });
+            }
+
+            return added && seeded;
+        }
+    }
 
     private void OnSessionEnded(object? sender, SessionEventArgs e) => DispatchSession(ScriptTrigger.SessionEnded, e);
 
@@ -587,7 +730,7 @@ public sealed class EventSubscriber : IHostedService, IDisposable
         Guard("items waiting for metadata", () => ReleasePendingItems(now));
         Guard("paused for a while", () => FirePaused(now));
         Guard("playing for a while", () => FirePlaying(now));
-        Guard("schedules", () => FireSchedules(now));
+        Guard("stream counts", () => FireStreamCounts(null));
 
         // Rescheduled after each pass rather than on a fixed period, so a slow pass never overlaps the next.
         try
@@ -647,45 +790,6 @@ public sealed class EventSubscriber : IHostedService, IDisposable
                 context.Set("PLAYING_SECONDS", ((long)played.TotalSeconds).ToString(CultureInfo.InvariantCulture));
                 _dispatcher.DispatchTo(context, script);
             }
-        }
-    }
-
-    // The state is read from disk once and kept, since only this class writes it.
-    private void FireSchedules(DateTime now)
-    {
-        var scripts = ScriptDispatcher.ScriptsFor(ScriptTrigger.Schedule).ToList();
-        var state = _scheduleState ??= _scheduleStore.Load();
-
-        // A script that is disabled, deleted, or no longer scheduled is forgotten, so an interval script enabled
-        // again waits a whole interval rather than running at once for the time it was off.
-        var stale = state.LastRuns.Keys.Where(id => !scripts.Any(s => s.Id == id)).ToList();
-        var changed = stale.Count > 0;
-        foreach (var id in stale)
-        {
-            state.LastRuns.Remove(id);
-        }
-
-        foreach (var script in scripts)
-        {
-            DateTime? last = state.LastRuns.TryGetValue(script.Id, out var stored) ? stored : null;
-            if (last is null && script.ScheduleMode == ScheduleMode.Interval)
-            {
-                state.LastRuns[script.Id] = now;
-                changed = true;
-                continue;
-            }
-
-            if (ScheduleCalculator.IsDue(script, now, TimeZoneInfo.Local, last, out var runUtc))
-            {
-                state.LastRuns[script.Id] = runUtc;
-                changed = true;
-                _dispatcher.DispatchTo(_builder.FromSystem(ScriptTrigger.Schedule), script);
-            }
-        }
-
-        if (changed)
-        {
-            _scheduleStore.Save(state);
         }
     }
 

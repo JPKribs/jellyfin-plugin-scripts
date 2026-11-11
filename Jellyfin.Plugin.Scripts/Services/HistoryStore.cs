@@ -135,6 +135,20 @@ public sealed class HistoryStore : IDisposable
     }
 
     /// <summary>
+    /// Gets each script's most recent run, leaving test runs out.
+    /// </summary>
+    /// <returns>The runs, one per script that has any.</returns>
+    public IReadOnlyList<ScriptRun> LastRuns()
+    {
+        lock (_lock)
+        {
+            // Runs are kept newest first, so the first one seen for a script is its latest.
+            var seen = new HashSet<Guid>();
+            return Runs().Where(r => !r.IsTest && seen.Add(r.ScriptId)).ToList();
+        }
+    }
+
+    /// <summary>
     /// Deletes every run, on disk too.
     /// </summary>
     public void Clear()

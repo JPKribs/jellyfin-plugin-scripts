@@ -497,15 +497,114 @@ public class EventContextBuilder
     }
 
     /// <summary>
+    /// Builds the context for a request to a script's webhook address.
+    /// </summary>
+    /// <param name="values">The variables read from the request, already named.</param>
+    /// <param name="remote">The caller's address.</param>
+    /// <returns>The context.</returns>
+    public EventContext FromWebhook(IReadOnlyDictionary<string, string> values, string? remote)
+    {
+        ArgumentNullException.ThrowIfNull(values);
+        var context = Create(ScriptTrigger.Webhook);
+        foreach (var (name, value) in values)
+        {
+            // A request never overwrites what the server itself says about the event.
+            if (!context.Variables.ContainsKey(name))
+            {
+                context.Set(name, value);
+            }
+        }
+
+        SetRemoteAddress(context, remote);
+        context.Summary = Join(TriggerCatalog.Get(ScriptTrigger.Webhook).Label, context.Get("REMOTE_ADDRESS"));
+        return context;
+    }
+
+    /// <summary>
+    /// Builds the context for an administrator running a script from the dashboard.
+    /// </summary>
+    /// <param name="user">The administrator, when known.</param>
+    /// <returns>The context.</returns>
+    public EventContext FromManual(User? user)
+    {
+        // The administrator is named in the history but is not the event's user: a step that acts on "the event's
+        // user" must never act on whoever pressed the button, and a script for each user still runs for each.
+        var context = Create(ScriptTrigger.Manual);
+        context.Summary = Join(TriggerCatalog.Get(ScriptTrigger.Manual).Label, user?.Username ?? string.Empty);
+        return context;
+    }
+
+    /// <summary>
+    /// Copies an event and makes one library item its item, for a script that runs for each item.
+    /// </summary>
+    /// <param name="source">The event the script ran on.</param>
+    /// <param name="item">The item.</param>
+    /// <returns>The item's own context.</returns>
+    public EventContext ForItem(EventContext source, BaseItem item)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(item);
+        var context = source.Copy();
+        context.ForEach = ForEachMode.Items;
+        AddItem(context, item);
+        context.Summary = Join(TriggerCatalog.Get(source.Trigger).Label, DescribeItem(context), context.Get("LIBRARY_NAME"));
+        return context;
+    }
+
+    /// <summary>
+    /// Copies an event and makes one user its user, for a script that runs for each user.
+    /// </summary>
+    /// <param name="source">The event the script ran on.</param>
+    /// <param name="user">The user.</param>
+    /// <returns>The user's own context.</returns>
+    public EventContext ForUser(EventContext source, User user)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(user);
+        var context = source.Copy();
+        context.ForEach = ForEachMode.Users;
+        AddUser(context, user, user.Id);
+        context.Set("IS_DISABLED", Bool(user.HasPermission(PermissionKind.IsDisabled)));
+        if (user.LastActivityDate is { } active)
+        {
+            context.Set("DAYS_SINCE_ACTIVE", Days(DateTime.UtcNow - active.ToUniversalTime()));
+        }
+
+        context.Summary = Join(TriggerCatalog.Get(source.Trigger).Label, user.Username);
+        return context;
+    }
+
+    /// <summary>
+    /// Counts the sessions playing something now, and how many of them are transcoding.
+    /// </summary>
+    /// <returns>The two counts.</returns>
+    public (int Streams, int Transcodes) CountStreams()
+    {
+        var playing = _sessionManager.Sessions.Where(s => s.NowPlayingItem is not null).ToList();
+        return (playing.Count, playing.Count(s => s.PlayState?.PlayMethod == PlayMethod.Transcode));
+    }
+
+    /// <summary>
     /// Builds a context with sample values for every variable the trigger supplies, for the test button. It
     /// carries no session or item ID, so steps that act on one report that they skipped.
     /// </summary>
     /// <param name="trigger">The trigger to imitate.</param>
     /// <returns>The context.</returns>
-    public EventContext Sample(ScriptTrigger trigger)
+    public EventContext Sample(ScriptTrigger trigger) => Sample(trigger, ForEachMode.None);
+
+    /// <summary>
+    /// Builds a sample context as <see cref="Sample(ScriptTrigger)"/> does, with a sample item or user as well
+    /// when the script runs for each one on this trigger.
+    /// </summary>
+    /// <param name="trigger">The trigger to imitate.</param>
+    /// <param name="forEach">What the script runs for each of.</param>
+    /// <returns>The context.</returns>
+    public EventContext Sample(ScriptTrigger trigger, ForEachMode forEach)
     {
         var context = Create(trigger);
-        foreach (var variable in TriggerCatalog.Get(trigger).Variables)
+        var expands = TriggerCatalog.Expands(trigger, forEach);
+        context.ForEach = expands ? forEach : ForEachMode.None;
+        foreach (var variable in TriggerCatalog.Get(trigger).Variables.Concat(TriggerCatalog.ForEachVariables(context.ForEach)))
         {
             if (!context.Variables.ContainsKey(variable.Name) && SampleValues.TryGetValue(variable.Name, out var value))
             {
@@ -513,7 +612,7 @@ public class EventContextBuilder
             }
         }
 
-        if (TriggerCatalog.Get(trigger).HasItem)
+        if (TriggerCatalog.Get(trigger).HasItem || context.ForEach == ForEachMode.Items)
         {
             context.ItemKind = BaseItemKind.Movie;
         }
@@ -597,6 +696,13 @@ public class EventContextBuilder
         ["TASK_KEY"] = "RefreshLibrary",
         ["TASK_STATUS"] = "Completed",
         ["TASK_DURATION_SECONDS"] = "42",
+        ["DAYS_SINCE_ADDED"] = "12",
+        ["HAS_SUBTITLES"] = "true",
+        ["PLAYED_BY_ANYONE"] = "false",
+        ["DAYS_SINCE_PLAYED"] = "120",
+        ["DAYS_SINCE_ACTIVE"] = "45",
+        ["IS_DISABLED"] = "false",
+        ["WEBHOOK_BODY"] = "{\"example\":\"value\"}",
     };
 
     private EventContext Create(ScriptTrigger trigger)
@@ -685,6 +791,12 @@ public class EventContextBuilder
         if (item.DateCreated > DateTime.MinValue)
         {
             context.Set("DATE_ADDED", item.DateCreated.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture));
+            context.Set("DAYS_SINCE_ADDED", Days(DateTime.UtcNow - item.DateCreated.ToUniversalTime()));
+        }
+
+        if (item is Video video)
+        {
+            context.Set("HAS_SUBTITLES", Bool(video.HasSubtitles));
         }
 
         context.Set("PROVIDER_IMDB", ProviderId(item, "Imdb"));
@@ -741,9 +853,9 @@ public class EventContextBuilder
     // Counts what is playing now, so a script can act on the number of streams or transcodes.
     private void SetStreamCounts(EventContext context)
     {
-        var playing = _sessionManager.Sessions.Where(s => s.NowPlayingItem is not null).ToList();
-        context.Set("ACTIVE_STREAMS", playing.Count.ToString(CultureInfo.InvariantCulture));
-        context.Set("ACTIVE_TRANSCODES", playing.Count(s => s.PlayState?.PlayMethod == PlayMethod.Transcode).ToString(CultureInfo.InvariantCulture));
+        var (streams, transcodes) = CountStreams();
+        context.Set("ACTIVE_STREAMS", streams.ToString(CultureInfo.InvariantCulture));
+        context.Set("ACTIVE_TRANSCODES", transcodes.ToString(CultureInfo.InvariantCulture));
     }
 
     private static string? JoinList(IReadOnlyCollection<string>? values)
@@ -791,4 +903,6 @@ public class EventContextBuilder
     private static string Seconds(long ticks) => ((long)(ticks / TicksPerSecond)).ToString(CultureInfo.InvariantCulture);
 
     private static string Bool(bool value) => value ? "true" : "false";
+
+    private static string Days(TimeSpan age) => Math.Max(0, (long)age.TotalDays).ToString(CultureInfo.InvariantCulture);
 }

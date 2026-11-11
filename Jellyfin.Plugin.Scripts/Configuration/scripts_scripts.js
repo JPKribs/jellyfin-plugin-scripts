@@ -32,6 +32,9 @@ export default function (view) {
         IsAdmin: ['true', 'false'],
         IsPlayed: ['true', 'false'],
         IsFavorite: ['true', 'false'],
+        HasSubtitles: ['true', 'false'],
+        PlayedByAnyone: ['true', 'false'],
+        IsDisabled: ['true', 'false'],
         TaskStatus: ['Completed', 'Failed', 'Cancelled', 'Aborted'],
         DayOfWeek: DAYS,
         UpdateReason: ['MetadataImport', 'ImageUpdate', 'MetadataDownload', 'MetadataEdit'],
@@ -46,6 +49,15 @@ export default function (view) {
         { value: 'AdminSessions', label: 'Every administrator\'s session' }
     ];
 
+    // Steps whose output a later step can use.
+    var HAS_OUTPUT = { RunCommand: true, HttpRequest: true };
+    // The triggers that wait for a number, the script property holding it, and the block that edits it.
+    var TRIGGER_NUMBERS = [
+        { trigger: 'PlaybackProgressReached', block: 'progressOptions', input: 'progressPercent', key: 'ProgressPercentThreshold', fallback: 90 },
+        { trigger: 'StreamCountReached', block: 'streamOptions', input: 'streamCount', key: 'StreamCountThreshold', fallback: 3 },
+        { trigger: 'TranscodeCountReached', block: 'transcodeOptions', input: 'transcodeCount', key: 'TranscodeCountThreshold', fallback: 2 }
+    ];
+
     var catalog = null;
     var scripts = [];
     var selectedId = null;
@@ -53,7 +65,6 @@ export default function (view) {
     var itemKindSelect = null;
     var userSelect = null;
     var matchChoice = null;
-    var scheduleChoice = null;
     var operationList = null;
     var conditionSelects = [];
     var suppressWidgetEvents = false;
@@ -78,6 +89,32 @@ export default function (view) {
 
     function selectedTriggers(script) {
         return (script.Triggers || []).map(triggerInfo).filter(Boolean);
+    }
+
+    function has(script, trigger) { return (script.Triggers || []).indexOf(trigger) >= 0; }
+
+    // Running for each item or user only happens on an event with no item, or no user, of its own.
+    function expands(script, t) {
+        if (script.ForEach === 'Items') return !t.HasItem;
+        if (script.ForEach === 'Users') return !t.HasUser;
+        return false;
+    }
+
+    function carriesItem(script, t) { return t.HasItem || script.ForEach === 'Items'; }
+    function carriesUser(script, t) { return t.HasUser || script.ForEach === 'Users'; }
+
+    function supplies(script, t, info) {
+        return info.Triggers.indexOf(t.Key) >= 0 || (expands(script, t) && (info.ForEach || []).indexOf(script.ForEach) >= 0);
+    }
+
+    function newToken() {
+        var bytes = new Uint8Array(24);
+        window.crypto.getRandomValues(bytes);
+        return Array.from(bytes, function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
+    }
+
+    function ensureWebhookToken(script) {
+        if (script && has(script, 'Webhook') && !script.WebhookToken) script.WebhookToken = newToken();
     }
 
     // Every edit goes through here: it refreshes the counts, the picker, and the unsaved indicator.
@@ -140,6 +177,7 @@ export default function (view) {
         if (!script) return;
         suppressWidgetEvents = true;
         el('scriptName').value = script.Name || '';
+        el('scriptDescription').value = script.Description || '';
         el('scriptEnabled').checked = !!script.Enabled;
         el('scriptCooldown').value = script.CooldownSeconds || 0;
         triggerList.setValue(script.Triggers || []);
@@ -147,6 +185,12 @@ export default function (view) {
         userSelect.setValue((script.UserIds || []).map(compactId));
         matchChoice.set(script.Match || 'All');
         suppressWidgetEvents = false;
+        el('forEachMode').value = script.ForEach || 'None';
+        el('forEachLimit').value = orDefault(script.ForEachLimit, 50);
+        el('onFailureScript').innerHTML = '<option value="">Nothing</option>' + scripts.filter(function (s) { return s.Id !== script.Id; }).map(function (s) {
+            return '<option value="' + esc(s.Id) + '">' + esc(s.Name || 'Untitled') + '</option>';
+        }).join('');
+        el('onFailureScript').value = compactId(script.OnFailureScriptId);
         renderTriggerOptions();
         renderConditions();
         renderOperations();
@@ -157,6 +201,7 @@ export default function (view) {
     }
 
     function onTriggersChanged() {
+        ensureWebhookToken(current());
         renderTriggerOptions();
         renderConditions();
         renderOperationCards();
@@ -185,13 +230,24 @@ export default function (view) {
             : '';
         Shared.setVisible('itemKindWarn', kindWarn);
 
-        var noUser = triggers.filter(function (t) { return !t.HasUser; });
+        var noUser = triggers.filter(function (t) { return !carriesUser(script, t); });
         var userWarn = (script.UserIds || []).length > 0 && noUser.length > 0;
         el('userWarn').textContent = userWarn
             ? 'Ignored for ' + noUser.map(quoted).join(', ') + ', which ' +
               (noUser.length === 1 ? 'has' : 'have') + ' no user. The script runs on ' + (noUser.length === 1 ? 'that event' : 'those events') + ' whatever these users do.'
             : '';
         Shared.setVisible('userWarn', userWarn);
+
+        var mode = script.ForEach || 'None';
+        Shared.setVisible('forEachLimitRow', mode !== 'None');
+        var eachWarn = '';
+        if (mode === 'Items' && (script.ItemKinds || []).length === 0) {
+            eachWarn = 'Choose at least one item kind above, such as Movie, so the script knows which items to go through.';
+        } else if (mode !== 'None' && triggers.length && !triggers.some(function (t) { return expands(script, t); })) {
+            eachWarn = 'Every selected trigger already has ' + (mode === 'Items' ? 'an item' : 'a user') + ', so the script runs once per event. Running for each applies to triggers such as On a schedule, Webhook received, and Run now.';
+        }
+        el('forEachWarn').textContent = eachWarn;
+        Shared.setVisible('forEachWarn', !!eachWarn);
     }
 
     // ---- Trigger options ----
@@ -203,21 +259,25 @@ export default function (view) {
         Shared.setVisible('pausedOptions', has('PlaybackPausedFor'));
         Shared.setVisible('playingOptions', has('PlaybackPlayingFor'));
         Shared.setVisible('scheduleOptions', has('Schedule'));
+        TRIGGER_NUMBERS.forEach(function (option) {
+            Shared.setVisible(option.block, has(option.trigger));
+            el(option.input).value = orDefault(script[option.key], option.fallback);
+        });
+        Shared.setVisible('webhookOptions', has('Webhook'));
+        if (has('Webhook')) renderWebhook();
         el('pausedMinutes').value = orDefault(script.PausedForMinutes, 10);
         el('playingMinutes').value = orDefault(script.PlayingForMinutes, 60);
 
-        suppressWidgetEvents = true;
-        scheduleChoice.set(script.ScheduleMode || 'Daily');
-        suppressWidgetEvents = false;
-        el('scheduleIntervalMinutes').value = orDefault(script.ScheduleIntervalMinutes, 60);
-        el('scheduleTime').value = script.ScheduleTime || '03:00';
-        el('scheduleMonthDay').value = orDefault(script.ScheduleMonthDay, 1);
-        el('scheduleDays').innerHTML = DAYS.map(function (day) {
-            var checked = (script.ScheduleDays || []).indexOf(day) >= 0 ? ' checked' : '';
-            return '<label class="emby-checkbox-label scripts-day"><input type="checkbox" is="emby-checkbox" data-day="' + day + '"' + checked + ' />' +
-                '<span class="checkboxLabel">' + day.slice(0, 3) + '</span></label>';
-        }).join('');
-        renderScheduleMode();
+        el('scheduleStart').textContent = has('Schedule') ? scheduleStart(script) : '';
+    }
+
+    // The schedule a script's task starts with, until it is changed under Scheduled Tasks.
+    function scheduleStart(script) {
+        var lead = 'Until you change it there, the task starts out running ';
+        if (script.ScheduleMode === 'Interval') return lead + 'every ' + (script.ScheduleIntervalMinutes || 60) + ' minutes.';
+        if (script.ScheduleMode === 'Monthly') return 'The task starts with no schedule of its own. Add one under Scheduled Tasks.';
+        var days = script.ScheduleDays || [];
+        return lead + (days.length ? 'on ' + days.join(', ') : 'every day') + ' at ' + (script.ScheduleTime || '03:00') + '.';
     }
 
     // Shows what the script holds, so a cleared field reads as empty rather than as a default it does not have.
@@ -225,12 +285,15 @@ export default function (view) {
         return value === undefined || value === null ? fallback : value;
     }
 
-    function renderScheduleMode() {
-        var mode = current().ScheduleMode || 'Daily';
-        Shared.setVisible('scheduleInterval', mode === 'Interval');
-        Shared.setVisible('scheduleTimeRow', mode !== 'Interval');
-        Shared.setVisible('scheduleDaysRow', mode === 'Daily');
-        Shared.setVisible('scheduleMonthDayRow', mode === 'Monthly');
+    function renderWebhook() {
+        var path = 'Scripts/Webhook/' + (current().WebhookToken || '');
+        var url = window.ApiClient && window.ApiClient.getUrl ? window.ApiClient.getUrl(path) : '/' + path;
+        el('webhookUrl').value = url;
+        el('webhookExample').textContent =
+            'curl -X POST "' + url + '" \\\n' +
+            '  -H \'Authorization: MediaBrowser Token="YOUR_API_KEY"\' \\\n' +
+            '  -H "Content-Type: application/json" \\\n' +
+            '  -d \'{"title": "Example"}\'';
     }
 
     // ---- Conditions ----
@@ -257,7 +320,7 @@ export default function (view) {
         if (!triggers.length) return '';
         var info = fieldInfo(condition.Field);
         if (!info) return '';
-        var missing = triggers.filter(function (t) { return info.Triggers.indexOf(t.Key) < 0; });
+        var missing = triggers.filter(function (t) { return !supplies(script, t, info); });
         if (!missing.length) return '';
         if (missing.length === triggers.length) return 'None of the selected triggers supply this value, so this condition never matches.';
         var names = missing.map(quoted).join(', ');
@@ -351,6 +414,7 @@ export default function (view) {
             case 'SetUserDisabled': return op.Disable ? 'Disable the user' : 'Enable the user';
             case 'WriteActivityLog': return op.Title || 'Entry named after the script';
             case 'RefreshMetadata': return op.FullRefresh ? 'Full refresh' : 'Standard refresh';
+            case 'StopScript': return 'Skip the steps after this one';
             default: return '';
         }
     }
@@ -362,9 +426,9 @@ export default function (view) {
         if (!needs || !triggers.length) return '';
         var lacks = function (t) {
             if (needs === 'session') return !t.HasSession;
-            if (needs === 'item') return !t.HasItem;
-            if (needs === 'user') return !t.HasUser;
-            return !t.HasItem || !t.HasUser;
+            if (needs === 'item') return !carriesItem(script, t);
+            if (needs === 'user') return !carriesUser(script, t);
+            return !carriesItem(script, t) || !carriesUser(script, t);
         };
         var missing = triggers.filter(lacks);
         if (!missing.length) return '';
@@ -380,7 +444,8 @@ export default function (view) {
             Method: 'POST', Url: '', Headers: '', Body: '', ContentType: 'application/json', Retries: 0,
             Title: '', Text: '', Target: 'EventSession', DisplaySeconds: type === 'SendMessage' ? 10 : 0,
             TaskKey: '', FullRefresh: false, ReplaceAll: false, WaitSeconds: type === 'Wait' ? 5 : 0,
-            Tag: '', CollectionId: '', Favorite: true, Disable: true, ScriptId: '', FilePath: ''
+            Tag: '', CollectionId: '', Favorite: true, Disable: true, ScriptId: '', FilePath: '',
+            OutputName: '', OutputJsonPath: '', OnlyIfVariable: '', OnlyIfOperator: 'Is', OnlyIfValue: ''
         };
     }
 
@@ -514,9 +579,30 @@ export default function (view) {
                     input(op, 'Text', 'Line to append', { textarea: true, rows: 2, placeholder: '{{LOCAL_DATE}} {{LOCAL_TIME}} {{EVENT}} {{ITEM_NAME}}' });
             case 'Wait':
                 return input(op, 'WaitSeconds', 'Seconds', { number: true });
+            case 'StopScript':
+                return note('Ends the run here: the steps after this one are skipped, and the run still counts as succeeded. Give it a condition below so it only stops when you want it to.');
             default:
                 return '';
         }
+    }
+
+    // What every step has beyond its own fields: a condition, and for a command or HTTP request a saved output.
+    function stepExtras(op) {
+        var condition = '<div class="scripts-step-group"><label>Only run this step if</label><div class="scripts-onlyif">' +
+            '<div class="scripts-cell"><input is="emby-input" type="text" data-key="OnlyIfVariable" data-upper="1" list="scriptsVariableNames" value="' + esc(op.OnlyIfVariable) + '" placeholder="Always, or a variable" aria-label="Variable" /></div>' +
+            '<div class="scripts-cell"><select is="emby-select" data-key="OnlyIfOperator" aria-label="Operator">' + Object.keys(OPERATOR_LABELS).map(function (o) {
+                return '<option value="' + o + '"' + (o === (op.OnlyIfOperator || 'Is') ? ' selected' : '') + '>' + esc(OPERATOR_LABELS[o]) + '</option>';
+            }).join('') + '</select></div>' +
+            '<div class="scripts-cell"><input is="emby-input" type="text" data-key="OnlyIfValue" value="' + esc(op.OnlyIfValue) + '" placeholder="Value, or empty for none" aria-label="Value" /></div>' +
+            '</div><div class="fieldDescription">Tests any variable, such as ITEM_KIND, a webhook field, or one an earlier step saved. A step whose condition does not match is skipped, and the run carries on.</div></div>';
+        var output = HAS_OUTPUT[op.Type]
+            ? '<div class="scripts-step-group"><label>Save the ' + (op.Type === 'HttpRequest' ? 'response' : 'output') + ' for later steps</label><div class="scripts-saveas">' +
+                '<div class="scripts-cell"><input is="emby-input" type="text" data-key="OutputName" data-upper="1" value="' + esc(op.OutputName) + '" placeholder="Name, such as RESULT" aria-label="Save as" /></div>' +
+                '<div class="scripts-cell"><input is="emby-input" type="text" data-key="OutputJsonPath" value="' + esc(op.OutputJsonPath) + '" placeholder="Everything, or a JSON field: data.items[0].name" aria-label="JSON field" /></div>' +
+                '</div><div class="fieldDescription">Later steps use it as <code>{{NAME}}</code>, and <code>{{NAME_STATUS}}</code> holds the ' +
+                (op.Type === 'HttpRequest' ? 'HTTP status' : 'exit code') + '.</div></div>'
+            : '';
+        return condition + output;
     }
 
     function renderOperationEditor(index) {
@@ -528,6 +614,7 @@ export default function (view) {
         editor.innerHTML =
             (warning ? '<div class="jpk-warn scripts-inline-warn">' + esc(warning) + '</div>' : '') +
             operationFields(op) +
+            stepExtras(op) +
             checkbox(op, 'ContinueOnError', 'Continue on error', 'Run the following steps even if this one fails.') +
             '<button is="emby-button" type="button" class="raised jpk-button-small jpk-button-destructive" id="btnRemoveOperation"><span>Remove step</span></button>';
         var mode = editor.querySelector('.scripts-command-mode');
@@ -558,6 +645,12 @@ export default function (view) {
                 renderOperationEditor(operationList.getSelected());
             }
             return key;
+        }
+
+        if (target.getAttribute('data-upper')) {
+            var caret = target.selectionStart;
+            target.value = target.value.toUpperCase().replace(/^\{+|\}+$|^\$/g, '').replace(/^JF_/, '').replace(/[^A-Z0-9_]/g, '_');
+            try { target.selectionStart = target.selectionEnd = caret; } catch (e) { /* not a text field */ }
         }
 
         if (target.type === 'checkbox') op[key] = target.checked;
@@ -610,20 +703,28 @@ export default function (view) {
         if (!triggers.length) triggers = catalog.Triggers;
         var seen = {};
         var rows = [];
-        triggers.forEach(function (t) {
-            t.Variables.forEach(function (v) {
-                if (seen[v.Name]) return;
-                seen[v.Name] = true;
-                rows.push(v);
-            });
+        var add = function (v) {
+            if (seen[v.Name]) return;
+            seen[v.Name] = true;
+            rows.push(v);
+        };
+        triggers.forEach(function (t) { t.Variables.forEach(add); });
+        if (script.ForEach === 'Items' || script.ForEach === 'Users') (catalog.ForEachVariables[script.ForEach] || []).forEach(add);
+        (script.Operations || []).forEach(function (op, index) {
+            if (!HAS_OUTPUT[op.Type] || !op.OutputName) return;
+            add({ Name: op.OutputName, Description: 'What step ' + (index + 1) + ' saved.' });
+            add({ Name: op.OutputName + '_STATUS', Description: 'Step ' + (index + 1) + '\'s ' + (op.Type === 'HttpRequest' ? 'HTTP status.' : 'exit code.') });
         });
+        if (scripts.some(function (x) { return compactId(x.OnFailureScriptId) === script.Id; })) (catalog.FailureVariables || []).forEach(add);
         (script.Secrets || []).forEach(function (secret) {
-            if (secret.Name) rows.push({ Name: 'SECRET_' + secret.Name, Description: 'The script\'s secret ' + secret.Name + '.' });
+            if (secret.Name) add({ Name: 'SECRET_' + secret.Name, Description: 'The script\'s secret ' + secret.Name + '.' });
         });
         el('variableList').innerHTML = rows.map(function (v) {
             return '<button type="button" class="scripts-variable" data-copy-var="' + esc(v.Name) + '" title="Copy {{' + esc(v.Name) + '}}">' +
                 '<code>{{' + esc(v.Name) + '}}</code><span>' + esc(v.Description) + '</span></button>';
         }).join('');
+        var names = view.querySelector('#scriptsVariableNames');
+        if (names) names.innerHTML = rows.map(function (v) { return '<option value="' + esc(v.Name) + '"></option>'; }).join('');
     }
 
     function renderTestTriggers() {
@@ -667,6 +768,25 @@ export default function (view) {
         });
     }
 
+    function runNow() {
+        var script = current();
+        if (!script) return;
+        if (tracker && tracker.isDirty()) {
+            Shared.setStatus('scriptStatus', 'Save first: Run now runs the saved script.', true);
+            return;
+        }
+
+        var button = el('btnRunScript');
+        button.disabled = true;
+        Shared.apiRequest('Scripts/Run/' + script.Id, 'POST').then(function () {
+            Shared.setStatus('scriptStatus', 'Started. The result is on the History tab.', false, { timeout: 8000 });
+        }).catch(function () {
+            Shared.setStatus('scriptStatus', 'Could not start the script. Save it and try again.', true);
+        }).finally(function () {
+            button.disabled = false;
+        });
+    }
+
     // ---- Save ----
 
     function validate(script) {
@@ -692,15 +812,25 @@ export default function (view) {
         if (outside(script.CooldownSeconds || 0, 0, 86400)) return label + 'the cooldown must be between 0 and 86400 seconds.';
         if (script.Triggers.indexOf('PlaybackPausedFor') >= 0 && outside(script.PausedForMinutes, 1, 1440)) return label + 'paused for must be between 1 and 1440 minutes.';
         if (script.Triggers.indexOf('PlaybackPlayingFor') >= 0 && outside(script.PlayingForMinutes, 1, 1440)) return label + 'playing for must be between 1 and 1440 minutes.';
-        if (script.Triggers.indexOf('Schedule') >= 0) {
-            if (script.ScheduleMode === 'Interval' && outside(script.ScheduleIntervalMinutes, 1, 10080)) return label + 'the schedule interval must be between 1 and 10080 minutes.';
-            if (script.ScheduleMode !== 'Interval' && !/^([01]\d|2[0-3]):[0-5]\d$/.test(script.ScheduleTime || '')) return label + 'the schedule needs a time.';
-            if (script.ScheduleMode === 'Monthly' && outside(script.ScheduleMonthDay, 1, 31)) return label + 'the day of the month must be between 1 and 31.';
-        }
+        if (script.Triggers.indexOf('PlaybackProgressReached') >= 0 && outside(script.ProgressPercentThreshold, 1, 99)) return label + 'the playback percentage must be between 1 and 99.';
+        if (script.Triggers.indexOf('StreamCountReached') >= 0 && outside(script.StreamCountThreshold, 1, 100)) return label + 'the stream count must be between 1 and 100.';
+        if (script.Triggers.indexOf('TranscodeCountReached') >= 0 && outside(script.TranscodeCountThreshold, 1, 100)) return label + 'the transcode count must be between 1 and 100.';
+        if (script.ForEach === 'Items' && !(script.ItemKinds || []).length) return label + 'running for each library item needs at least one item kind.';
+        if (script.ForEach !== 'None' && outside(script.ForEachLimit, 1, 500)) return label + 'the most runs per event must be between 1 and 500.';
 
+        var saved = {};
         for (var i = 0; i < script.Operations.length; i++) {
             var op = script.Operations[i];
             var step = label + 'step ' + (i + 1) + ' ';
+            if (op.OutputName && HAS_OUTPUT[op.Type]) {
+                if (!/^[A-Z0-9_]{1,40}$/.test(op.OutputName)) return step + 'saves its output under a name of capital letters, digits, and underscores.';
+                if (saved[op.OutputName]) return step + 'saves its output as ' + op.OutputName + ', which step ' + saved[op.OutputName] + ' already uses.';
+                saved[op.OutputName] = i + 1;
+            }
+            if (op.OnlyIfVariable && !/^[A-Z0-9_]{1,80}$/.test(op.OnlyIfVariable)) return step + 'has a condition on something that is not a variable name.';
+            if (op.OnlyIfVariable && (op.OnlyIfOperator === 'AtLeast' || op.OnlyIfOperator === 'AtMost') && !/\{\{/.test(op.OnlyIfValue || '') && isNaN(parseFloat(op.OnlyIfValue))) {
+                return step + 'has a condition that needs a number.';
+            }
             if (op.Type === 'RunCommand' && !(op.Command || '').trim()) return step + 'needs a command.';
             if (op.Type === 'HttpRequest' && !/^https?:\/\//i.test((op.Url || '').trim())) return step + 'needs a URL that starts with http:// or https://.';
             if (op.Type === 'SendMessage' && !(op.Text || '').trim()) return step + 'needs message text.';
@@ -732,7 +862,12 @@ export default function (view) {
         }
 
         return Shared.saveConfigWith(function (config) {
-            config.Scripts = scripts;
+            // Only a command or an HTTP request has an output to save.
+            config.Scripts = scripts.map(function (script) {
+                var copy = JSON.parse(JSON.stringify(script));
+                copy.Operations.forEach(function (op) { if (!HAS_OUTPUT[op.Type]) { op.OutputName = ''; op.OutputJsonPath = ''; } });
+                return copy;
+            });
         }, 'scriptStatus', { success: 'Saved.', error: 'The server refused the save. Check each script and try again.' }).then(function () {
             // Reload so secrets come back as stored and new IDs settle.
             return reloadScripts().then(function () { if (tracker) tracker.flashSaved(); return true; });
@@ -743,10 +878,12 @@ export default function (view) {
 
     function blankScript(name) {
         return {
-            Id: compactId(generateGuid()), Name: name || 'New script', Enabled: true, Triggers: [], ItemKinds: [], UserIds: [],
+            Id: compactId(generateGuid()), Name: name || 'New script', Description: '', Enabled: true, Triggers: [], ItemKinds: [], UserIds: [],
             Match: 'All', Conditions: [], Operations: [], CooldownSeconds: 0, Secrets: [],
             PausedForMinutes: 10, PlayingForMinutes: 60, ScheduleMode: 'Daily', ScheduleIntervalMinutes: 60,
-            ScheduleTime: '03:00', ScheduleDays: [], ScheduleMonthDay: 1
+            ScheduleTime: '03:00', ScheduleDays: [], ScheduleMonthDay: 1,
+            ForEach: 'None', ForEachLimit: 50, OnFailureScriptId: '', WebhookToken: '',
+            StreamCountThreshold: 3, TranscodeCountThreshold: 2, ProgressPercentThreshold: 90
         };
     }
 
@@ -755,6 +892,7 @@ export default function (view) {
     function sanitize(source, base) {
         var s = Object.assign(base, {
             Name: String(source.Name || base.Name),
+            Description: String(source.Description || ''),
             Triggers: (source.Triggers || base.Triggers).filter(triggerInfo),
             ItemKinds: (source.ItemKinds || []).filter(function (k) { return catalog.ItemKinds.some(function (x) { return x.Value === k; }); }),
             UserIds: (source.UserIds || []).map(compactId),
@@ -765,18 +903,27 @@ export default function (view) {
                 return { Field: c.Field, Operator: c.Operator, Values: Array.isArray(c.Values) ? c.Values.map(String) : [] };
             }),
             Operations: (source.Operations || []).filter(function (op) { return op && OPERATION_TYPES[op.Type]; }).map(function (op) {
-                return Object.assign(newOperation(op.Type), op);
+                var filled = Object.assign(newOperation(op.Type), op);
+                ['OutputName', 'OutputJsonPath', 'OnlyIfVariable', 'OnlyIfValue'].forEach(function (key) { filled[key] = filled[key] === null || filled[key] === undefined ? '' : String(filled[key]); });
+                if (!OPERATOR_LABELS[filled.OnlyIfOperator]) filled.OnlyIfOperator = 'Is';
+                return filled;
             }),
             Secrets: (source.Secrets || []).filter(function (x) { return x && x.Name; }).map(function (x) {
                 return { Name: String(x.Name).toUpperCase(), Value: '' };
             })
         });
-        ['CooldownSeconds', 'PausedForMinutes', 'PlayingForMinutes', 'ScheduleIntervalMinutes', 'ScheduleMonthDay'].forEach(function (key) {
+        ['CooldownSeconds', 'PausedForMinutes', 'PlayingForMinutes', 'ScheduleIntervalMinutes', 'ScheduleMonthDay',
+            'ForEachLimit', 'StreamCountThreshold', 'TranscodeCountThreshold', 'ProgressPercentThreshold'].forEach(function (key) {
             if (source[key] !== undefined) s[key] = parseInt(source[key], 10) || 0;
         });
         if (['Interval', 'Daily', 'Monthly'].indexOf(source.ScheduleMode) >= 0) s.ScheduleMode = source.ScheduleMode;
         if (typeof source.ScheduleTime === 'string') s.ScheduleTime = source.ScheduleTime;
         if (Array.isArray(source.ScheduleDays)) s.ScheduleDays = source.ScheduleDays.filter(function (d) { return DAYS.indexOf(d) >= 0; });
+        if (['None', 'Items', 'Users'].indexOf(source.ForEach) >= 0) s.ForEach = source.ForEach;
+        s.OnFailureScriptId = /^[0-9a-f]{32}$/.test(compactId(source.OnFailureScriptId)) ? compactId(source.OnFailureScriptId) : '';
+        // The webhook address is never carried over: a copy or an import gets its own.
+        s.WebhookToken = '';
+        ensureWebhookToken(s);
         return s;
     }
 
@@ -791,6 +938,7 @@ export default function (view) {
     function newScript() {
         promptDialog([
             { name: 'name', label: 'Name', value: '', placeholder: 'Named after the template when left blank' },
+            { name: 'description', label: 'Description', value: '', placeholder: 'What the script is for' },
             { name: 'template', label: 'Start from', type: 'select', value: 'blank', options: TEMPLATES.map(function (t) { return { value: t.key, label: t.label }; }) }
         ], { title: 'New script', submitText: 'Create' }).then(function (values) {
             if (!values) return;
@@ -798,6 +946,7 @@ export default function (view) {
             var name = (values.name || '').trim() || (template.key === 'blank' ? 'New script' : template.label);
             var script = sanitize(Object.assign({ Name: name }, template.build()), blankScript(name));
             script.Name = name;
+            script.Description = (values.description || '').trim().slice(0, 500);
             addScript(script, template.key === 'blank' ? '' : 'Started from "' + template.label + '". Review it and click Save.');
             el('scriptName').focus();
             el('scriptName').select();
@@ -823,11 +972,12 @@ export default function (view) {
         var stamp = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
         var exported = JSON.parse(JSON.stringify(scripts)).map(function (s) {
             s.Secrets = (s.Secrets || []).map(function (x) { return { Name: x.Name, Value: '' }; });
+            s.WebhookToken = '';
             return s;
         });
         downloadJson('jellyfin-scripts-' + stamp + '.json', { Format: 'jellyfin-plugin-scripts', Version: 1, Scripts: exported });
         Shared.setStatus('transferStatus', 'Exported ' + scripts.length + ' script' + (scripts.length === 1 ? '' : 's') +
-            (tracker && tracker.isDirty() ? ', including unsaved edits' : '') + '. Secret values are left out.', false);
+            (tracker && tracker.isDirty() ? ', including unsaved edits' : '') + '. Secret values and webhook addresses are left out.', false);
     }
 
     // Accepts an export file, a bare array of scripts, or one script.
@@ -863,6 +1013,8 @@ export default function (view) {
                 if (!ok) return;
                 incoming.forEach(function (s) {
                     var index = scripts.findIndex(function (e) { return compactId(e.Id) === compactId(s.Id); });
+                    // A script replaced in place keeps the address other services already call.
+                    if (index >= 0 && has(s, 'Webhook') && scripts[index].WebhookToken) s.WebhookToken = scripts[index].WebhookToken;
                     if (index >= 0) scripts[index] = s;
                     else scripts.push(s);
                 });
@@ -907,33 +1059,37 @@ export default function (view) {
         });
 
         el('scriptName').addEventListener('input', function () { current().Name = this.value; edited(); });
+        el('scriptDescription').addEventListener('input', function () { current().Description = this.value; edited(); });
         el('scriptEnabled').addEventListener('change', function () { current().Enabled = this.checked; edited(); });
         el('scriptCooldown').addEventListener('input', function () { current().CooldownSeconds = parseInt(this.value, 10) || 0; edited(); });
 
-        el('pausedMinutes').addEventListener('input', function () { current().PausedForMinutes = parseInt(this.value, 10) || 0; edited(); });
-        el('playingMinutes').addEventListener('input', function () { current().PlayingForMinutes = parseInt(this.value, 10) || 0; edited(); });
-        el('scheduleIntervalMinutes').addEventListener('input', function () { current().ScheduleIntervalMinutes = parseInt(this.value, 10) || 0; edited(); });
-        el('scheduleTime').addEventListener('input', function () { current().ScheduleTime = this.value; edited(); });
-        el('scheduleMonthDay').addEventListener('input', function () { current().ScheduleMonthDay = parseInt(this.value, 10) || 0; edited(); });
-        el('scheduleDays').addEventListener('change', function (e) {
-            var box = e.target.closest('[data-day]');
-            if (!box) return;
-            var script = current();
-            var day = box.getAttribute('data-day');
-            script.ScheduleDays = (script.ScheduleDays || []).filter(function (d) { return d !== day; });
-            if (box.checked) script.ScheduleDays.push(day);
+        TRIGGER_NUMBERS.forEach(function (option) {
+            el(option.input).addEventListener('input', function () { current()[option.key] = parseInt(this.value, 10) || 0; edited(); });
+        });
+        el('btnCopyWebhook').addEventListener('click', function () {
+            Shared.copyWithFeedback(this.querySelector('span'), el('webhookUrl').value);
+        });
+        el('btnNewWebhook').addEventListener('click', function () {
+            confirmDialog('Make a new webhook address? Anything still calling the old one stops working once you save.', { title: 'New webhook address', confirmText: 'Make a new address' }).then(function (ok) {
+                if (!ok) return;
+                current().WebhookToken = newToken();
+                renderWebhook();
+                edited();
+            });
+        });
+        el('forEachMode').addEventListener('change', function () {
+            current().ForEach = this.value;
+            renderConditions();
+            renderOperationCards();
+            renderVariables();
+            renderWarnings();
             edited();
         });
+        el('forEachLimit').addEventListener('input', function () { current().ForEachLimit = parseInt(this.value, 10) || 0; edited(); });
+        el('onFailureScript').addEventListener('change', function () { current().OnFailureScriptId = this.value; edited(); });
 
-        scheduleChoice = createChoiceGroup(el('scheduleMode'), {
-            onChange: function (value) {
-                if (suppressWidgetEvents) return;
-                current().ScheduleMode = value;
-                renderScheduleMode();
-                edited();
-            }
-        });
-
+        el('pausedMinutes').addEventListener('input', function () { current().PausedForMinutes = parseInt(this.value, 10) || 0; edited(); });
+        el('playingMinutes').addEventListener('input', function () { current().PlayingForMinutes = parseInt(this.value, 10) || 0; edited(); });
         matchChoice = createChoiceGroup(el('conditionMatch'), {
             onChange: function (value) {
                 if (suppressWidgetEvents) return;
@@ -995,6 +1151,8 @@ export default function (view) {
             render: function (op) {
                 var warning = operationWarning(current(), op);
                 var badges = [];
+                if (op.OnlyIfVariable) badges.push({ label: 'if ' + op.OnlyIfVariable + ' ' + (OPERATOR_LABELS[op.OnlyIfOperator] || 'is') + ' ' + (op.OnlyIfValue === '' ? 'empty' : op.OnlyIfValue), cls: 'blue' });
+                if (op.OutputName && HAS_OUTPUT[op.Type]) badges.push({ label: 'saves ' + op.OutputName, cls: 'purple' });
                 if (op.ContinueOnError) badges.push({ label: 'continues on error', cls: 'gray' });
                 if (warning) badges.push({ label: 'sometimes skipped', cls: 'orange' });
                 return {
@@ -1025,7 +1183,7 @@ export default function (view) {
 
         el('operationEditor').addEventListener('input', function (e) {
             if (e.target.matches('[data-key]') && e.target.type !== 'checkbox' && e.target.tagName !== 'SELECT') {
-                readOperationField(e.target);
+                if (readOperationField(e.target) === 'OutputName') renderVariables();
                 edited();
             }
         });
@@ -1106,6 +1264,10 @@ export default function (view) {
 
         el('btnSaveScripts').addEventListener('click', save);
         el('btnTestScript').addEventListener('click', runTest);
+        el('btnRunScript').addEventListener('click', runNow);
+        var names = document.createElement('datalist');
+        names.id = 'scriptsVariableNames';
+        view.appendChild(names);
         Shared.initCollapsibles();
     }
 
@@ -1164,6 +1326,7 @@ export default function (view) {
                 script.Id = compactId(s.Id);
                 script.Enabled = !!s.Enabled;
                 script.UserIds = (s.UserIds || []).map(compactId);
+                script.WebhookToken = s.WebhookToken || script.WebhookToken;
                 script.Secrets = (s.Secrets || []).map(function (x) {
                     return { Name: x.Name, Value: x.Value ? SECRET_KEPT : '', PreviousName: x.Name };
                 });

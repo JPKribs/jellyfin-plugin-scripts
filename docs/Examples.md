@@ -185,7 +185,7 @@ Anyone still signed in with the old password has to sign in again. Administrator
 
 | Setting | Value |
 |---|---|
-| Trigger | **On a schedule**, Daily at `03:00`, no days picked (every day) |
+| Trigger | **On a schedule**, with the task set to run daily at `03:00` under Scheduled Tasks |
 | Step | **Scan libraries** |
 
 Pick days to run it only on, say, Monday, Wednesday, and Friday. **Monthly** runs on one day of the month instead.
@@ -196,7 +196,7 @@ Pings a service such as Healthchecks.io, which alerts you when the pings stop.
 
 | Setting | Value |
 |---|---|
-| Trigger | **On a schedule**, Interval, every 5 minutes |
+| Trigger | **On a schedule**, with the task set to run every 5 minutes under Scheduled Tasks |
 | Secret | `PING_ID`, your check's ID |
 | Step | **HTTP request**, GET `https://hc-ping.com/{{SECRET_PING_ID}}`, **Retries** 2 |
 

@@ -19,7 +19,12 @@ public class TriggerCatalogTests
     {
         foreach (var field in Enum.GetValues<ConditionField>())
         {
-            Assert.Contains(TriggerCatalog.All, t => TriggerCatalog.Supplies(t.Trigger, field));
+            // A field no event carries must at least come with running for each item or user.
+            Assert.True(
+                TriggerCatalog.All.Any(t => TriggerCatalog.Supplies(t.Trigger, field))
+                || TriggerCatalog.Supplies(ScriptTrigger.Schedule, field, ForEachMode.Items)
+                || TriggerCatalog.Supplies(ScriptTrigger.Schedule, field, ForEachMode.Users),
+                field.ToString());
         }
     }
 

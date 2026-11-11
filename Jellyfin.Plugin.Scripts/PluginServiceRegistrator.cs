@@ -33,6 +33,7 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<HistoryStore>();
         serviceCollection.AddSingleton<EventContextBuilder>();
         serviceCollection.AddSingleton<OperationExecutor>();
+        serviceCollection.AddSingleton<ForEachExpander>();
 
         // One runner owns the queue, so it is both the hosted service and the instance the dispatcher and
         // the test endpoint call.
@@ -41,6 +42,7 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<ScriptDispatcher>();
 
         serviceCollection.AddHostedService<EventSubscriber>();
+        serviceCollection.AddHostedService<ScriptScheduledTasks>();
         // One instance answers every event the server publishes through its event bus.
         serviceCollection.AddSingleton<ServerEventConsumers>();
         AddConsumer<AuthenticationResultEventArgs>(serviceCollection);

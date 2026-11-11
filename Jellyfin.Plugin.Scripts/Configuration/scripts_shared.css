@@ -248,3 +248,24 @@
 .scripts-secret .inputLabel,
 .scripts-condition-line .inputLabel,
 .scripts-cell > .selectLabel:empty { display: none; }
+
+/* ---- Webhook, step conditions, and saved output ---- */
+
+.scripts-webhook-actions { display: flex; flex-wrap: wrap; gap: var(--scripts-sm); margin: calc(-1 * var(--scripts-sm)) 0 var(--scripts-md); }
+.scripts-webhook-actions .emby-button { margin: 0; }
+#webhookUrl { font-family: var(--jpk-mono); }
+#webhookExample { margin-bottom: var(--scripts-md); }
+.scripts-step-group { margin-bottom: var(--scripts-lg); }
+.scripts-step-group > label { display: block; margin-bottom: var(--scripts-xs); }
+.scripts-step-group .fieldDescription { margin-top: var(--scripts-xs); }
+.scripts-onlyif { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(130px, 170px) minmax(0, 1.2fr); gap: var(--scripts-sm); }
+.scripts-saveas { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: var(--scripts-sm); }
+.scripts-onlyif input, .scripts-saveas input { width: 100%; height: var(--scripts-control); box-sizing: border-box; margin: 0; }
+.scripts-onlyif select { width: 100%; min-height: var(--scripts-control); margin: 0; }
+.scripts-onlyif input[data-upper], .scripts-saveas input[data-upper] { font-family: var(--jpk-mono); }
+.scripts-onlyif .inputLabel, .scripts-saveas .inputLabel { display: none; }
+@media (max-width: 700px) {
+    .scripts-onlyif, .scripts-saveas { grid-template-columns: 1fr; }
+}
+.scripts-schedule-note { margin: 0 0 var(--scripts-sm) !important; }
+#scheduleStart:empty { display: none; }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -52,7 +53,7 @@ public static class ConditionEvaluator
         ArgumentNullException.ThrowIfNull(script);
         ArgumentNullException.ThrowIfNull(context);
 
-        if (script.ItemKinds.Count == 0 || !TriggerCatalog.Get(context.Trigger).HasItem)
+        if (script.ItemKinds.Count == 0 || !(TriggerCatalog.Get(context.Trigger).HasItem || context.ForEach == ForEachMode.Items))
         {
             return true;
         }
@@ -73,7 +74,7 @@ public static class ConditionEvaluator
         ArgumentNullException.ThrowIfNull(script);
         ArgumentNullException.ThrowIfNull(context);
 
-        if (script.UserIds.Count == 0 || !TriggerCatalog.Get(context.Trigger).HasUser)
+        if (script.UserIds.Count == 0 || !(TriggerCatalog.Get(context.Trigger).HasUser || context.ForEach == ForEachMode.Users))
         {
             return true;
         }
@@ -94,7 +95,7 @@ public static class ConditionEvaluator
         ArgumentNullException.ThrowIfNull(condition);
         ArgumentNullException.ThrowIfNull(context);
 
-        if (!TriggerCatalog.Supplies(context.Trigger, condition.Field))
+        if (!TriggerCatalog.Supplies(context.Trigger, condition.Field, context.ForEach))
         {
             return false;
         }
@@ -118,6 +119,48 @@ public static class ConditionEvaluator
 
         var any = candidates.Any(candidate => values.Any(value => Test(condition.Operator, candidate, value)));
         return condition.Operator is ConditionOperator.IsNot or ConditionOperator.DoesNotContain ? !any : any;
+    }
+
+    /// <summary>
+    /// Evaluates a step's own condition against the run's variables, including any an earlier step saved.
+    /// </summary>
+    /// <param name="operation">The step.</param>
+    /// <param name="variables">The run's variables.</param>
+    /// <returns>True when the step has no condition or it matches.</returns>
+    public static bool MatchesStep(ScriptOperation operation, IReadOnlyDictionary<string, string> variables)
+    {
+        ArgumentNullException.ThrowIfNull(operation);
+        ArgumentNullException.ThrowIfNull(variables);
+
+        var name = StepVariable(operation.OnlyIfVariable);
+        if (name.Length == 0)
+        {
+            return true;
+        }
+
+        var candidate = (variables.TryGetValue(name, out var found) ? found : string.Empty).Trim();
+        var value = Placeholders.Fill(operation.OnlyIfValue, variables).Trim();
+        var negative = operation.OnlyIfOperator is ConditionOperator.IsNot or ConditionOperator.DoesNotContain;
+
+        // A missing value only ever equals nothing: it is never "at least 0" and never contains anything.
+        if (candidate.Length == 0 && value.Length > 0)
+        {
+            return negative;
+        }
+
+        var matched = Test(operation.OnlyIfOperator, candidate, value);
+        return negative ? !matched : matched;
+    }
+
+    /// <summary>
+    /// Reads the variable name a step's condition names, written bare, with braces, or with the JF_ prefix.
+    /// </summary>
+    /// <param name="text">What the administrator typed.</param>
+    /// <returns>The variable name, empty when there is none.</returns>
+    public static string StepVariable(string? text)
+    {
+        var name = (text ?? string.Empty).Trim().Trim('{', '}', '$').Trim().ToUpperInvariant();
+        return name.StartsWith(TriggerCatalog.EnvironmentPrefix, StringComparison.Ordinal) ? name[TriggerCatalog.EnvironmentPrefix.Length..] : name;
     }
 
     // Both sides must read as numbers; text such as "PG-13" never satisfies a numeric comparison.

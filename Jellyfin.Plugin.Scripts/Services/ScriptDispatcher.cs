@@ -99,7 +99,9 @@ public class ScriptDispatcher
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(script);
-        if (!ConditionEvaluator.Matches(script, context))
+        // A script that runs for each item or user is matched against each of those, once the runner has picked
+        // them, since this event has none to test yet.
+        if (!TriggerCatalog.Expands(context.Trigger, script.ForEach) && !ConditionEvaluator.Matches(script, context))
         {
             return false;
         }

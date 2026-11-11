@@ -66,5 +66,8 @@ public enum OperationType
     RunScript,
 
     /// <summary>Appends a line of text to a file.</summary>
-    AppendToFile
+    AppendToFile,
+
+    /// <summary>Ends the run here. The steps after it are skipped and the run still counts as succeeded.</summary>
+    StopScript
 }
