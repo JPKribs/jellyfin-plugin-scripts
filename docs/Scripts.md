@@ -100,9 +100,15 @@ Every playback trigger carries the user, session, and item, plus `ACTIVE_STREAMS
 
 The script's conditions still apply to each run, and its steps see the event as **On a schedule**.
 
+![The schedule note in the editor](screenshots/Schedule.png)
+
+![A script's task under Scheduled Tasks](screenshots/ScheduledTasks.png)
+
 ### Webhook
 
-**Webhook received** gives the script its own address, shown in the editor with **Copy** and an example `curl` command. Another service runs the script by sending a `POST` there.
+**Webhook received** gives the script its own address, shown in the editor with **Copy address** and an example `curl` command. Another service runs the script by sending a `POST` there.
+
+![The webhook address](screenshots/Webhook.png)
 
 The request needs two things, and is refused when either is missing:
 
@@ -134,6 +140,8 @@ A schedule, a webhook, **Run now**, and most system triggers carry no item and n
 Each match is its own run in the history. **Most runs per event** caps how many one event may start, 50 unless you change it, at most 500. On a trigger that already has an item or a user, such as **Playback started**, the script runs once as usual.
 
 For example, a script on a weekly schedule, for each **Movie** where **Days since last played is at least 90**, with an **Add tag** step, tags every movie nobody has watched in three months.
+
+![Running for each library item](screenshots/Behavior.png)
 
 ## Item kinds
 
@@ -212,6 +220,8 @@ Every step also has:
 * **Continue on error** runs the following steps even if this one fails.
 
 Together these branch a script. A health check, for instance: an HTTP request saved as `HEALTH` that continues on error, then **Stop here** only if `HEALTH_STATUS` is `200`, then a message to the administrators.
+
+![Saving a response for later steps](screenshots/SavedOutput.png)
 
 ### On failure
 
