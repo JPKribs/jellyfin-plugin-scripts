@@ -1,7 +1,7 @@
 ---
 name: "Scripts"
 guid: "449817c2-7661-46fb-b302-bbd6dd3b0a01"
-version: "12.3.0.2"
+version: "12.3.1.0"
 targetAbi: "12.3.0.0"
 framework: "net10.0"
 overview: "Run your own scripts when server events happen."
@@ -16,9 +16,18 @@ owner: "JPKribs"
 artifacts:
 - "Jellyfin.Plugin.Scripts.dll"
 changelog:
-  fixed:
-  - Run history is saved within a few seconds during a steady stream of runs, such as a library scan
-  - A cooldown is never claimed for a run that was not queued
-  - The docs explain how many distinct regex conditions stay fast
+  added:
+  - Webhook received trigger. Each script gets its own address, and a request must also carry a Jellyfin API key. Query parameters and JSON fields arrive as WEBHOOK_ variables
+  - Run now button, which runs the saved script at once whatever its triggers, filters, and cooldown say
+  - A step can save a command's output or an HTTP response, or one JSON field of it, for later steps to use as a placeholder
+  - Every step can have its own condition on any variable, and the new Stop here step ends a run early
+  - Run a script once for each library item or each user, picked by its item kinds, users, and conditions, with new fields such as Days since last played, Played by anyone, Has subtitles, and Days since last active
+  - A script can name another script to run when it fails
+  - New triggers for Playback passed a percentage, Switched to transcoding, Stream count reached, Transcode count reached, and New device seen
+  - Scripts have a description
+  - New templates for tagging unwatched movies, scanning from a webhook, and checking a service
+  changed:
+  - A script on a schedule is now a Jellyfin scheduled task, listed under Scheduled Tasks in a Scripts section with the script's name and description. Set when it runs there. Existing schedules carry over as the task's starting triggers, except monthly ones, which Jellyfin has no trigger for and need one set
+  - Deleting a scheduled script hides its task at once and removes the files Jellyfin kept for it. The task itself goes when the server next restarts
   developer:
   - Built with JPKribs.Jellyfin.Base 2026.10.28.
