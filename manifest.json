@@ -9,6 +9,14 @@
     "category": "General",
     "versions": [
       {
+        "version": "12.4.1.1",
+        "changelog": "\n## Changed\n- The code and documentation are cleaned up, with no change to what the plugin does\n- Built for Jellyfin 12.4. Servers on an earlier Jellyfin keep the previous release\n\n## Developer\n- Built against the Jellyfin 12.4.0 packages, which needed no code changes",
+        "targetAbi": "12.4.0.0",
+        "sourceUrl": "https://github.com/JPKribs/jellyfin-plugin-scripts/releases/download/v12.4.1.1/jellyfin-plugin-scripts-12.4.1.1.zip",
+        "checksum": "e11aabb3fee5c63de8396a92a3af7f2c",
+        "timestamp": "2026-11-13T08:34:34Z"
+      },
+      {
         "version": "12.3.1.0",
         "changelog": "\n## Added\n- Webhook received trigger. Each script gets its own address, and a request must also carry a Jellyfin API key. Query parameters and JSON fields arrive as WEBHOOK_ variables\n- Run now button, which runs the saved script at once whatever its triggers, filters, and cooldown say\n- A step can save a command's output or an HTTP response, or one JSON field of it, for later steps to use as a placeholder\n- Every step can have its own condition on any variable, and the new Stop here step ends a run early\n- Run a script once for each library item or each user, picked by its item kinds, users, and conditions, with new fields such as Days since last played, Played by anyone, Has subtitles, and Days since last active\n- A script can name another script to run when it fails\n- New triggers for Playback passed a percentage, Switched to transcoding, Stream count reached, Transcode count reached, and New device seen\n- Scripts have a description\n- New templates for tagging unwatched movies, scanning from a webhook, and checking a service\n\n## Changed\n- A script on a schedule is now a Jellyfin scheduled task, listed under Scheduled Tasks in a Scripts section with the script's name and description. Set when it runs there. Existing schedules carry over as the task's starting triggers, except monthly ones, which Jellyfin has no trigger for and need one set\n- Deleting a scheduled script hides its task at once and removes the files Jellyfin kept for it. The task itself goes when the server next restarts\n\n## Developer\n- Built with JPKribs.Jellyfin.Base 2026.10.28.",
         "targetAbi": "12.3.0.0",
