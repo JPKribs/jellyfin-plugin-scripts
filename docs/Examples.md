@@ -188,7 +188,7 @@ Anyone still signed in with the old password has to sign in again. Administrator
 | Trigger | **On a schedule**, with the task set to run daily at `03:00` under Scheduled Tasks |
 | Step | **Scan libraries** |
 
-Pick days to run it only on, say, Monday, Wednesday, and Friday. **Monthly** runs on one day of the month instead.
+To run it only on, say, Monday, Wednesday, and Friday, give the task a weekly trigger for each of those days instead.
 
 ### Heartbeat for an uptime monitor
 

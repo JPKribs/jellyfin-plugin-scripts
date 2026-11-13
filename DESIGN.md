@@ -2,7 +2,7 @@
 
 The user-facing behavior is documented in [docs/Scripts.md](docs/Scripts.md). This file records the decisions behind it and what is left.
 
-Targets Jellyfin 12.3 (`net10.0`, ABI `12.3.0.0`). Every event and API used was checked against `Jellyfin.Controller`, `Jellyfin.Data`, and `Jellyfin.Model` 12.3.0.
+Targets Jellyfin 12.4 (`net10.0`, ABI `12.4.0.0`). Every event and API used was checked against `Jellyfin.Controller`, `Jellyfin.Data`, and `Jellyfin.Model` 12.4.0.
 
 ## Decisions
 
