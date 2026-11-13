@@ -31,7 +31,6 @@
 .jpk-selector + #transferStatus:empty ~ #scriptEditor { margin-top: var(--scripts-lg); }
 #scriptCounts { margin-bottom: var(--scripts-lg); }
 
-/* Kit text inputs (chip selects, list searches) at the dashboard's control size */
 /* Kit text inputs (chip selects, list searches) match the dashboard's own fields: 1.1em text, 0.55em padding */
 .pluginConfigurationPage .jpk-chip-select .jpk-edit-input,
 .pluginConfigurationPage .jpk-check-list-search {
@@ -57,9 +56,6 @@
     border: 1px solid rgba(128, 128, 128, 0.25);
 }
 .scripts-trigger-options .jpk-subsection-title { margin-top: 0; }
-.scripts-days { display: flex; flex-wrap: wrap; gap: var(--scripts-xs) var(--scripts-lg); margin: var(--scripts-xs) 0 var(--scripts-lg); }
-.scripts-days > .emby-checkbox-label,
-.scripts-day { display: inline-flex; flex: 0 0 auto; width: auto; margin: 0; padding-right: var(--scripts-xs); }
 
 /* ---- Conditions ---- */
 

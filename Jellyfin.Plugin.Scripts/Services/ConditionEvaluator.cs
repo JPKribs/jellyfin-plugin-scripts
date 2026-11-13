@@ -8,7 +8,7 @@ using Jellyfin.Plugin.Scripts.Models;
 namespace Jellyfin.Plugin.Scripts.Services;
 
 /// <summary>
-/// Decides whether a script runs for an event: its item kind filter first, then its conditions.
+/// Decides whether a script runs for an event: its item kind and users filters first, then its conditions.
 /// </summary>
 public static class ConditionEvaluator
 {
@@ -20,7 +20,7 @@ public static class ConditionEvaluator
     /// </summary>
     /// <param name="script">The script.</param>
     /// <param name="context">The event.</param>
-    /// <returns>True when the item kind filter and the conditions pass.</returns>
+    /// <returns>True when the item kind and users filters and the conditions pass.</returns>
     public static bool Matches(ScriptDefinition script, EventContext context)
     {
         ArgumentNullException.ThrowIfNull(script);

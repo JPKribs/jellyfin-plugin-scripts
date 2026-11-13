@@ -393,7 +393,7 @@ export default function (view) {
         switch (op.Type) {
             case 'RunCommand': return op.Command || 'No command yet';
             case 'HttpRequest': return (op.Method || 'POST') + ' ' + (op.Url || 'no URL yet');
-            case 'SendMessage': return (op.Text || 'No message yet');
+            case 'SendMessage': return op.Text || 'No message yet';
             case 'StopPlayback': return op.Text ? 'Message, then stop' : 'Stop the event\'s session';
             case 'AddTag': case 'RemoveTag': return op.Tag || 'No tag yet';
             case 'AddToCollection': case 'RemoveFromCollection': {

@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Data.Events;
+using Jellyfin.Database.Implementations.Entities;
 using Jellyfin.Database.Implementations.Entities.Security;
 using Jellyfin.Plugin.Scripts.Models;
 using JPKribs.Jellyfin.Base;
@@ -15,10 +16,10 @@ using MediaBrowser.Controller.Collections;
 using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Controller.Devices;
 using MediaBrowser.Controller.Entities;
+using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.LiveTv;
 using MediaBrowser.Controller.Lyrics;
 using MediaBrowser.Controller.Providers;
-using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Session;
 using MediaBrowser.Controller.Subtitles;
 using MediaBrowser.Model.Activity;
@@ -32,8 +33,9 @@ namespace Jellyfin.Plugin.Scripts.Services;
 /// <summary>
 /// Listens to the server's playback, library, collection, user activity, session, task, and subtitle events for
 /// as long as the server runs, and hands each one to the dispatcher. A tick every few seconds also releases items
-/// waiting for metadata, and fires the "for a while" playback triggers. Schedules are Jellyfin scheduled tasks, see <see cref="ScriptScheduledTasks"/>. Sign ins, accounts,
-/// plugins, and restarts arrive through <see cref="ServerEventConsumers"/> instead.
+/// waiting for metadata, and fires the "for a while" playback triggers. Schedules are Jellyfin scheduled tasks, see
+/// <see cref="ScriptScheduledTasks"/>. Sign ins, accounts, plugins, and restarts arrive through
+/// <see cref="ServerEventConsumers"/> instead.
 /// </summary>
 public sealed class EventSubscriber : IHostedService, IDisposable
 {
@@ -695,7 +697,7 @@ public sealed class EventSubscriber : IHostedService, IDisposable
     // Jellyfin reports an account edit through this event, its event bus, or both, depending on which part of
     // the server made it, so both feed User edited and UserEvents drops the duplicate. Neither reports a change
     // to a user's permissions or policy, which the trigger's description says.
-    private void OnUserUpdated(object? sender, GenericEventArgs<Jellyfin.Database.Implementations.Entities.User> e)
+    private void OnUserUpdated(object? sender, GenericEventArgs<User> e)
     {
         Guard("user updated", () =>
         {

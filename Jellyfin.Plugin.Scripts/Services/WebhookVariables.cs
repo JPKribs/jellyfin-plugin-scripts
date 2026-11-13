@@ -48,7 +48,8 @@ public static class WebhookVariables
             Add(values, name, value);
         }
 
-        if (text.TrimStart().StartsWith('{') || text.TrimStart().StartsWith('['))
+        var trimmed = text.TrimStart();
+        if (trimmed.StartsWith('{') || trimmed.StartsWith('['))
         {
             try
             {

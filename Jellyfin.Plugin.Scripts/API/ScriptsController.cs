@@ -4,6 +4,8 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
@@ -227,7 +229,7 @@ public class ScriptsController : ControllerBase
         // The body is read by hand and capped, whatever its content type, so any service's payload is accepted.
         var buffer = new char[WebhookVariables.MaxBodyBytes + 1];
         int read;
-        using (var reader = new StreamReader(Request.Body, System.Text.Encoding.UTF8))
+        using (var reader = new StreamReader(Request.Body, Encoding.UTF8))
         {
             read = await reader.ReadBlockAsync(buffer.AsMemory(), cancellationToken).ConfigureAwait(false);
         }
@@ -342,12 +344,12 @@ public class ScriptsController : ControllerBase
     // close a guessed token came.
     private static ScriptDefinition? FindByWebhookToken(string? token)
     {
-        var given = System.Text.Encoding.UTF8.GetBytes((token ?? string.Empty).ToLowerInvariant());
+        var given = Encoding.UTF8.GetBytes((token ?? string.Empty).ToLowerInvariant());
         ScriptDefinition? found = null;
         foreach (var script in ScriptDispatcher.ScriptsFor(ScriptTrigger.Webhook))
         {
-            var expected = System.Text.Encoding.UTF8.GetBytes(script.WebhookToken.ToLowerInvariant());
-            if (expected.Length > 0 && System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(given, expected))
+            var expected = Encoding.UTF8.GetBytes(script.WebhookToken.ToLowerInvariant());
+            if (expected.Length > 0 && CryptographicOperations.FixedTimeEquals(given, expected))
             {
                 found = script;
             }

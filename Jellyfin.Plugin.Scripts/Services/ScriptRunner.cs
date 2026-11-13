@@ -31,6 +31,7 @@ public class ScriptRunner : BackgroundService
     });
 
     private readonly SemaphoreSlim _slotFreed = new(0);
+
     /// <summary>How deep Run script steps may nest, so two scripts that run each other stop.</summary>
     public const int MaxScriptDepth = 3;
 

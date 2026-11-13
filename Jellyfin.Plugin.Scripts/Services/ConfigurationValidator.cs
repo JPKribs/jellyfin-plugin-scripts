@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
+using System.IO;
 using System.Net.Http.Headers;
+using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using Jellyfin.Plugin.Scripts.Configuration;
 using Jellyfin.Plugin.Scripts.Models;
@@ -95,6 +97,7 @@ public static partial class ConfigurationValidator
             secret.Name = (secret.Name ?? string.Empty).Trim().ToUpperInvariant();
             secret.Value ??= string.Empty;
         }
+
         script.Conditions ??= new List<ScriptCondition>();
         script.Operations ??= new List<ScriptOperation>();
         foreach (var operation in script.Operations)
@@ -116,17 +119,17 @@ public static partial class ConfigurationValidator
     }
 
     /// <summary>
-    /// Validates a configuration, throwing when it must not be persisted.
-    /// </summary>
-    /// <param name="config">The incoming configuration.</param>
-    /// <exception cref="ArgumentException">When a setting or a script is invalid.</exception>
-    /// <summary>
     /// Makes a webhook token: random, and long enough that it cannot be guessed.
     /// </summary>
     /// <returns>The token, in lowercase hexadecimal.</returns>
     public static string NewWebhookToken()
-        => Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(WebhookTokenBytes)).ToLowerInvariant();
+        => Convert.ToHexString(RandomNumberGenerator.GetBytes(WebhookTokenBytes)).ToLowerInvariant();
 
+    /// <summary>
+    /// Validates a configuration, throwing when it must not be persisted.
+    /// </summary>
+    /// <param name="config">The incoming configuration.</param>
+    /// <exception cref="ArgumentException">When a setting or a script is invalid.</exception>
     public static void Validate(PluginConfiguration config)
     {
         ArgumentNullException.ThrowIfNull(config);
@@ -503,7 +506,7 @@ public static partial class ConfigurationValidator
 
                 break;
             case OperationType.AppendToFile:
-                if (string.IsNullOrWhiteSpace(op.FilePath) || !System.IO.Path.IsPathRooted(op.FilePath.Trim()))
+                if (string.IsNullOrWhiteSpace(op.FilePath) || !Path.IsPathRooted(op.FilePath.Trim()))
                 {
                     throw new ArgumentException(label + "needs a full file path.");
                 }

@@ -57,7 +57,7 @@ public class ScriptDefinition
     /// <summary>Gets or sets the minutes between runs in <see cref="ScheduleMode.Interval"/> mode.</summary>
     public int ScheduleIntervalMinutes { get; set; } = 60;
 
-    /// <summary>Gets or sets the server's local time of day, <c>HH:mm</c>, in <see cref="ScheduleMode.Daily"/> mode.</summary>
+    /// <summary>Gets or sets the server's local time of day, <c>HH:mm</c>, in <see cref="ScheduleMode.Daily"/> and <see cref="ScheduleMode.Monthly"/> modes.</summary>
     public string ScheduleTime { get; set; } = "03:00";
 
     /// <summary>

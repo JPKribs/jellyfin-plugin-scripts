@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -12,6 +13,7 @@ using System.Threading.Tasks;
 using Jellyfin.Plugin.Scripts.Models;
 using JPKribs.Jellyfin.Base;
 using MediaBrowser.Common.Configuration;
+using MediaBrowser.Model.Plugins;
 using MediaBrowser.Model.Tasks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -74,7 +76,7 @@ public sealed class ScriptScheduledTasks : IHostedService
     /// </summary>
     /// <param name="scriptId">The script.</param>
     /// <returns>The task ID.</returns>
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("Security", "CA5351:Do Not Use Broken Cryptographic Algorithms", Justification = "Not security: this reproduces the ID Jellyfin derives for a task, to find the task's files.")]
+    [SuppressMessage("Security", "CA5351:Do Not Use Broken Cryptographic Algorithms", Justification = "Not security: this reproduces the ID Jellyfin derives for a task, to find the task's files.")]
     public static Guid TaskIdFor(Guid scriptId)
         => new(MD5.HashData(Encoding.Unicode.GetBytes(TypeNameFor(scriptId))));
 
@@ -202,7 +204,7 @@ public sealed class ScriptScheduledTasks : IHostedService
         return task;
     }
 
-    private void OnConfigurationChanged(object? sender, MediaBrowser.Model.Plugins.BasePluginConfiguration e) => Sync();
+    private void OnConfigurationChanged(object? sender, BasePluginConfiguration e) => Sync();
 
     private void TryDelete(string path)
     {

@@ -144,7 +144,7 @@ public class ForEachExpander
         }
 
         context.Set("PLAYED_BY_ANYONE", played ? "true" : "false");
-        var since = last ?? (item.DateCreated > DateTime.MinValue ? item.DateCreated : (DateTime?)null);
+        var since = last ?? (item.DateCreated > DateTime.MinValue ? item.DateCreated : null);
         if (since is { } date)
         {
             context.Set("DAYS_SINCE_PLAYED", Math.Max(0, (long)(DateTime.UtcNow - date.ToUniversalTime()).TotalDays).ToString(CultureInfo.InvariantCulture));

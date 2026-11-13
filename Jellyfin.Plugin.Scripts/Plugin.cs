@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Jellyfin.Plugin.Scripts.Configuration;
 using Jellyfin.Plugin.Scripts.Services;
@@ -82,7 +83,7 @@ public class Plugin : PluginBase<Plugin, PluginConfiguration>
                 _logger.LogInformation("Scripts: moved script secrets out of the configuration into the secret vault");
             }
         }
-        catch (Exception ex) when (ex is ArgumentException or System.IO.IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is ArgumentException or IOException or UnauthorizedAccessException)
         {
             _logger.LogWarning(ex, "Scripts: could not move script secrets into the secret vault");
         }

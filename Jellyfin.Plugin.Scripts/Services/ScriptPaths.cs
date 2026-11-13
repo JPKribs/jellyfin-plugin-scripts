@@ -5,8 +5,8 @@ using MediaBrowser.Common.Configuration;
 namespace Jellyfin.Plugin.Scripts.Services;
 
 /// <summary>
-/// Where the plugin keeps its run history and schedule state: beside the plugin configuration, outside the plugin's install
-/// folder, which Jellyfin replaces on every update.
+/// Where the plugin keeps its run history and other state files: beside the plugin configuration, outside the
+/// plugin's install folder, which Jellyfin replaces on every update.
 /// </summary>
 public class ScriptPaths
 {

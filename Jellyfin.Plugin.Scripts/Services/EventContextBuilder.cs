@@ -17,7 +17,7 @@ using MediaBrowser.Controller.Events.Authentication;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Session;
 using MediaBrowser.Controller.Subtitles;
-using MediaBrowser.Model.Entities;
+using MediaBrowser.Model.Activity;
 using MediaBrowser.Model.Session;
 using MediaBrowser.Model.Tasks;
 using Microsoft.Extensions.Logging;
@@ -444,7 +444,7 @@ public class EventContextBuilder
     /// </summary>
     /// <param name="entry">The entry.</param>
     /// <returns>The context.</returns>
-    public EventContext FromActivity(MediaBrowser.Model.Activity.ActivityLogEntry entry)
+    public EventContext FromActivity(ActivityLogEntry entry)
     {
         ArgumentNullException.ThrowIfNull(entry);
         var context = Create(ScriptTrigger.ActivityLogged);
@@ -837,9 +837,10 @@ public class EventContextBuilder
         var id = user?.Id ?? userId;
         if (id != Guid.Empty)
         {
+            var text = id.ToString("N", CultureInfo.InvariantCulture);
             context.UserIds.Add(id);
-            context.Set("USER_ID", id.ToString("N", CultureInfo.InvariantCulture));
-            context.AddCandidate(ConditionField.User, id.ToString("N", CultureInfo.InvariantCulture));
+            context.Set("USER_ID", text);
+            context.AddCandidate(ConditionField.User, text);
         }
 
         if (user is not null)
