@@ -1,11 +1,6 @@
 using System;
-using System.Diagnostics.CodeAnalysis;
 using JPKribs.Jellyfin.Base;
 using Microsoft.Extensions.Logging;
-
-// Base's shared source is compiled into this assembly under its analyzers, and this one method of Base trips
-// a performance suggestion that does not apply to it.
-[assembly: SuppressMessage("Performance", "CA1867:Use char overload", Scope = "member", Target = "~M:JPKribs.Jellyfin.Base.ActivityText.Plural(System.Int32,System.String)~System.String", Justification = "Base's shared source, not this plugin's code.")]
 
 namespace Jellyfin.Plugin.Scripts.Services;
 

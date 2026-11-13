@@ -19,4 +19,4 @@ changelog:
   changed:
   - Activity log entries are summed per outcome and share one shape. Failed script runs now leave one "3 Script Runs Failed" entry naming each script and error with its count, instead of one entry per run
   developer:
-  - Uses JPKribs.Jellyfin.Base 2026.11.13.1
+  - Uses JPKribs.Jellyfin.Base 2026.11.13.2
