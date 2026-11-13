@@ -1,7 +1,7 @@
 ---
 name: "Scripts"
 guid: "449817c2-7661-46fb-b302-bbd6dd3b0a01"
-version: "12.4.1.1"
+version: "12.4.1.2"
 targetAbi: "12.4.0.0"
 framework: "net10.0"
 overview: "Run your own scripts when server events happen."
@@ -17,7 +17,6 @@ artifacts:
 - "Jellyfin.Plugin.Scripts.dll"
 changelog:
   changed:
-  - The code and documentation are cleaned up, with no change to what the plugin does
-  - Built for Jellyfin 12.4. Servers on an earlier Jellyfin keep the previous release
+  - Activity log entries are summed per outcome and share one shape. Failed script runs now leave one "3 Script Runs Failed" entry naming each script and error with its count, instead of one entry per run
   developer:
-  - Built against the Jellyfin 12.4.0 packages, which needed no code changes
+  - Uses JPKribs.Jellyfin.Base 2026.11.13.1

@@ -89,9 +89,22 @@ public sealed class ScriptRunnerTests : IDisposable
     {
         await _services.Runner.RunAsync(Script(Failing()), Context(), true, CancellationToken.None);
         await _services.Runner.RunAsync(Script(Succeeding()), Context(), false, CancellationToken.None);
+        _services.Activity.Summary.Flush();
         Assert.Empty(_services.ActivityManager.ReceivedCalls());
 
         await _services.Runner.RunAsync(Script(Failing()), Context(), false, CancellationToken.None);
+        _services.Activity.Summary.Flush();
+        Assert.Single(_services.ActivityManager.ReceivedCalls());
+    }
+
+    [Fact]
+    public async Task FailedRunsAreSummedIntoOneEntry()
+    {
+        await _services.Runner.RunAsync(Script(Failing()), Context(), false, CancellationToken.None);
+        await _services.Runner.RunAsync(Script(Failing()), Context(), false, CancellationToken.None);
+        Assert.Empty(_services.ActivityManager.ReceivedCalls());
+
+        _services.Activity.Summary.Flush();
         Assert.Single(_services.ActivityManager.ReceivedCalls());
     }
 

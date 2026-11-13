@@ -39,7 +39,7 @@ public class ScriptRunner : BackgroundService
     private readonly SecretProtector _secrets;
     private readonly SecretVault _vault;
     private readonly HistoryStore _history;
-    private readonly ActivityLogger _activityLogger;
+    private readonly ScriptsActivity _activity;
     private readonly ForEachExpander _expander;
     private readonly ILogger<ScriptRunner> _logger;
     private readonly ConcurrentDictionary<Task, byte> _inFlight = new();
@@ -50,7 +50,7 @@ public class ScriptRunner : BackgroundService
     /// </summary>
     /// <param name="executor">The step executor.</param>
     /// <param name="history">The run history.</param>
-    /// <param name="activityLogger">The activity log writer.</param>
+    /// <param name="activity">The summed activity entries.</param>
     /// <param name="secrets">Decrypts script secrets at run time.</param>
     /// <param name="vault">The stored secret values.</param>
     /// <param name="expander">Picks the items or users a script runs for each of.</param>
@@ -58,7 +58,7 @@ public class ScriptRunner : BackgroundService
     public ScriptRunner(
         OperationExecutor executor,
         HistoryStore history,
-        ActivityLogger activityLogger,
+        ScriptsActivity activity,
         SecretProtector secrets,
         SecretVault vault,
         ForEachExpander expander,
@@ -69,7 +69,7 @@ public class ScriptRunner : BackgroundService
         _vault = vault;
         _executor = executor;
         _history = history;
-        _activityLogger = activityLogger;
+        _activity = activity;
         _logger = logger;
     }
 
@@ -212,11 +212,12 @@ public class ScriptRunner : BackgroundService
         run.Succeeded = run.Operations.All(o => o.Status != OperationStatus.Failed);
         _history.Add(run, settings.HistorySize);
 
-        // A nested run's failure is reported once, by the script that ran it.
+        // A nested run's failure is reported once, by the script that ran it. Failures are summed, so a script
+        // failing on every item of a library scan leaves one entry rather than hundreds.
         if (!run.Succeeded && !isTest && depth == 0)
         {
             var failure = run.Operations.First(o => o.Status == OperationStatus.Failed);
-            _activityLogger.Log("Script \"" + script.Name + "\" failed", "Scripts.ScriptFailed", failure.Message, LogLevel.Warning);
+            _activity.RunFailedFor(script.Name, failure.Message);
         }
 
         return run;

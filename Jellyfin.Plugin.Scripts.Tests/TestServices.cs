@@ -51,11 +51,12 @@ internal sealed class TestServices : IDisposable
             SessionManager,
             NullLogger<EventContextBuilder>.Instance);
         Expander = new ForEachExpander(LibraryManager, UserManager, Substitute.For<IUserDataManager>(), Builder);
+        Activity = new ScriptsActivity(activityLogger);
         History = new HistoryStore(new ScriptPaths(paths), NullLogger<HistoryStore>.Instance);
         Runner = new ScriptRunner(
             Executor,
             History,
-            activityLogger,
+            Activity,
             new SecretProtector("test", NullLogger.Instance),
             new SecretVault(Path.Combine(Folder, "secrets.json"), NullLogger.Instance),
             Expander,
@@ -80,11 +81,14 @@ internal sealed class TestServices : IDisposable
 
     public HistoryStore History { get; }
 
+    public ScriptsActivity Activity { get; }
+
     public ScriptRunner Runner { get; }
 
     public void Dispose()
     {
         Runner.Dispose();
+        Activity.Dispose();
         History.Dispose();
         try
         {

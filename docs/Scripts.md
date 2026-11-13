@@ -209,7 +209,7 @@ Steps run in order. Drag a step, or use its arrows, to reorder it, and open it t
 | | Write to activity log | Adds an entry to the server's activity log. | |
 | | Append to file | Appends a line to a file, creating the file if its folder exists. | |
 
-A step that needs something the event lacks is skipped. A failed step stops the rest unless it is set to **Continue on error**. A run with a failed step is also written to the activity log.
+A step that needs something the event lacks is skipped. A failed step stops the rest unless it is set to **Continue on error**. Runs with a failed step are also written to the activity log, summed into one entry such as **3 Script Runs Failed** that names each script and error with its count, for example `3 script runs failed in Notify (2), Backup (1), with errors The chosen collection no longer exists (3)`. The entry is written 30 seconds after the last failure, or every 5 minutes while failures keep coming.
 
 ### Step conditions and saved output
 
