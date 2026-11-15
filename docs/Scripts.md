@@ -106,7 +106,7 @@ The script's conditions still apply to each run, and its steps see the event as 
 
 ### Webhook
 
-**Webhook received** gives the script its own address, shown in the editor with **Copy address** and an example `curl` command. Another service runs the script by sending a `POST` there.
+**Webhook received** gives the script its own address, shown in the editor with a copy button and an example `curl` command. Another service runs the script by sending a `POST` there.
 
 ![The webhook address](screenshots/Webhook.png)
 

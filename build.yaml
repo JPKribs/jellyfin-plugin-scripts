@@ -16,7 +16,13 @@ owner: "JPKribs"
 artifacts:
 - "Jellyfin.Plugin.Scripts.dll"
 changelog:
+  changed:
+  - The dashboard pages take Base's new buttons, sections, panels, and dialogs
+  - A run's steps show as a timeline with each step's result and output, and its variables as a list
+  - The webhook address has its own copy button beside it
   fixed:
   - The arrows on collapsible sections are back to their usual size
   developer:
-  - Uses JPKribs.Jellyfin.Base 2026.11.13.3
+  - Uses JPKribs.Jellyfin.Base 2026.11.17, with its Timeline, Definition List, Copy Field, and Panel in place of the local run steps, variables list, copy button, and trigger option frames
+  - The pages import Base only through scripts_common.js, which also holds the page wrapper
+  - The repository has contributor guides in starthere.md and skills/, and the design notes are the Architecture page of the docs
