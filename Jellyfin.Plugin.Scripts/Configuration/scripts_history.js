@@ -1,14 +1,14 @@
-import { createConfigPage, createPaginatedTable, confirmDialog, openDialog } from './configurationpage?name=scripts_jpkribs_shared.js';
-import { PLUGIN_ID, TABS, renderRunSteps, renderRunVariables, formatDuration } from './configurationpage?name=scripts_common.js';
+// scripts_history.js
+// The History tab: recent runs in a table, a run's steps and variables in a dialog, and Clear history.
+
+import {
+    createScriptsPage, createPaginatedTable, confirmDialog, openDialog, renderRunSteps, renderRunVariables, formatDuration
+} from './configurationpage?name=scripts_common.js';
 
 export default function (view) {
     'use strict';
 
-    var page = createConfigPage(view, {
-        pluginId: PLUGIN_ID,
-        tabsKey: 'scripts',
-        tabIndex: 1,
-        tabs: TABS,
+    var page = createScriptsPage(view, 1, {
         bind: bind,
         load: load
     });
@@ -27,6 +27,7 @@ export default function (view) {
         return isNaN(date) ? '' : date.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit' });
     }
 
+    // Opens one run's steps and variables in a dialog.
     function showRun(run) {
         openDialog({
             title: run.ScriptName + (run.IsTest ? ' (test)' : ''),
@@ -38,9 +39,9 @@ export default function (view) {
                     '<span>' + esc(formatDuration(Shared, run.DurationMs)) + '</span>' +
                 '</div>' +
                 (run.Summary ? '<div class="fieldDescription">' + esc(run.Summary) + '</div>' : '') +
-                '<div class="jpk-subsection-title">Steps</div>' + renderRunSteps(Shared, run) +
-                '<div class="jpk-subsection-title">Variables</div>' + renderRunVariables(Shared, run),
-            buttons: [{ text: 'Close', className: 'jpk-secondary', action: function (close) { close(); } }]
+                '<div class="base-subsection-title">Steps</div>' + renderRunSteps(Shared, run) +
+                '<div class="base-subsection-title">Variables</div>' + renderRunVariables(Shared, run),
+            buttons: [{ text: 'Close', className: 'base-button secondary', action: function (close) { close(); } }]
         });
     }
 
@@ -54,14 +55,14 @@ export default function (view) {
             containerId: 'historyTable',
             endpoint: 'Scripts/History',
             selection: { enabled: false, idKey: 'Id' },
-            search: { enabled: true, placeholder: 'Search scripts, events, users, items…' },
+            search: { enabled: true, placeholder: 'Search runs' },
             filters: { options: filters },
             emptyState: { message: 'No runs yet.' },
             columns: [
                 {
                     key: 'ScriptName', type: 'custom', className: 'scripts-col-run', render: function (run) {
-                        return '<div class="jpk-table-item-info"><div class="jpk-table-item-title">' + esc(run.ScriptName) + (run.IsTest ? ' (test)' : '') + '</div>' +
-                            '<div class="jpk-table-item-sub">' + esc(triggerLabel(run.Trigger)) + (run.Summary ? ' · ' + esc(run.Summary) : '') + '</div></div>';
+                        return '<div class="base-table-item-info"><div class="base-table-item-title">' + esc(run.ScriptName) + (run.IsTest ? ' (test)' : '') + '</div>' +
+                            '<div class="base-table-item-sub">' + esc(triggerLabel(run.Trigger)) + (run.Summary ? ' · ' + esc(run.Summary) : '') + '</div></div>';
                     }
                 },
                 { key: 'StartedUtc', type: 'custom', className: 'scripts-col-when', render: function (run) { return esc(when(run.StartedUtc)); } },
@@ -79,7 +80,7 @@ export default function (view) {
 
     function bind() {
         el('btnClearHistory').addEventListener('click', function () {
-            confirmDialog('Delete every recorded run?', { title: 'Clear history', confirmText: 'Clear', destructive: true }).then(function (ok) {
+            confirmDialog('Clear every recorded run? This cannot be undone.', { title: 'Clear history', confirmText: 'Clear', destructive: true }).then(function (ok) {
                 if (!ok) return;
                 Shared.apiRequest('Scripts/History', 'DELETE').then(function () {
                     Shared.setStatus('historyStatus', 'History cleared.', false);

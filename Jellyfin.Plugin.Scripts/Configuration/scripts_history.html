@@ -12,7 +12,9 @@
                         <h1 class="sectionTitle">History</h1>
                     </div>
 
-                    <div class="fieldDescription" style="margin-bottom: 12px;">
+                    <!-- Runs -->
+                    <!-- The most recent runs, opened one at a time in a dialog. -->
+                    <div class="fieldDescription scripts-page-intro">
                         The most recent runs, newest first, including test runs. Click a run to see each step, its
                         output, and the variables it received. Runs started by another script's Run another script
                         step are listed too. Settings sets how many runs are kept.
@@ -20,10 +22,10 @@
 
                     <div id="historyTable"></div>
 
-                    <button is="emby-button" type="button" id="btnClearHistory" class="raised jpk-button-destructive">
+                    <button is="emby-button" type="button" id="btnClearHistory" class="raised base-button destructive">
                         <span>Clear history</span>
                     </button>
-                    <span id="historyStatus" class="jpk-status-text"></span>
+                    <span id="historyStatus" class="base-status-text"></span>
 
                 </div>
             </form>

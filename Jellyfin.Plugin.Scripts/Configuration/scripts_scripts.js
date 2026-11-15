@@ -1,11 +1,12 @@
+// scripts_scripts.js
+// The Scripts tab: the script picker and the editor for one script's triggers, filters, conditions, steps,
+// secrets, and behavior, with Save, Test, and Run now.
+
 import {
-    createConfigPage, createChipSelect, createCheckboxList, createUserMultiSelector, createSortableCardList,
-    createChoiceGroup, confirmDialog, promptDialog, openDialog, generateGuid, downloadJson, pickJsonFile,
-    bindSecretField, clearSecretField, readSecretField, SECRET_KEPT
-} from './configurationpage?name=scripts_jpkribs_shared.js';
-import {
-    PLUGIN_ID, TABS, FIELD_GROUPS, FIELD_LABELS, NUMERIC_FIELDS, OPERATOR_LABELS, OPERATION_TYPES,
-    renderRunSteps, formatDuration
+    createScriptsPage, createChipSelect, createCheckboxList, createUserMultiSelector, createSortableCardList,
+    createChoiceGroup, confirmDialog, promptDialog, openDialog, generateGuid, downloadJson,
+    pickJsonFile, bindSecretField, clearSecretField, readSecretField, SECRET_KEPT,
+    FIELD_GROUPS, FIELD_LABELS, NUMERIC_FIELDS, OPERATOR_LABELS, OPERATION_TYPES, renderRunSteps, formatDuration
 } from './configurationpage?name=scripts_common.js';
 import { TEMPLATES, HTTP_PRESETS } from './configurationpage?name=scripts_templates.js';
 
@@ -13,11 +14,7 @@ export default function (view) {
     'use strict';
 
     var tracker = null;
-    var page = createConfigPage(view, {
-        pluginId: PLUGIN_ID,
-        tabsKey: 'scripts',
-        tabIndex: 0,
-        tabs: TABS,
+    var page = createScriptsPage(view, 0, {
         bind: bind,
         load: load,
         isDirty: function () { return !!(tracker && tracker.isDirty()); }
@@ -131,7 +128,7 @@ export default function (view) {
         chips.element.addEventListener('keydown', function (e) {
             if (e.key !== 'Enter' || e.target.tagName !== 'INPUT') return;
             var typed = e.target.value.trim().toLowerCase();
-            var options = Array.from(chips.element.querySelectorAll('.jpk-combo-dropdown:not(.hidden) .jpk-combo-option'));
+            var options = Array.from(chips.element.querySelectorAll('.base-combo-dropdown:not([hidden]) .base-combo-option'));
             if (!typed || !options.length || options.some(function (o) { return o.classList.contains('active'); })) return;
             var pick = options.find(function (o) { return o.textContent.trim().toLowerCase() === typed; }) || (firstMatch ? options[0] : null);
             if (!pick) return;
@@ -159,6 +156,7 @@ export default function (view) {
             return '<option value="' + esc(s.Id) + '">' + esc(s.Name || 'Untitled') + (s.Enabled ? '' : ' (disabled)') + '</option>';
         }).join('');
         if (selectedId) select.value = selectedId;
+        el('emptyState').innerHTML = scripts.length ? '' : Shared.emptySection('No scripts yet. Select New to add one, or Import a file.');
         Shared.setVisible('emptyState', scripts.length === 0);
         Shared.setVisible('scriptEditor', scripts.length > 0);
         el('btnDeleteScript').disabled = scripts.length === 0;
@@ -357,14 +355,14 @@ export default function (view) {
                         }).join('') +
                     '</select></div>' +
                     '<div class="scripts-cell scripts-condition-values"></div>' +
-                    '<div class="scripts-cell"><button type="button" class="jpk-row-btn" data-cond-del="' + index + '" title="Remove condition" aria-label="Remove condition">' +
+                    '<div class="scripts-cell"><button type="button" class="base-row-btn" data-cond-del="' + index + '" title="Remove condition" aria-label="Remove condition">' +
                         '<span class="material-icons" aria-hidden="true">close</span></button></div>' +
                 '</div>';
 
             var warning = conditionWarning(script, condition);
             if (warning) {
                 var note = document.createElement('div');
-                note.className = 'jpk-warn scripts-inline-warn';
+                note.className = 'base-warn scripts-inline-warn';
                 note.textContent = warning;
                 row.appendChild(note);
             }
@@ -458,6 +456,7 @@ export default function (view) {
 
     function renderOperationCards() {
         var script = current();
+        el('operationEmpty').innerHTML = script.Operations.length ? '' : Shared.emptySection('No steps yet. Add one below.', { inline: true });
         Shared.setVisible('operationEmpty', script.Operations.length === 0);
         operationList.render();
     }
@@ -499,20 +498,20 @@ export default function (view) {
     function operationFields(op) {
         switch (op.Type) {
             case 'RunCommand':
-                return '<div class="jpk-choice-group scripts-command-mode" role="radiogroup" aria-label="How the command runs">' +
-                        '<label class="jpk-choice"><input type="radio" name="commandMode" value="direct"' + (op.RunThroughShell ? '' : ' checked') + ' />' +
-                            '<span class="jpk-choice-name">Run directly</span><span class="jpk-choice-text">Starts one program with its arguments. Event values fill arguments safely.</span></label>' +
-                        '<label class="jpk-choice"><input type="radio" name="commandMode" value="shell"' + (op.RunThroughShell ? ' checked' : '') + ' />' +
-                            '<span class="jpk-choice-name">Through the shell</span><span class="jpk-choice-text">One line for /bin/sh, for pipes and redirects. Event values come from the environment.</span></label>' +
+                return '<div class="base-choice-group scripts-command-mode" role="radiogroup" aria-label="How the command runs">' +
+                        '<label class="base-choice"><input type="radio" name="commandMode" value="direct"' + (op.RunThroughShell ? '' : ' checked') + ' />' +
+                            '<span class="base-choice-name">Run directly</span><span class="base-choice-text">Starts one program with its arguments. Event values fill arguments safely.</span></label>' +
+                        '<label class="base-choice"><input type="radio" name="commandMode" value="shell"' + (op.RunThroughShell ? ' checked' : '') + ' />' +
+                            '<span class="base-choice-name">Through the shell</span><span class="base-choice-text">One line for /bin/sh, for pipes and redirects. Event values come from the environment.</span></label>' +
                     '</div>' +
                     input(op, 'Command', op.RunThroughShell ? 'Shell line' : 'Command', {
                         placeholder: op.RunThroughShell ? '/scripts/notify.sh "$JF_ITEM_NAME" >> /tmp/log.txt' : '/scripts/notify.sh',
                         help: op.RunThroughShell
                             ? 'Placeholders are not filled here, so event values cannot inject shell syntax. Read them from the environment, such as "$JF_ITEM_NAME". On Windows the line runs through cmd /c, which expands %JF_...% before parsing it, so there read event values inside a script file instead.'
-                            : 'A path to a script or program, or a name on the server\'s PATH such as curl. The server must be able to reach the path; in Docker, mount it into the container and use the path inside it.'
+                            : 'A path to a script or program, or a name on the server\'s PATH such as curl. The server must be able to reach the path. In Docker, mount it into the container and use the path inside it.'
                     }) +
-                    (op.RunThroughShell ? '' : '<div class="scripts-path-check"><button is="emby-button" type="button" class="raised jpk-button-small" id="btnCheckPath"><span>Check path</span></button>' +
-                        '<span class="scripts-path-result" id="pathResult"></span></div>') +
+                    (op.RunThroughShell ? '' : '<div class="scripts-path-check"><button is="emby-button" type="button" class="raised base-button secondary small" id="btnCheckPath"><span>Check path</span></button>' +
+                        '<span class="base-status-text" id="pathResult"></span></div>') +
                     (op.RunThroughShell ? '' : input(op, 'Arguments', 'Arguments, one per line', {
                         textarea: true,
                         placeholder: '--title\n{{ITEM_NAME}}',
@@ -612,11 +611,11 @@ export default function (view) {
         if (!op) { editor.innerHTML = ''; return; }
         var warning = operationWarning(script, op);
         editor.innerHTML =
-            (warning ? '<div class="jpk-warn scripts-inline-warn">' + esc(warning) + '</div>' : '') +
+            (warning ? '<div class="base-warn scripts-inline-warn">' + esc(warning) + '</div>' : '') +
             operationFields(op) +
             stepExtras(op) +
             checkbox(op, 'ContinueOnError', 'Continue on error', 'Run the following steps even if this one fails.') +
-            '<button is="emby-button" type="button" class="raised jpk-button-small jpk-button-destructive" id="btnRemoveOperation"><span>Remove step</span></button>';
+            '<button is="emby-button" type="button" class="raised base-button destructive small" id="btnRemoveOperation"><span>Remove step</span></button>';
         var mode = editor.querySelector('.scripts-command-mode');
         if (mode) {
             createChoiceGroup(mode, {
@@ -664,15 +663,12 @@ export default function (view) {
         var op = selectedOperation();
         var result = el('pathResult');
         if (!op || !result) return;
-        result.textContent = 'Checking…';
-        result.className = 'scripts-path-result';
+        Shared.setStatus(result, 'Checking…', false, { timeout: 0, state: 'info' });
         Shared.apiRequest('Scripts/CheckPath?path=' + encodeURIComponent(op.Command || ''), 'GET').then(function (check) {
             var ok = check && check.Exists && !check.IsDirectory && check.IsExecutable;
-            result.textContent = check ? check.Message : 'No answer from the server.';
-            result.classList.add(ok ? 'jpk-status-ok' : 'jpk-status-bad');
+            Shared.setStatus(result, check ? check.Message : 'No answer from the server.', !ok, { timeout: 0 });
         }).catch(function () {
-            result.textContent = 'Could not check the path.';
-            result.classList.add('jpk-status-bad');
+            Shared.setStatus(result, 'Could not check the path.', true, { timeout: 0 });
         });
     }
 
@@ -685,8 +681,8 @@ export default function (view) {
             return '<div class="scripts-secret">' +
                 '<div class="scripts-cell"><input is="emby-input" type="text" class="scripts-secret-name" data-secret-name="' + index + '" value="' + esc(secret.Name) + '" placeholder="NAME" aria-label="Secret name" /></div>' +
                 '<div class="scripts-cell scripts-secret-value-cell"><input is="emby-input" type="password" class="scripts-secret-value" data-secret-value="' + index + '" placeholder="Value" aria-label="Secret value" autocomplete="new-password" /></div>' +
-                '<div class="scripts-cell"><button type="button" class="jpk-row-btn" data-secret-clear="' + index + '" title="Clear the stored value"><span class="material-icons" aria-hidden="true">backspace</span></button></div>' +
-                '<div class="scripts-cell"><button type="button" class="jpk-row-btn" data-secret-del="' + index + '" title="Remove secret"><span class="material-icons" aria-hidden="true">delete</span></button></div>' +
+                '<div class="scripts-cell"><button type="button" class="base-row-btn" data-secret-clear="' + index + '" title="Clear the stored value"><span class="material-icons" aria-hidden="true">backspace</span></button></div>' +
+                '<div class="scripts-cell"><button type="button" class="base-row-btn" data-secret-del="' + index + '" title="Remove secret"><span class="material-icons" aria-hidden="true">delete</span></button></div>' +
                 '</div>';
         }).join('');
         list.querySelectorAll('[data-secret-value]').forEach(function (inputEl) {
@@ -752,8 +748,8 @@ export default function (view) {
         var trigger = triggerInfo(el('testTrigger').value);
         var dialog = openDialog({
             title: 'Test: ' + (script.Name || 'Untitled'),
-            body: '<div class="scripts-test-body"><div class="jpk-info">Running with sample values for ' + esc(trigger ? trigger.Label.toLowerCase() : 'the trigger') + '…</div></div>',
-            buttons: [{ text: 'Close', className: 'jpk-secondary', action: function (close) { close(); } }]
+            body: '<div class="scripts-test-body"><div class="base-info">Running with sample values for ' + esc(trigger ? trigger.Label.toLowerCase() : 'the trigger') + '…</div></div>',
+            buttons: [{ text: 'Close', className: 'base-button secondary', action: function (close) { close(); } }]
         });
         var body = dialog.content.querySelector('.scripts-test-body');
         Shared.apiRequest('Scripts/Test', 'POST', { Script: script, Trigger: el('testTrigger').value }).then(function (run) {
@@ -762,7 +758,7 @@ export default function (view) {
                 '<span>' + esc(formatDuration(Shared, run.DurationMs)) + '</span></div>' +
                 renderRunSteps(Shared, run);
         }).catch(function () {
-            body.innerHTML = '<div class="jpk-error">The test could not run. Check the steps and try again.</div>';
+            body.innerHTML = '<div class="base-error">The test could not run. Check the steps and try again.</div>';
         }).finally(function () {
             button.disabled = false;
         });
@@ -1008,7 +1004,7 @@ export default function (view) {
             var message = 'Import ' + incoming.length + ' script' + (incoming.length === 1 ? '' : 's') + '?' +
                 (replacing.length ? ' ' + replacing.length + ' will replace a script with the same ID: ' +
                     replacing.map(function (s) { return '"' + s.Name + '"'; }).join(', ') + '.' : '') +
-                ' Imported scripts start disabled so you can review their steps, then save. Secret values are not in the file; enter them again.';
+                ' Imported scripts start disabled so you can review their steps, then save. Secret values are not in the file, so enter them again.';
             return confirmDialog(message, { title: 'Import scripts', confirmText: 'Import' }).then(function (ok) {
                 if (!ok) return;
                 incoming.forEach(function (s) {

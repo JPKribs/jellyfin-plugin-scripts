@@ -1,14 +1,12 @@
-import { createConfigPage } from './configurationpage?name=scripts_jpkribs_shared.js';
-import { PLUGIN_ID, TABS } from './configurationpage?name=scripts_common.js';
+// scripts_settings.js
+// The Settings tab: runs at once, the default command timeout, and how many runs the history keeps.
+
+import { createScriptsPage } from './configurationpage?name=scripts_common.js';
 
 export default function (view) {
     'use strict';
 
-    var Shared = createConfigPage(view, {
-        pluginId: PLUGIN_ID,
-        tabsKey: 'scripts',
-        tabIndex: 2,
-        tabs: TABS,
+    var Shared = createScriptsPage(view, 2, {
         bind: bind,
         load: load
     }).shared;

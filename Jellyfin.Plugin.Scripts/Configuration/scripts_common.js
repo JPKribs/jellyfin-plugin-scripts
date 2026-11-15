@@ -1,5 +1,19 @@
-// Shared by the three Scripts dashboard tabs: the plugin ID, the tab bar, and the labels the server's enum
-// names display as.
+// scripts_common.js
+// Shared by the three Scripts tabs: the only module that imports Base, the page wrapper, the tab bar, and the
+// labels the server's enum names display as.
+
+import {
+    createConfigPage, createPaginatedTable, createChipSelect, createCheckboxList, createUserMultiSelector,
+    createSortableCardList, createChoiceGroup,
+    confirmDialog, promptDialog, openDialog, generateGuid, downloadJson, pickJsonFile,
+    bindSecretField, clearSecretField, readSecretField, SECRET_KEPT
+} from './configurationpage?name=scripts_jpkribs_shared.js';
+
+export {
+    createPaginatedTable, createChipSelect, createCheckboxList, createUserMultiSelector, createSortableCardList,
+    createChoiceGroup, confirmDialog, promptDialog, openDialog, generateGuid, downloadJson,
+    pickJsonFile, bindSecretField, clearSecretField, readSecretField, SECRET_KEPT
+};
 
 export var PLUGIN_ID = '449817c2-7661-46fb-b302-bbd6dd3b0a01';
 
@@ -8,6 +22,25 @@ export var TABS = [
     { href: 'configurationpage?name=scripts_history', name: 'History' },
     { href: 'configurationpage?name=scripts_settings', name: 'Settings' }
 ];
+
+// createScriptsPage
+// Wraps Base's createConfigPage with the plugin ID and the tab bar, so each tab names only its index.
+//
+// Inputs
+// view [HTMLElement]: The page the dashboard passes to the module.
+// tabIndex [number]: The tab this page is, from 0.
+// options [object]: The rest of createConfigPage's options, such as bind, load, and isDirty.
+//
+// Output
+// [object]: The page handle from createConfigPage.
+export function createScriptsPage(view, tabIndex, options) {
+    return createConfigPage(view, Object.assign({
+        pluginId: PLUGIN_ID,
+        tabsKey: 'scripts',
+        tabIndex: tabIndex,
+        tabs: TABS
+    }, options));
+}
 
 // Condition fields, grouped for the field picker. numeric marks fields compared with "at least" and "at most".
 export var FIELD_GROUPS = [
@@ -124,7 +157,15 @@ export var OPERATION_TYPES = {
 
 export var STATUS_BADGES = { Succeeded: 'green', Failed: 'red', Skipped: 'gray' };
 
-// Renders a run's steps as a list: status badge, step type, message, and any captured output.
+// renderRunSteps
+// Renders a run's steps as a list of status badge, step type, message, and any captured output.
+//
+// Inputs
+// shared [object]: The helper bag from createShared.
+// run [object]: A run from the history or a test.
+//
+// Output
+// [string]: The list as HTML, or an empty state when the script has no steps.
 export function renderRunSteps(shared, run) {
     var steps = run.Operations || [];
     if (!steps.length) return shared.emptySection('This script has no steps.');
@@ -134,12 +175,20 @@ export function renderRunSteps(shared, run) {
             '<div class="scripts-run-step-head">' + shared.badge(STATUS_BADGES[step.Status] || 'gray', step.Status) +
             '<strong>' + shared.escapeHtml(type) + '</strong></div>' +
             (step.Message ? '<div class="scripts-run-step-message">' + shared.escapeHtml(step.Message) + '</div>' : '') +
-            (step.Output ? '<pre class="jpk-error-message scripts-output">' + shared.escapeHtml(step.Output) + '</pre>' : '') +
+            (step.Output ? '<pre class="base-error-message scripts-output">' + shared.escapeHtml(step.Output) + '</pre>' : '') +
             '</li>';
     }).join('') + '</ol>';
 }
 
-// Renders a run's variables as a definition list.
+// renderRunVariables
+// Renders a run's variables as a definition list, named as a command reads them.
+//
+// Inputs
+// shared [object]: The helper bag from createShared.
+// run [object]: A run from the history.
+//
+// Output
+// [string]: The list as HTML.
 export function renderRunVariables(shared, run) {
     var variables = run.Variables || {};
     var names = Object.keys(variables).sort();
@@ -149,6 +198,15 @@ export function renderRunVariables(shared, run) {
     }).join('') + '</dl>';
 }
 
+// formatDuration
+// Shows a run's length in milliseconds under a second, and as Base's duration text above it.
+//
+// Inputs
+// shared [object]: The helper bag from createShared.
+// ms [number]: The length in milliseconds.
+//
+// Output
+// [string]: The length as text.
 export function formatDuration(shared, ms) {
     return ms < 1000 ? ms + ' ms' : shared.formatDuration(Math.round(ms / 1000));
 }

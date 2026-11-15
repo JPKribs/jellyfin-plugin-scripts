@@ -12,9 +12,11 @@
                         <h1 class="sectionTitle">Settings</h1>
                     </div>
 
-                    <div class="jpk-section">
-                        <div class="jpk-section-title">Running</div>
-                        <div class="jpk-section-content">
+                    <!-- Running -->
+                    <!-- How many scripts run at once, how long a command may take, and how many runs are kept. -->
+                    <div class="base-section">
+                        <div class="base-section-title">Running</div>
+                        <div class="base-section-content">
                             <div class="inputContainer">
                                 <label for="maxConcurrentRuns">Runs at once</label>
                                 <input is="emby-input" type="number" id="maxConcurrentRuns" min="1" max="32" />
@@ -33,21 +35,23 @@
                         </div>
                     </div>
 
-                    <div class="jpk-info">
+                    <!-- Commands -->
+                    <!-- Where a command's path points, and whose account it runs as. -->
+                    <div class="base-info">
                         A <strong>Run command</strong> step runs a file at any path the server can reach. In Docker that is
                         the path inside the container, so mount your scripts folder (for example
                         <code>-v /srv/jellyfin-scripts:/scripts:ro</code>) and use <code>/scripts/your-script.sh</code>.
                         The official image has a shell but no Python or most other interpreters, so a script should use
                         <code>/bin/sh</code> or an interpreter you mount or install yourself.
                     </div>
-                    <div class="jpk-warn">
+                    <div class="base-warn">
                         Commands run on the server as the account Jellyfin runs under. Only add commands you trust.
                     </div>
 
-                    <button is="emby-button" type="button" id="btnSaveSettings" class="raised button-submit block">
+                    <button is="emby-button" type="button" id="btnSaveSettings" class="raised base-button primary fill">
                         <span>Save</span>
                     </button>
-                    <span id="settingsStatus" class="jpk-status-text"></span>
+                    <span id="settingsStatus" class="base-status-text"></span>
 
                 </div>
             </form>
