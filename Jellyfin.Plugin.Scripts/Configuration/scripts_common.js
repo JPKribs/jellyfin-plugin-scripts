@@ -4,14 +4,14 @@
 
 import {
     createConfigPage, createPaginatedTable, createChipSelect, createCheckboxList, createUserMultiSelector,
-    createSortableCardList, createChoiceGroup,
+    createSortableCardList, createChoiceGroup, createCopyField, createTimeline, createDefinitionList,
     confirmDialog, promptDialog, openDialog, generateGuid, downloadJson, pickJsonFile,
     bindSecretField, clearSecretField, readSecretField, SECRET_KEPT
 } from './configurationpage?name=scripts_jpkribs_shared.js';
 
 export {
     createPaginatedTable, createChipSelect, createCheckboxList, createUserMultiSelector, createSortableCardList,
-    createChoiceGroup, confirmDialog, promptDialog, openDialog, generateGuid, downloadJson,
+    createChoiceGroup, createCopyField, confirmDialog, promptDialog, openDialog, generateGuid, downloadJson,
     pickJsonFile, bindSecretField, clearSecretField, readSecretField, SECRET_KEPT
 };
 
@@ -158,44 +158,53 @@ export var OPERATION_TYPES = {
 export var STATUS_BADGES = { Succeeded: 'green', Failed: 'red', Skipped: 'gray' };
 
 // renderRunSteps
-// Renders a run's steps as a list of status badge, step type, message, and any captured output.
+// Builds a run's steps as a Base Timeline, each with its status, step type, message, and any captured output.
 //
 // Inputs
 // shared [object]: The helper bag from createShared.
 // run [object]: A run from the history or a test.
 //
 // Output
-// [string]: The list as HTML, or an empty state when the script has no steps.
+// [HTMLElement]: The timeline, or an empty state when the script has no steps.
 export function renderRunSteps(shared, run) {
-    var steps = run.Operations || [];
-    if (!steps.length) return shared.emptySection('This script has no steps.');
-    return '<ol class="scripts-run-steps">' + steps.map(function (step) {
-        var type = OPERATION_TYPES[step.Type] ? OPERATION_TYPES[step.Type].label : step.Type;
-        return '<li>' +
-            '<div class="scripts-run-step-head">' + shared.badge(STATUS_BADGES[step.Status] || 'gray', step.Status) +
-            '<strong>' + shared.escapeHtml(type) + '</strong></div>' +
-            (step.Message ? '<div class="scripts-run-step-message">' + shared.escapeHtml(step.Message) + '</div>' : '') +
-            (step.Output ? '<pre class="base-error-message scripts-output">' + shared.escapeHtml(step.Output) + '</pre>' : '') +
-            '</li>';
-    }).join('') + '</ol>';
+    var timeline = createTimeline({
+        emptyText: 'This script has no steps.',
+        statusLabels: { green: 'Succeeded', red: 'Failed', gray: 'Skipped' },
+        items: (run.Operations || []).map(function (step) {
+            return {
+                title: OPERATION_TYPES[step.Type] ? OPERATION_TYPES[step.Type].label : step.Type,
+                body: step.Message || '',
+                pre: step.Output || '',
+                status: STATUS_BADGES[step.Status] || 'gray'
+            };
+        })
+    });
+    return timeline.element;
 }
 
 // renderRunVariables
-// Renders a run's variables as a definition list, named as a command reads them.
+// Builds a run's variables as a Base Definition List, named as a command reads them.
 //
 // Inputs
 // shared [object]: The helper bag from createShared.
 // run [object]: A run from the history.
 //
 // Output
-// [string]: The list as HTML.
+// [HTMLElement]: The list of variables.
 export function renderRunVariables(shared, run) {
     var variables = run.Variables || {};
     var names = Object.keys(variables).sort();
-    if (!names.length) return shared.emptySection('No variables.');
-    return '<dl class="scripts-run-variables">' + names.map(function (name) {
-        return '<dt>JF_' + shared.escapeHtml(name) + '</dt><dd>' + shared.escapeHtml(variables[name]) + '</dd>';
-    }).join('') + '</dl>';
+    if (!names.length) {
+        var empty = document.createElement('div');
+        empty.innerHTML = shared.emptySection('No variables.', { inline: true });
+        return empty;
+    }
+    return createDefinitionList({
+        items: names.map(function (name) {
+            var value = variables[name] === null || variables[name] === undefined ? '' : String(variables[name]);
+            return { label: 'JF_' + name, value: { text: value, mono: true } };
+        })
+    }).element;
 }
 
 // formatDuration

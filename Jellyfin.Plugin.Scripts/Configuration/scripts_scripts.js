@@ -4,7 +4,7 @@
 
 import {
     createScriptsPage, createChipSelect, createCheckboxList, createUserMultiSelector, createSortableCardList,
-    createChoiceGroup, confirmDialog, promptDialog, openDialog, generateGuid, downloadJson,
+    createChoiceGroup, createCopyField, confirmDialog, promptDialog, openDialog, generateGuid, downloadJson,
     pickJsonFile, bindSecretField, clearSecretField, readSecretField, SECRET_KEPT,
     FIELD_GROUPS, FIELD_LABELS, NUMERIC_FIELDS, OPERATOR_LABELS, OPERATION_TYPES, renderRunSteps, formatDuration
 } from './configurationpage?name=scripts_common.js';
@@ -64,6 +64,7 @@ export default function (view) {
     var matchChoice = null;
     var operationList = null;
     var conditionSelects = [];
+    var webhookField = null;
     var suppressWidgetEvents = false;
 
     function el(id) { return view.querySelector('#' + id); }
@@ -286,7 +287,7 @@ export default function (view) {
     function renderWebhook() {
         var path = 'Scripts/Webhook/' + (current().WebhookToken || '');
         var url = window.ApiClient && window.ApiClient.getUrl ? window.ApiClient.getUrl(path) : '/' + path;
-        el('webhookUrl').value = url;
+        webhookField.setValue(url);
         el('webhookExample').textContent =
             'curl -X POST "' + url + '" \\\n' +
             '  -H \'Authorization: MediaBrowser Token="YOUR_API_KEY"\' \\\n' +
@@ -755,8 +756,8 @@ export default function (view) {
         Shared.apiRequest('Scripts/Test', 'POST', { Script: script, Trigger: el('testTrigger').value }).then(function (run) {
             body.innerHTML =
                 '<div class="scripts-run-summary">' + Shared.badge(run.Succeeded ? 'green' : 'red', run.Succeeded ? 'Succeeded' : 'Failed') +
-                '<span>' + esc(formatDuration(Shared, run.DurationMs)) + '</span></div>' +
-                renderRunSteps(Shared, run);
+                '<span>' + esc(formatDuration(Shared, run.DurationMs)) + '</span></div>';
+            body.appendChild(renderRunSteps(Shared, run));
         }).catch(function () {
             body.innerHTML = '<div class="base-error">The test could not run. Check the steps and try again.</div>';
         }).finally(function () {
@@ -1062,9 +1063,6 @@ export default function (view) {
         TRIGGER_NUMBERS.forEach(function (option) {
             el(option.input).addEventListener('input', function () { current()[option.key] = parseInt(this.value, 10) || 0; edited(); });
         });
-        el('btnCopyWebhook').addEventListener('click', function () {
-            Shared.copyWithFeedback(this.querySelector('span'), el('webhookUrl').value);
-        });
         el('btnNewWebhook').addEventListener('click', function () {
             confirmDialog('Make a new webhook address? Anything still calling the old one stops working once you save.', { title: 'New webhook address', confirmText: 'Make a new address' }).then(function (ok) {
                 if (!ok) return;
@@ -1261,6 +1259,9 @@ export default function (view) {
         el('btnSaveScripts').addEventListener('click', save);
         el('btnTestScript').addEventListener('click', runTest);
         el('btnRunScript').addEventListener('click', runNow);
+        webhookField = createCopyField({ label: 'Webhook address' });
+        el('webhookUrlMount').appendChild(webhookField.element);
+
         var names = document.createElement('datalist');
         names.id = 'scriptsVariableNames';
         view.appendChild(names);

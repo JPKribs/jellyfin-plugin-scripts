@@ -29,18 +29,25 @@ export default function (view) {
 
     // Opens one run's steps and variables in a dialog.
     function showRun(run) {
+        var body = document.createElement('div');
+        body.innerHTML =
+            '<div class="scripts-run-summary">' +
+                Shared.badge(run.Succeeded ? 'green' : 'red', run.Succeeded ? 'Succeeded' : 'Failed') +
+                '<span>' + esc(triggerLabel(run.Trigger)) + '</span>' +
+                '<span>' + esc(when(run.StartedUtc)) + '</span>' +
+                '<span>' + esc(formatDuration(Shared, run.DurationMs)) + '</span>' +
+            '</div>' +
+            (run.Summary ? '<div class="fieldDescription">' + esc(run.Summary) + '</div>' : '') +
+            '<div class="base-subsection-title">Steps</div>';
+        body.appendChild(renderRunSteps(Shared, run));
+        var title = document.createElement('div');
+        title.className = 'base-subsection-title';
+        title.textContent = 'Variables';
+        body.appendChild(title);
+        body.appendChild(renderRunVariables(Shared, run));
         openDialog({
             title: run.ScriptName + (run.IsTest ? ' (test)' : ''),
-            body:
-                '<div class="scripts-run-summary">' +
-                    Shared.badge(run.Succeeded ? 'green' : 'red', run.Succeeded ? 'Succeeded' : 'Failed') +
-                    '<span>' + esc(triggerLabel(run.Trigger)) + '</span>' +
-                    '<span>' + esc(when(run.StartedUtc)) + '</span>' +
-                    '<span>' + esc(formatDuration(Shared, run.DurationMs)) + '</span>' +
-                '</div>' +
-                (run.Summary ? '<div class="fieldDescription">' + esc(run.Summary) + '</div>' : '') +
-                '<div class="base-subsection-title">Steps</div>' + renderRunSteps(Shared, run) +
-                '<div class="base-subsection-title">Variables</div>' + renderRunVariables(Shared, run),
+            body: body,
             buttons: [{ text: 'Close', className: 'base-button secondary', action: function (close) { close(); } }]
         });
     }

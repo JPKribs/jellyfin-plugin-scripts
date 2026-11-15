@@ -81,73 +81,86 @@
                                 <div class="fieldDescription">The script runs when any checked trigger happens. Search to narrow the list.</div>
                                 <div id="triggerMount"></div>
 
-                                <div id="pausedOptions" class="scripts-trigger-options hidden">
-                                    <div class="inputContainer">
-                                        <label for="pausedMinutes">Paused for a while: minutes</label>
-                                        <input is="emby-input" type="number" id="pausedMinutes" min="1" max="1440" />
-                                        <div class="fieldDescription">Runs once per pause, after the session has stayed paused this long.</div>
-                                    </div>
-                                </div>
-
-                                <div id="playingOptions" class="scripts-trigger-options hidden">
-                                    <div class="inputContainer">
-                                        <label for="playingMinutes">Playing for a while: minutes</label>
-                                        <input is="emby-input" type="number" id="playingMinutes" min="1" max="1440" />
-                                        <div class="fieldDescription">Runs once per playback, after this much playing time. Pauses do not count.</div>
-                                    </div>
-                                </div>
-
-                                <div id="progressOptions" class="scripts-trigger-options hidden">
-                                    <div class="inputContainer">
-                                        <label for="progressPercent">Playback passed a percentage: percent</label>
-                                        <input is="emby-input" type="number" id="progressPercent" min="1" max="99" />
-                                        <div class="fieldDescription">Runs once per playback, when it goes from below this percentage to at or past it.</div>
-                                    </div>
-                                </div>
-
-                                <div id="streamOptions" class="scripts-trigger-options hidden">
-                                    <div class="inputContainer">
-                                        <label for="streamCount">Stream count reached: streams</label>
-                                        <input is="emby-input" type="number" id="streamCount" min="1" max="100" />
-                                        <div class="fieldDescription">Runs when the number of active streams rises to this many. The event is the stream that reached it.</div>
-                                    </div>
-                                </div>
-
-                                <div id="transcodeOptions" class="scripts-trigger-options hidden">
-                                    <div class="inputContainer">
-                                        <label for="transcodeCount">Transcode count reached: transcodes</label>
-                                        <input is="emby-input" type="number" id="transcodeCount" min="1" max="100" />
-                                        <div class="fieldDescription">Runs when the number of transcoding streams rises to this many. The event is the stream that reached it.</div>
-                                    </div>
-                                </div>
-
-                                <div id="webhookOptions" class="scripts-trigger-options hidden">
-                                    <div class="base-subsection-title">Webhook</div>
-                                    <div class="inputContainer">
-                                        <label for="webhookUrl">Address</label>
-                                        <input is="emby-input" type="text" id="webhookUrl" readonly />
-                                        <div class="fieldDescription">
-                                            Send a <code>POST</code> here with a Jellyfin API key from Dashboard, API Keys. The address
-                                            picks the script and the key proves the caller may run it. A request with either one
-                                            missing is refused. Query parameters and JSON fields arrive as <code>{{WEBHOOK_NAME}}</code>.
+                                <div id="pausedOptions" class="base-panel hidden">
+                                    <div class="base-panel-body">
+                                        <div class="inputContainer">
+                                            <label for="pausedMinutes">Paused for a while: minutes</label>
+                                            <input is="emby-input" type="number" id="pausedMinutes" min="1" max="1440" />
+                                            <div class="fieldDescription">Runs once per pause, after the session has stayed paused this long.</div>
                                         </div>
                                     </div>
-                                    <div class="scripts-webhook-actions">
-                                        <button is="emby-button" type="button" id="btnCopyWebhook" class="raised base-button secondary small"><span>Copy address</span></button>
-                                        <button is="emby-button" type="button" id="btnNewWebhook" class="raised base-button secondary small" title="The old address stops working once you save."><span>New address</span></button>
-                                    </div>
-                                    <pre id="webhookExample" class="base-code-block"></pre>
                                 </div>
 
-                                <div id="scheduleOptions" class="scripts-trigger-options hidden">
-                                    <div class="base-subsection-title">Schedule</div>
-                                    <div class="fieldDescription scripts-schedule-note">
-                                        A script on a schedule runs as a Jellyfin scheduled task. Once you save, it is listed under
-                                        <a is="emby-linkbutton" class="button-link" href="#/dashboard/tasks">Dashboard, Scheduled Tasks</a>
-                                        in the <strong>Scripts</strong> section, under this script's name and description. Set when
-                                        it runs there, or run it by hand. It only runs on its schedule while the script is enabled.
+                                <div id="playingOptions" class="base-panel hidden">
+                                    <div class="base-panel-body">
+                                        <div class="inputContainer">
+                                            <label for="playingMinutes">Playing for a while: minutes</label>
+                                            <input is="emby-input" type="number" id="playingMinutes" min="1" max="1440" />
+                                            <div class="fieldDescription">Runs once per playback, after this much playing time. Pauses do not count.</div>
+                                        </div>
                                     </div>
-                                    <div id="scheduleStart" class="fieldDescription scripts-schedule-note"></div>
+                                </div>
+
+                                <div id="progressOptions" class="base-panel hidden">
+                                    <div class="base-panel-body">
+                                        <div class="inputContainer">
+                                            <label for="progressPercent">Playback passed a percentage: percent</label>
+                                            <input is="emby-input" type="number" id="progressPercent" min="1" max="99" />
+                                            <div class="fieldDescription">Runs once per playback, when it goes from below this percentage to at or past it.</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div id="streamOptions" class="base-panel hidden">
+                                    <div class="base-panel-body">
+                                        <div class="inputContainer">
+                                            <label for="streamCount">Stream count reached: streams</label>
+                                            <input is="emby-input" type="number" id="streamCount" min="1" max="100" />
+                                            <div class="fieldDescription">Runs when the number of active streams rises to this many. The event is the stream that reached it.</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div id="transcodeOptions" class="base-panel hidden">
+                                    <div class="base-panel-body">
+                                        <div class="inputContainer">
+                                            <label for="transcodeCount">Transcode count reached: transcodes</label>
+                                            <input is="emby-input" type="number" id="transcodeCount" min="1" max="100" />
+                                            <div class="fieldDescription">Runs when the number of transcoding streams rises to this many. The event is the stream that reached it.</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div id="webhookOptions" class="base-panel hidden">
+                                    <div class="base-panel-header">Webhook</div>
+                                    <div class="base-panel-body">
+                                        <div class="inputContainer">
+                                            <label id="webhookUrlLabel">Address</label>
+                                            <div id="webhookUrlMount"></div>
+                                            <div class="fieldDescription">
+                                                Send a <code>POST</code> here with a Jellyfin API key from Dashboard, API Keys. The address
+                                                picks the script and the key proves the caller may run it. A request with either one
+                                                missing is refused. Query parameters and JSON fields arrive as <code>{{WEBHOOK_NAME}}</code>.
+                                            </div>
+                                        </div>
+                                        <div class="scripts-webhook-actions">
+                                            <button is="emby-button" type="button" id="btnNewWebhook" class="raised base-button secondary small" title="The old address stops working once you save."><span>New address</span></button>
+                                        </div>
+                                        <pre id="webhookExample" class="base-code-block"></pre>
+                                    </div>
+                                </div>
+
+                                <div id="scheduleOptions" class="base-panel hidden">
+                                    <div class="base-panel-header">Schedule</div>
+                                    <div class="base-panel-body">
+                                        <div class="fieldDescription scripts-schedule-note">
+                                            A script on a schedule runs as a Jellyfin scheduled task. Once you save, it is listed under
+                                            <a is="emby-linkbutton" class="button-link" href="#/dashboard/tasks">Dashboard, Scheduled Tasks</a>
+                                            in the <strong>Scripts</strong> section, under this script's name and description. Set when
+                                            it runs there, or run it by hand. It only runs on its schedule while the script is enabled.
+                                        </div>
+                                        <div id="scheduleStart" class="fieldDescription scripts-schedule-note"></div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
