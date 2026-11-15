@@ -4,7 +4,7 @@ Each script has **triggers**, optional **item kinds**, **users**, and **conditio
 
 ![The Scripts tab](screenshots/Scripts.png)
 
-Each script has a **name** and an optional **description** saying what it is for. **New script** asks for both and starts from a blank script or a template, such as stopping playback paused for 30 minutes, limiting the server to 3 transcodes, asking "Still watching?" after 3 hours, posting new items to Discord, or scanning every library nightly. **Duplicate** copies the open script. Changes are kept until you **Save**, and leaving the page with unsaved changes asks first.
+Each script has a **name** and an optional **description** saying what it is for. **New script** asks for both and starts from a blank script or a template, such as stopping playback paused for 30 minutes, limiting the server to 3 transcodes, asking "Still watching?" after 3 hours, posting new items to Discord, or scanning every library nightly. **Duplicate** copies the open script. Changes are kept until you **Save**. The line above **Save** says when there are unsaved changes, and leaving the page with unsaved changes asks first.
 
 ![Starting from a template](screenshots/NewScript.png)
 
@@ -179,7 +179,7 @@ Genre, Tag, and Studio match when any of the item's values does. A field the tri
 
 **Matches regex** uses .NET regular expressions, ignores case, and counts as no match when a pattern is invalid or takes longer than 100 ms. The server keeps only the 15 most recently used patterns compiled. With more distinct patterns across your scripts, each one is rebuilt whenever it is checked, which slows down busy triggers such as a library scan. Prefer **contains** or **starts with** where they do the job.
 
-**Cooldown** skips the script for the same trigger, user, and item until the given number of seconds have passed since its last run, so a script on both start and stop still sees the stop. It keeps pause and resume from running a script over and over.
+**Cooldown** skips the script for the same trigger, user, and item until the cooldown, set in hours, minutes, and seconds, has passed since its last run, so a script on both start and stop still sees the stop. It keeps pause and resume from running a script over and over.
 
 ## Steps
 
@@ -253,7 +253,7 @@ Use **Check path** to confirm the server can see the file and that it is executa
 
 ## Secrets
 
-Keep tokens and passwords in the script's **Secrets** rather than in its steps. Use one as `{{SECRET_NAME}}` in a step, or `$JF_SECRET_NAME` in a command. Values are encrypted into their own file on the server, never sent back to the browser in any form, and left out of exports. Wherever a secret of three or more characters shows up in a step's message or a command's output, the history and the activity log show `[SECRET_NAME]` instead. Renaming a secret keeps its value.
+Keep tokens and passwords in the script's **Secrets** rather than in its steps. Use one as `{{SECRET_NAME}}` in a step, or `$JF_SECRET_NAME` in a command. Values are encrypted into their own file on the server, never sent back to the browser in any form, and left out of exports. Wherever a secret of three or more characters shows up in a step's message or a command's output, the history and the activity log show `[SECRET_NAME]` instead. Renaming a secret keeps its value. A stored value shows as dots and stays until you type a new one, and removing the secret drops it.
 
 ![Secrets](screenshots/Secrets.png)
 
@@ -261,7 +261,7 @@ Keep tokens and passwords in the script's **Secrets** rather than in its steps. 
 
 A command receives every variable the trigger supplies as an environment variable with a `JF_` prefix, such as `$JF_ITEM_NAME`, plus `$JF_EVENT_JSON` holding all of them as one JSON object. A value the event lacks is set to an empty string, so a script under `set -u` can still test it.
 
-In a step's text fields, write a variable as `{{ITEM_NAME}}`. Use `{{ITEM_NAME:json}}` inside a JSON string, and `{{ITEM_NAME:url}}` inside a URL. The **Variables** section of the editor lists the ones the selected triggers supply, and clicking one copies it.
+In a step's text fields, write a variable as `{{ITEM_NAME}}`. Use `{{ITEM_NAME:json}}` inside a JSON string, and `{{ITEM_NAME:url}}` inside a URL. The **Variables** section of the editor lists the ones the selected triggers supply, each with what it holds. Select one to copy it.
 
 | Group | Variables |
 |---|---|

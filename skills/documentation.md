@@ -49,7 +49,7 @@ A version number belongs in docs only when the reader needs it to act, such as t
 
 ### UI Names
 
-* Write a label exactly as the page shows it, in bold. **Cooldown in seconds**.
+* Write a label exactly as the page shows it, in bold. **Cooldown**.
 * Write a path through the UI with `→` between the steps, in bold, as the existing pages do. **Dashboard → Plugins → Scripts**.
 * Write a tab as its label, in bold. **Scripts**, **History**, **Settings**.
 * Quote activity log names and on-screen messages in double quotes. "3 Script Runs Failed".

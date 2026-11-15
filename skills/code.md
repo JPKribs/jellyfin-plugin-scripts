@@ -33,8 +33,10 @@ How to write, comment, and test code in this plugin. It covers C#, JavaScript, H
 | Formatting and names | `FormatUtilities`, `ItemTitles`, `FileNameSanitizer` |
 | Config page lifecycle | `createConfigPage`, through `createScriptsPage` in `scripts_common.js` |
 | Page helpers | `createShared` |
-| Tables | `createPaginatedTable` |
-| Lists and row editors | `createCheckboxList`, `createChipSelect`, `createUserMultiSelector`, `createSortableCardList`, `createRepeater`, `createRuleBuilder` |
+| Tables | `createDataTable` |
+| Lists and row editors | `createCheckboxList`, `createChipSelect`, `createUserMultiSelector`, `createSortableCardList`, `createRepeater`, `createRecordList` |
+| Numbers and times | `createSliderField`, `createDurationField` |
+| Saving and messages | `createSaveBar`, `setFieldState`, `createToaster` |
 | Read only views | `createTimeline`, `createDefinitionList`, `createCopyField` |
 | Dialogs | `openDialog`, `confirmDialog`, `promptDialog`, `openEditorDialog`, `bindDialog` |
 
@@ -158,15 +160,13 @@ export function renderRunSteps(shared, run) {
 ### CSS
 
 ```css
-/* scripts-variable */
-/* A card for one variable that copies its placeholder when selected. */
-/* Example: <button class="scripts-variable"><code>{{ITEM_NAME}}</code><span>The item's name.</span></button> */
-.scripts-variable { ... }
+/* The Check path button under the command, a field gap above the next field. */
+#btnCheckPath { margin: 0 0 var(--base-gap-wide); }
 ```
 
-* Three lines above each component, the name, what it looks like, and one example.
-* Prefix every class with `scripts-` in kebab case. `base-` is reserved for Base.
-* Use Base tokens such as `--base-border` and `--base-fg` for colors. Never write a hex value for something Base already colors.
+* `scripts_shared.css` holds only spacing between Base components that Base does not set, on Base's gap tokens. Colors, borders, and backgrounds come from Base.
+* One comment line above each rule saying what it spaces.
+* A new plugin class takes the `scripts-` prefix in kebab case, with three comment lines above it: the name, what it looks like, and one example. `base-` is reserved for Base.
 
 ### Shell and YAML
 

@@ -78,7 +78,7 @@ The control names its own result. Removing a step leaves the saved script alone 
 ### Labels
 
 * Two to four words. Name the thing the field holds, not the action.
-* Put a unit at the end in lowercase parentheses, such as **Cooldown (seconds)**. Several labels on the Scripts tab still write the unit in words, such as **Cooldown in seconds**. Move a page's labels to the parentheses form together, with the docs.
+* Put a unit at the end in lowercase parentheses, such as **Size (MB)**. A length of time is a Duration Field and shows its own units, so its label names none, such as **Cooldown**.
 * No colons, periods, or question marks.
 * A checkbox label names the feature it turns on, never "Enable X". Write **Continue on error**, not **Enable continue on error**. The one exception is a script's own switch, **Enabled**.
 
@@ -237,7 +237,7 @@ Every config page uses Jellyfin's page shell.
                 <div class="sectionTitleContainer flex align-items-center">
                     <h1 class="sectionTitle">History</h1>
                 </div>
-                <div class="fieldDescription scripts-page-intro">The most recent runs, newest first.</div>
+                <div class="fieldDescription">The most recent runs, newest first.</div>
             </div>
         </div>
     </div>
@@ -285,9 +285,9 @@ Pick one model per page and keep it.
 
 The **Scripts** tab saves every script together, and **Delete** saves at once.
 
-* Track unsaved changes with `createChangeTracker` and the `base-unsaved` indicator, which reads "Unsaved changes".
+* Save with `createSaveBar`. Track unsaved changes with `createChangeTracker` and pass the result to the bar's `setDirty`, so its line reads "Unsaved changes."
 * Guard leaving the page with the `isDirty` option of `createScriptsPage`, or `page.guardUnsaved`.
-* Report the result with `shared.setStatus` next to the button.
+* The Save Bar reports a save. Other actions report with `shared.setStatus` beside their button.
 * Use `shared.saveConfigWith` for get, change, save, and report.
 
 ## Components
@@ -462,15 +462,15 @@ The Scripts pages draw no charts today. When one is needed, pick it here.
 
 ## Hand Built Pieces
 
-These pieces are still built by hand in this plugin while Base has a component for them. Replace each when its page is next changed, and delete its `scripts-` styles in the same commit. Add nothing to this list.
+Every list, row, card, field, and bar on the three tabs is a Base component. These small steps in `scripts_scripts.js` stand in for a Base option that does not exist yet. Drop each one when Base adds its option. Add nothing to this list.
 
-| Hand built today | Replace with |
+| Built here | The Base option it waits for |
 | :--- | :--- |
-| `.scripts-secret*` rows under **Secrets** | `createRepeater` with a `secret` field. Secrets are a stop and ask area, so agree the move first |
-| `.scripts-onlyif` and `.scripts-saveas` rows in the step editor | `base-field-row` with `base-field` |
-| `.scripts-variable` cards under **Variables** | `placeholderHint` and `bindPlaceholders` |
-| `.scripts-actions` bar with Save and the unsaved indicator | `createSaveBar` |
-| `enterPicksSuggestion` in `scripts_scripts.js`, which lets Enter pick the suggestion whose label matches the typed text | An option on `createChipSelect` |
+| `enterPicksSuggestion`, which lets Enter pick the suggestion whose label matches the typed text | An option on `createChipSelect` |
+| The empty `Previous` field of the **Secrets** Repeater, which carries the name a secret was loaded with | A way for `createRepeater` rows to keep values that have no field |
+| The listener that turns a secret's name into capitals, digits, and underscores as it is typed | A text field option on `createRepeater` that rewrites what is typed |
+| `failSave`, which puts the reason a save stopped on the Save Bar after its own failed line | A way for `createSaveBar`'s `onSave` to give the failed line's text |
+| The `datalist` of variable names on a step's **Only run this step if** variable | A single value suggestion field exported from Base |
 
 ## Checklist
 
