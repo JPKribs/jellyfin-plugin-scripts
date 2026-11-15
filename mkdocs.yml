@@ -51,3 +51,5 @@ nav:
       - Examples: Examples.md
   - Reference:
       - Versioning: Versioning.md
+  - Development:
+      - Architecture: Architecture.md
