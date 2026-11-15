@@ -4,9 +4,9 @@
 
 import {
     createScriptsPage, createRepeater, createChipSelect, createCheckboxList, createUserMultiSelector, createSortableCardList,
-    createChoiceGroup, createCopyField, confirmDialog, promptDialog, openDialog, generateGuid, downloadJson,
-    pickJsonFile, bindSecretField, clearSecretField, readSecretField, SECRET_KEPT,
-    FIELD_GROUPS, FIELD_LABELS, NUMERIC_FIELDS, OPERATOR_LABELS, OPERATION_TYPES, renderRunSteps, formatDuration
+    createChoiceGroup, createCopyField, createRecordList, createSaveBar, createSliderField, createDurationField,
+    createToaster, confirmDialog, promptDialog, openDialog, generateGuid, downloadJson, pickJsonFile, setFieldState, SECRET_KEPT,
+    FIELD_GROUPS, FIELD_LABELS, NUMERIC_FIELDS, OPERATOR_LABELS, OPERATION_TYPES, renderRunSummary, renderRunSteps
 } from './configurationpage?name=scripts_common.js';
 import { TEMPLATES, HTTP_PRESETS } from './configurationpage?name=scripts_templates.js';
 
@@ -48,12 +48,25 @@ export default function (view) {
 
     // Steps whose output a later step can use.
     var HAS_OUTPUT = { RunCommand: true, HttpRequest: true };
-    // The triggers that wait for a number, the script property holding it, and the block that edits it.
-    var TRIGGER_NUMBERS = [
-        { trigger: 'PlaybackProgressReached', block: 'progressOptions', input: 'progressPercent', key: 'ProgressPercentThreshold', fallback: 90 },
-        { trigger: 'StreamCountReached', block: 'streamOptions', input: 'streamCount', key: 'StreamCountThreshold', fallback: 3 },
-        { trigger: 'TranscodeCountReached', block: 'transcodeOptions', input: 'transcodeCount', key: 'TranscodeCountThreshold', fallback: 2 }
+    // The script's numbers, each a Base Slider or Duration Field: the mount, the script property, what it shows
+    // while the property is missing, and for a trigger's number the trigger and the panel that holds it.
+    // A minutes property is edited as a duration and stored in whole minutes.
+    var SCRIPT_NUMBERS = [
+        { mount: 'pausedMinutesMount', key: 'PausedForMinutes', fallback: 10, trigger: 'PlaybackPausedFor', block: 'pausedOptions', minutes: true, min: 1, max: 1440 },
+        { mount: 'playingMinutesMount', key: 'PlayingForMinutes', fallback: 60, trigger: 'PlaybackPlayingFor', block: 'playingOptions', minutes: true, min: 1, max: 1440 },
+        { mount: 'progressPercentMount', key: 'ProgressPercentThreshold', fallback: 90, trigger: 'PlaybackProgressReached', block: 'progressOptions', slider: { min: 1, max: 99, suffix: '%', label: 'Percentage' } },
+        { mount: 'streamCountMount', key: 'StreamCountThreshold', fallback: 3, trigger: 'StreamCountReached', block: 'streamOptions', slider: { min: 1, max: 100, label: 'Streams' } },
+        { mount: 'transcodeCountMount', key: 'TranscodeCountThreshold', fallback: 2, trigger: 'TranscodeCountReached', block: 'transcodeOptions', slider: { min: 1, max: 100, label: 'Transcodes' } },
+        { mount: 'forEachLimitMount', key: 'ForEachLimit', fallback: 50, slider: { min: 1, max: 500, label: 'Most runs per event' } },
+        { mount: 'cooldownMount', key: 'CooldownSeconds', fallback: 0, units: ['h', 'm', 's'], min: 0, max: 86400 }
     ];
+    // A step's numbers, each a Base Slider or Duration Field in the step editor.
+    var STEP_NUMBERS = {
+        TimeoutSeconds: { units: ['m', 's'], min: 0, max: 3600 },
+        Retries: { slider: { min: 0, max: 5, label: 'Retries' } },
+        DisplaySeconds: { slider: { min: 0, max: 300, suffix: ' s', label: 'Seconds shown' } },
+        WaitSeconds: { units: ['m', 's'], min: 1, max: 3600 }
+    };
 
     var catalog = null;
     var scripts = [];
@@ -65,6 +78,12 @@ export default function (view) {
     var operationList = null;
     var conditionRepeater = null;
     var conditionsQuiet = false;
+    var secretRepeater = null;
+    var variableList = null;
+    var saveBar = null;
+    var toaster = null;
+    var numberControls = {};
+    var editorControls = [];
     var webhookField = null;
     var suppressWidgetEvents = false;
 
@@ -116,11 +135,61 @@ export default function (view) {
         if (script && has(script, 'Webhook') && !script.WebhookToken) script.WebhookToken = newToken();
     }
 
-    // Every edit goes through here: it refreshes the counts, the picker, and the unsaved indicator.
+    // Every edit goes through here: it refreshes the counts, the picker, and the Save Bar's unsaved line.
     function edited() {
         renderCounts();
         renderSelector();
-        if (tracker) tracker.check();
+        if (!tracker) return;
+        var dirty = tracker.check();
+        if (saveBar && saveBar.getState() !== 'saving') saveBar.setDirty(dirty);
+    }
+
+    // numberControl
+    // Builds a Base Slider, or a Duration Field in seconds, for one number.
+    //
+    // Inputs
+    // spec [object]: { slider } with the Slider's min, max, suffix, and label, or { units, min, max } for a duration.
+    // onChange [function]: Called with the new value, in seconds for a duration.
+    //
+    // Output
+    // [object]: The control handle.
+    function numberControl(spec, onChange) {
+        if (spec.slider) return createSliderField(Object.assign({ onChange: onChange }, spec.slider));
+        return createDurationField({
+            units: spec.minutes ? ['h', 'm'] : spec.units,
+            min: spec.minutes ? spec.min * 60 : spec.min,
+            max: spec.minutes ? spec.max * 60 : spec.max,
+            required: true,
+            onChange: onChange
+        });
+    }
+
+    // createNumbers
+    // Mounts the script's number controls. Each writes its script property as it changes.
+    function createNumbers() {
+        SCRIPT_NUMBERS.forEach(function (spec) {
+            var control = numberControl(spec, function (value) {
+                if (suppressWidgetEvents || !current()) return;
+                var number = value === null || value === undefined ? 0 : value;
+                current()[spec.key] = spec.minutes ? Math.round(number / 60) : number;
+                edited();
+            });
+            numberControls[spec.key] = control;
+            el(spec.mount).appendChild(control.element);
+        });
+    }
+
+    // showNumbers
+    // Shows the script's numbers in their controls, and each trigger's panel while its trigger is checked.
+    function showNumbers() {
+        var script = current();
+        suppressWidgetEvents = true;
+        SCRIPT_NUMBERS.forEach(function (spec) {
+            var value = orDefault(script[spec.key], spec.fallback);
+            numberControls[spec.key].setValue(spec.minutes ? value * 60 : value);
+            if (spec.block) Shared.setVisible(spec.block, has(script, spec.trigger));
+        });
+        suppressWidgetEvents = false;
     }
 
     // The shared chip select adds on Enter only once an option is highlighted with the arrow keys. Here Enter
@@ -179,14 +248,12 @@ export default function (view) {
         el('scriptName').value = script.Name || '';
         el('scriptDescription').value = script.Description || '';
         el('scriptEnabled').checked = !!script.Enabled;
-        el('scriptCooldown').value = script.CooldownSeconds || 0;
         triggerList.setValue(script.Triggers || []);
         itemKindSelect.setValue(kindItems(script.ItemKinds));
         userSelect.setValue((script.UserIds || []).map(compactId));
         matchChoice.set(script.Match || 'All');
         suppressWidgetEvents = false;
         el('forEachMode').value = script.ForEach || 'None';
-        el('forEachLimit').value = orDefault(script.ForEachLimit, 50);
         el('onFailureScript').innerHTML = '<option value="">Nothing</option>' + scripts.filter(function (s) { return s.Id !== script.Id; }).map(function (s) {
             return '<option value="' + esc(s.Id) + '">' + esc(s.Name || 'Untitled') + '</option>';
         }).join('');
@@ -254,21 +321,12 @@ export default function (view) {
 
     function renderTriggerOptions() {
         var script = current();
-
-        var has = function (key) { return script.Triggers.indexOf(key) >= 0; };
-        Shared.setVisible('pausedOptions', has('PlaybackPausedFor'));
-        Shared.setVisible('playingOptions', has('PlaybackPlayingFor'));
-        Shared.setVisible('scheduleOptions', has('Schedule'));
-        TRIGGER_NUMBERS.forEach(function (option) {
-            Shared.setVisible(option.block, has(option.trigger));
-            el(option.input).value = orDefault(script[option.key], option.fallback);
-        });
-        Shared.setVisible('webhookOptions', has('Webhook'));
-        if (has('Webhook')) renderWebhook();
-        el('pausedMinutes').value = orDefault(script.PausedForMinutes, 10);
-        el('playingMinutes').value = orDefault(script.PlayingForMinutes, 60);
-
-        el('scheduleStart').textContent = has('Schedule') ? scheduleStart(script) : '';
+        showNumbers();
+        Shared.setVisible('scheduleOptions', has(script, 'Schedule'));
+        Shared.setVisible('webhookOptions', has(script, 'Webhook'));
+        if (has(script, 'Webhook')) renderWebhook();
+        el('scheduleStart').textContent = has(script, 'Schedule') ? scheduleStart(script) : '';
+        Shared.setVisible('scheduleStart', has(script, 'Schedule'));
     }
 
     // The schedule a script's task starts with, until it is changed under Scheduled Tasks.
@@ -525,18 +583,38 @@ export default function (view) {
         operationList.render();
     }
 
+    // A step's text field, or with opts.number a mount for the Base control STEP_NUMBERS names for its key.
     function input(op, key, label, opts) {
         opts = opts || {};
         var id = 'opField' + key;
         var value = op[key] === null || op[key] === undefined ? '' : op[key];
-        var field = opts.textarea
-            ? '<textarea is="emby-textarea" class="emby-textarea scripts-textarea" id="' + id + '" data-key="' + key + '" rows="' + (opts.rows || 3) + '"' +
-                (opts.placeholder ? ' placeholder="' + esc(opts.placeholder) + '"' : '') + '>' + esc(value) + '</textarea>'
-            : '<input is="emby-input" type="' + (opts.number ? 'number' : 'text') + '" id="' + id + '" data-key="' + key + '"' +
-                (opts.number ? ' data-number="1" min="0"' : '') + ' value="' + esc(value) + '"' +
-                (opts.placeholder ? ' placeholder="' + esc(opts.placeholder) + '"' : '') + ' />';
-        return '<div class="inputContainer"><label for="' + id + '">' + esc(label) + '</label>' + field +
+        var field = opts.number
+            ? '<div data-number-mount="' + key + '"></div>'
+            : opts.textarea
+                ? '<textarea is="emby-textarea" class="emby-textarea base-mono" id="' + id + '" data-key="' + key + '" rows="' + (opts.rows || 3) + '"' +
+                    (opts.placeholder ? ' placeholder="' + esc(opts.placeholder) + '"' : '') + '>' + esc(value) + '</textarea>'
+                : '<input is="emby-input" type="text" id="' + id + '" data-key="' + key + '" value="' + esc(value) + '"' +
+                    (opts.placeholder ? ' placeholder="' + esc(opts.placeholder) + '"' : '') + ' />';
+        return '<div class="inputContainer"><label' + (opts.number ? '' : ' for="' + id + '"') + '>' + esc(label) + '</label>' + field +
             (opts.help ? '<div class="fieldDescription">' + opts.help + '</div>' : '') + '</div>';
+    }
+
+    // mountStepNumbers
+    // Puts a Base control in each number mount of the open step's editor, writing the step as it changes.
+    //
+    // Inputs
+    // op [object]: The open step.
+    function mountStepNumbers(op) {
+        el('operationEditor').querySelectorAll('[data-number-mount]').forEach(function (mount) {
+            var key = mount.getAttribute('data-number-mount');
+            var control = numberControl(STEP_NUMBERS[key], function (value) {
+                op[key] = value === null || value === undefined ? 0 : value;
+                edited();
+            });
+            control.setValue(op[key] || 0);
+            mount.appendChild(control.element);
+            editorControls.push(control);
+        });
     }
 
     function checkbox(op, key, label, help) {
@@ -556,13 +634,13 @@ export default function (view) {
     }
 
     function note(text) {
-        return '<div class="fieldDescription scripts-op-note">' + text + '</div>';
+        return '<div class="fieldDescription">' + text + '</div>';
     }
 
     function operationFields(op) {
         switch (op.Type) {
             case 'RunCommand':
-                return '<div class="base-choice-group scripts-command-mode" role="radiogroup" aria-label="How the command runs">' +
+                return '<div class="base-choice-group" role="radiogroup" aria-label="How the command runs">' +
                         '<label class="base-choice"><input type="radio" name="commandMode" value="direct"' + (op.RunThroughShell ? '' : ' checked') + ' />' +
                             '<span class="base-choice-name">Run directly</span><span class="base-choice-text">Starts one program with its arguments. Event values fill arguments safely.</span></label>' +
                         '<label class="base-choice"><input type="radio" name="commandMode" value="shell"' + (op.RunThroughShell ? ' checked' : '') + ' />' +
@@ -574,15 +652,14 @@ export default function (view) {
                             ? 'Placeholders are not filled here, so event values cannot inject shell syntax. Read them from the environment, such as "$JF_ITEM_NAME". On Windows the line runs through cmd /c, which expands %JF_...% before parsing it, so there read event values inside a script file instead.'
                             : 'A path to a script or program, or a name on the server\'s PATH such as curl. The server must be able to reach the path. In Docker, mount it into the container and use the path inside it.'
                     }) +
-                    (op.RunThroughShell ? '' : '<div class="scripts-path-check"><button is="emby-button" type="button" class="raised base-button secondary small" id="btnCheckPath"><span>Check path</span></button>' +
-                        '<span class="base-status-text" id="pathResult"></span></div>') +
+                    (op.RunThroughShell ? '' : '<button is="emby-button" type="button" class="raised base-button secondary small" id="btnCheckPath"><span>Check path</span></button>') +
                     (op.RunThroughShell ? '' : input(op, 'Arguments', 'Arguments, one per line', {
                         textarea: true,
                         placeholder: '--title\n{{ITEM_NAME}}',
                         help: 'Each line is passed as one argument, with placeholders filled. Spaces and quotes in a value never split it.'
                     })) +
                     input(op, 'WorkingDirectory', 'Working folder', { placeholder: 'The script\'s own folder', help: 'Optional. Defaults to the folder holding the script.' }) +
-                    input(op, 'TimeoutSeconds', 'Timeout in seconds', { number: true, help: 'The command is stopped after this long. 0 uses the default from Settings.' });
+                    input(op, 'TimeoutSeconds', 'Timeout', { number: true, help: 'The command is stopped after this long. 0 uses the default from Settings.' });
             case 'HttpRequest':
                 return select(op, '__preset', 'Start from a preset', [{ value: '', label: 'Keep the current request' }].concat(Object.keys(HTTP_PRESETS).map(function (k) {
                         return { value: k, label: HTTP_PRESETS[k].label };
@@ -597,11 +674,11 @@ export default function (view) {
                 return select(op, 'Target', 'Send to', MESSAGE_TARGETS) +
                     input(op, 'Title', 'Title') +
                     input(op, 'Text', 'Message', { textarea: true, rows: 2 }) +
-                    input(op, 'DisplaySeconds', 'Show for seconds', { number: true, help: '0 leaves it to the client.' });
+                    input(op, 'DisplaySeconds', 'Show for', { number: true, help: '0 leaves it to the client.' });
             case 'StopPlayback':
                 return input(op, 'Text', 'Message shown before stopping', { textarea: true, rows: 2, help: 'Optional.' }) +
                     input(op, 'Title', 'Message title', { help: 'Optional.' }) +
-                    input(op, 'DisplaySeconds', 'Show for seconds', { number: true });
+                    input(op, 'DisplaySeconds', 'Show for', { number: true });
             case 'PausePlayback':
                 return note('Pauses playback on the session that raised the event.');
             case 'MarkPlayed':
@@ -641,7 +718,7 @@ export default function (view) {
                 return input(op, 'FilePath', 'File', { placeholder: '/config/log/scripts.log', help: 'A full path whose folder exists. The file is created if missing.' }) +
                     input(op, 'Text', 'Line to append', { textarea: true, rows: 2, placeholder: '{{LOCAL_DATE}} {{LOCAL_TIME}} {{EVENT}} {{ITEM_NAME}}' });
             case 'Wait':
-                return input(op, 'WaitSeconds', 'Seconds', { number: true });
+                return input(op, 'WaitSeconds', 'Wait for', { number: true });
             case 'StopScript':
                 return note('Ends the run here: the steps after this one are skipped, and the run still counts as succeeded. Give it a condition below so it only stops when you want it to.');
             default:
@@ -649,21 +726,27 @@ export default function (view) {
         }
     }
 
-    // What every step has beyond its own fields: a condition, and for a command or HTTP request a saved output.
+    // A Base Field for a Field Row: a label over a text box or a select.
+    function rowField(id, label, control) {
+        return '<div class="base-field"><label for="' + id + '">' + esc(label) + '</label>' + control + '</div>';
+    }
+
+    // What every step has beyond its own fields: a condition, and for a command or HTTP request a saved output,
+    // each a Base Field Row under a Subsection Title.
     function stepExtras(op) {
-        var condition = '<div class="scripts-step-group"><label>Only run this step if</label><div class="scripts-onlyif">' +
-            '<div class="scripts-cell"><input is="emby-input" type="text" data-key="OnlyIfVariable" data-upper="1" list="scriptsVariableNames" value="' + esc(op.OnlyIfVariable) + '" placeholder="Always, or a variable" aria-label="Variable" /></div>' +
-            '<div class="scripts-cell"><select is="emby-select" data-key="OnlyIfOperator" aria-label="Operator">' + Object.keys(OPERATOR_LABELS).map(function (o) {
+        var condition = '<h3 class="base-subsection-title">Only run this step if</h3><div class="base-field-row">' +
+            rowField('opFieldOnlyIfVariable', 'Variable', '<input is="emby-input" type="text" id="opFieldOnlyIfVariable" class="base-mono" data-key="OnlyIfVariable" data-upper="1" list="scriptsVariableNames" value="' + esc(op.OnlyIfVariable) + '" placeholder="Always, or a variable" />') +
+            rowField('opFieldOnlyIfOperator', 'Operator', '<select is="emby-select" id="opFieldOnlyIfOperator" data-key="OnlyIfOperator">' + Object.keys(OPERATOR_LABELS).map(function (o) {
                 return '<option value="' + o + '"' + (o === (op.OnlyIfOperator || 'Is') ? ' selected' : '') + '>' + esc(OPERATOR_LABELS[o]) + '</option>';
-            }).join('') + '</select></div>' +
-            '<div class="scripts-cell"><input is="emby-input" type="text" data-key="OnlyIfValue" value="' + esc(op.OnlyIfValue) + '" placeholder="Value, or empty for none" aria-label="Value" /></div>' +
-            '</div><div class="fieldDescription">Tests any variable, such as ITEM_KIND, a webhook field, or one an earlier step saved. A step whose condition does not match is skipped, and the run carries on.</div></div>';
+            }).join('') + '</select>') +
+            rowField('opFieldOnlyIfValue', 'Value', '<input is="emby-input" type="text" id="opFieldOnlyIfValue" data-key="OnlyIfValue" value="' + esc(op.OnlyIfValue) + '" placeholder="Value, or empty for none" />') +
+            '</div><div class="fieldDescription">Tests any variable, such as ITEM_KIND, a webhook field, or one an earlier step saved. A step whose condition does not match is skipped, and the run carries on.</div>';
         var output = HAS_OUTPUT[op.Type]
-            ? '<div class="scripts-step-group"><label>Save the ' + (op.Type === 'HttpRequest' ? 'response' : 'output') + ' for later steps</label><div class="scripts-saveas">' +
-                '<div class="scripts-cell"><input is="emby-input" type="text" data-key="OutputName" data-upper="1" value="' + esc(op.OutputName) + '" placeholder="Name, such as RESULT" aria-label="Save as" /></div>' +
-                '<div class="scripts-cell"><input is="emby-input" type="text" data-key="OutputJsonPath" value="' + esc(op.OutputJsonPath) + '" placeholder="Everything, or a JSON field: data.items[0].name" aria-label="JSON field" /></div>' +
+            ? '<h3 class="base-subsection-title">Save the ' + (op.Type === 'HttpRequest' ? 'response' : 'output') + ' for later steps</h3><div class="base-field-row">' +
+                rowField('opFieldOutputName', 'Save as', '<input is="emby-input" type="text" id="opFieldOutputName" class="base-mono" data-key="OutputName" data-upper="1" value="' + esc(op.OutputName) + '" placeholder="Name, such as RESULT" />') +
+                rowField('opFieldOutputJsonPath', 'JSON field', '<input is="emby-input" type="text" id="opFieldOutputJsonPath" data-key="OutputJsonPath" value="' + esc(op.OutputJsonPath) + '" placeholder="Everything, or a JSON field: data.items[0].name" />') +
                 '</div><div class="fieldDescription">Later steps use it as <code>{{NAME}}</code>, and <code>{{NAME_STATUS}}</code> holds the ' +
-                (op.Type === 'HttpRequest' ? 'HTTP status' : 'exit code') + '.</div></div>'
+                (op.Type === 'HttpRequest' ? 'HTTP status' : 'exit code') + '.</div>'
             : '';
         return condition + output;
     }
@@ -672,15 +755,18 @@ export default function (view) {
         var script = current();
         var op = script.Operations[index];
         var editor = el('operationEditor');
+        editorControls.forEach(function (control) { control.destroy(); });
+        editorControls = [];
         if (!op) { editor.innerHTML = ''; return; }
         var warning = operationWarning(script, op);
         editor.innerHTML =
-            (warning ? '<div class="base-warn scripts-inline-warn">' + esc(warning) + '</div>' : '') +
+            (warning ? '<div class="base-warn">' + esc(warning) + '</div>' : '') +
             operationFields(op) +
             stepExtras(op) +
             checkbox(op, 'ContinueOnError', 'Continue on error', 'Run the following steps even if this one fails.') +
             '<button is="emby-button" type="button" class="raised base-button destructive small" id="btnRemoveOperation"><span>Remove step</span></button>';
-        var mode = editor.querySelector('.scripts-command-mode');
+        mountStepNumbers(op);
+        var mode = editor.querySelector('.base-choice-group');
         if (mode) {
             createChoiceGroup(mode, {
                 onChange: function (value) {
@@ -717,42 +803,115 @@ export default function (view) {
         }
 
         if (target.type === 'checkbox') op[key] = target.checked;
-        else if (target.getAttribute('data-number')) op[key] = parseInt(target.value, 10) || 0;
         else if (target.getAttribute('data-bool')) op[key] = target.value === 'true';
         else op[key] = target.value;
+        // A changed command has not been checked yet.
+        if (key === 'Command') setFieldState(target, '', '');
         return key;
     }
 
+    // checkPath
+    // Asks the server whether the command's path runs, and shows the answer under the command as a Base Field Message.
     function checkPath() {
         var op = selectedOperation();
-        var result = el('pathResult');
-        if (!op || !result) return;
-        Shared.setStatus(result, 'Checking…', false, { timeout: 0, state: 'info' });
+        var command = el('opFieldCommand');
+        if (!op || !command) return;
+        setFieldState(command, 'info', 'Checking…');
         Shared.apiRequest('Scripts/CheckPath?path=' + encodeURIComponent(op.Command || ''), 'GET').then(function (check) {
             var ok = check && check.Exists && !check.IsDirectory && check.IsExecutable;
-            Shared.setStatus(result, check ? check.Message : 'No answer from the server.', !ok, { timeout: 0 });
+            setFieldState(command, ok ? 'success' : 'error', check ? check.Message : 'No answer from the server.');
         }).catch(function () {
-            Shared.setStatus(result, 'Could not check the path.', true, { timeout: 0 });
+            setFieldState(command, 'error', 'Could not check the path.');
         });
     }
 
     // ---- Secrets ----
 
-    function renderSecrets() {
-        var script = current();
-        var list = el('secretList');
-        list.innerHTML = (script.Secrets || []).map(function (secret, index) {
-            return '<div class="scripts-secret">' +
-                '<div class="scripts-cell"><input is="emby-input" type="text" class="scripts-secret-name" data-secret-name="' + index + '" value="' + esc(secret.Name) + '" placeholder="NAME" aria-label="Secret name" /></div>' +
-                '<div class="scripts-cell scripts-secret-value-cell"><input is="emby-input" type="password" class="scripts-secret-value" data-secret-value="' + index + '" placeholder="Value" aria-label="Secret value" autocomplete="new-password" /></div>' +
-                '<div class="scripts-cell"><button type="button" class="base-row-btn" data-secret-clear="' + index + '" title="Clear the stored value"><span class="material-icons" aria-hidden="true">backspace</span></button></div>' +
-                '<div class="scripts-cell"><button type="button" class="base-row-btn" data-secret-del="' + index + '" title="Remove secret"><span class="material-icons" aria-hidden="true">delete</span></button></div>' +
-                '</div>';
-        }).join('');
-        list.querySelectorAll('[data-secret-value]').forEach(function (inputEl) {
-            var secret = script.Secrets[parseInt(inputEl.getAttribute('data-secret-value'), 10)];
-            bindSecretField(inputEl, secret.Value === SECRET_KEPT);
+    // secretItems
+    // Turns a script's secrets into Repeater rows. A stored value stays on the server, and its row holds the kept
+    // sentinel. The hidden Previous field carries the name the secret was loaded with, so a renamed secret keeps it.
+    //
+    // Inputs
+    // secrets [Array]: The script's secrets.
+    //
+    // Output
+    // [Array]: One row per secret.
+    function secretItems(secrets) {
+        return (secrets || []).map(function (secret) {
+            return { Name: secret.Name, Value: secret.Value, Previous: secret.PreviousName || '' };
         });
+    }
+
+    // previousField
+    // The Repeater's Previous cell: no control, only the name the secret was loaded with.
+    //
+    // Inputs
+    // value [string]: The loaded name, or empty for a new secret.
+    //
+    // Output
+    // [object]: The cell's empty element, getValue, and setValue.
+    function previousField(value) {
+        var previous = value || '';
+        return {
+            element: document.createElement('span'),
+            getValue: function () { return previous; },
+            setValue: function (next) { previous = next || ''; }
+        };
+    }
+
+    // secretNameProblem
+    // Checks a secret's name: capital letters, digits, and underscores, and no other secret of the script with it.
+    function secretNameProblem(value, item, index) {
+        if (!value) return '';
+        if (!/^[A-Z0-9_]{1,40}$/.test(value)) return 'Use capital letters, digits, and underscores.';
+        var rows = secretRepeater ? secretRepeater.getValue() : [];
+        var same = rows.filter(function (row) { return row.Name === value; }).length;
+        return same > 1 ? 'Another secret has this name.' : '';
+    }
+
+    // renderSecrets
+    // Draws the script's secrets with Base's Repeater, each a name and a Secret field.
+    function renderSecrets() {
+        if (!secretRepeater) {
+            secretRepeater = createRepeater({
+                fields: [
+                    { key: 'Name', label: 'Name', placeholder: 'NAME', width: 'minmax(9rem, 1fr)', required: true, validate: secretNameProblem },
+                    { key: 'Value', label: 'Value', type: 'secret', placeholder: 'Value', width: 'minmax(11rem, 2fr)' },
+                    { key: 'Previous', label: '', type: 'custom', width: '0px', render: previousField }
+                ],
+                addText: 'Add secret',
+                rowName: 'Secret',
+                emptyText: 'No secrets.',
+                onChange: onSecretsChanged
+            });
+            // Names are capital letters, digits, and underscores, so typing fixes them before the Repeater reads them.
+            secretRepeater.element.addEventListener('input', function (e) {
+                var target = e.target;
+                if (target.tagName !== 'INPUT' || target.type !== 'text') return;
+                var fixed = target.value.toUpperCase().replace(/[^A-Z0-9_]/g, '_');
+                if (fixed === target.value) return;
+                var caret = target.selectionStart;
+                target.value = fixed;
+                try { target.selectionStart = target.selectionEnd = caret; } catch (err) { /* not a text field */ }
+            }, true);
+            el('secretMount').appendChild(secretRepeater.element);
+        }
+        secretRepeater.setValue(secretItems(current().Secrets));
+    }
+
+    // onSecretsChanged
+    // Reads the Repeater back into the script.
+    //
+    // Inputs
+    // items [Array]: The Repeater's rows.
+    function onSecretsChanged(items) {
+        current().Secrets = items.map(function (item) {
+            var secret = { Name: item.Name || '', Value: item.Value || '' };
+            if (item.Previous) secret.PreviousName = item.Previous;
+            return secret;
+        });
+        renderVariables();
+        edited();
     }
 
     // ---- Variables and test ----
@@ -779,10 +938,9 @@ export default function (view) {
         (script.Secrets || []).forEach(function (secret) {
             if (secret.Name) add({ Name: 'SECRET_' + secret.Name, Description: 'The script\'s secret ' + secret.Name + '.' });
         });
-        el('variableList').innerHTML = rows.map(function (v) {
-            return '<button type="button" class="scripts-variable" data-copy-var="' + esc(v.Name) + '" title="Copy {{' + esc(v.Name) + '}}">' +
-                '<code>{{' + esc(v.Name) + '}}</code><span>' + esc(v.Description) + '</span></button>';
-        }).join('');
+        variableList.setItems(rows.map(function (v) {
+            return { id: v.Name, title: '{{' + v.Name + '}}', secondary: v.Description };
+        }));
         var names = view.querySelector('#scriptsVariableNames');
         if (names) names.innerHTML = rows.map(function (v) { return '<option value="' + esc(v.Name) + '"></option>'; }).join('');
     }
@@ -810,16 +968,16 @@ export default function (view) {
         var button = el('btnTestScript');
         button.disabled = true;
         var trigger = triggerInfo(el('testTrigger').value);
-        var dialog = openDialog({
+        var body = document.createElement('div');
+        body.innerHTML = '<div class="base-info">Running with sample values for ' + esc(trigger ? trigger.Label.toLowerCase() : 'the trigger') + '…</div>';
+        openDialog({
             title: 'Test: ' + (script.Name || 'Untitled'),
-            body: '<div class="scripts-test-body"><div class="base-info">Running with sample values for ' + esc(trigger ? trigger.Label.toLowerCase() : 'the trigger') + '…</div></div>',
+            body: body,
             buttons: [{ text: 'Close', className: 'base-button secondary', action: function (close) { close(); } }]
         });
-        var body = dialog.content.querySelector('.scripts-test-body');
         Shared.apiRequest('Scripts/Test', 'POST', { Script: script, Trigger: el('testTrigger').value }).then(function (run) {
-            body.innerHTML =
-                '<div class="scripts-run-summary">' + Shared.badge(run.Succeeded ? 'green' : 'red', run.Succeeded ? 'Succeeded' : 'Failed') +
-                '<span>' + esc(formatDuration(Shared, run.DurationMs)) + '</span></div>';
+            body.innerHTML = '';
+            body.appendChild(renderRunSummary(Shared, run));
             body.appendChild(renderRunSteps(Shared, run));
         }).catch(function () {
             body.innerHTML = '<div class="base-error">The test could not run. Check the steps and try again.</div>';
@@ -908,6 +1066,24 @@ export default function (view) {
         return '';
     }
 
+    // failSave
+    // Rejects a save with a reason the Save Bar shows once it has drawn its own failed line.
+    //
+    // Inputs
+    // text [string]: The reason.
+    //
+    // Output
+    // [Promise]: A rejected promise.
+    function failSave(text) {
+        setTimeout(function () { if (saveBar) saveBar.setState('failed', text); }, 0);
+        return Promise.reject(new Error(text));
+    }
+
+    // save
+    // The Save Bar's save: checks every script, saves them, and reloads them.
+    //
+    // Output
+    // [Promise]: Resolves once saved, and rejects with the reason it did not save.
     function save() {
         for (var i = 0; i < scripts.length; i++) {
             var problem = validate(scripts[i]);
@@ -916,8 +1092,7 @@ export default function (view) {
                     selectScript(scripts[i].Id);
                     renderSelector();
                 }
-                Shared.setStatus('scriptStatus', problem, true);
-                return Promise.resolve(false);
+                return failSave(problem);
             }
         }
 
@@ -928,10 +1103,12 @@ export default function (view) {
                 copy.Operations.forEach(function (op) { if (!HAS_OUTPUT[op.Type]) { op.OutputName = ''; op.OutputJsonPath = ''; } });
                 return copy;
             });
-        }, 'scriptStatus', { success: 'Saved.', error: 'The server refused the save. Check each script and try again.' }).then(function () {
+        }).then(function () {
             // Reload so secrets come back as stored and new IDs settle.
-            return reloadScripts().then(function () { if (tracker) tracker.flashSaved(); return true; });
-        }).catch(function () { return false; });
+            return reloadScripts();
+        }, function () {
+            return failSave('The server refused the save. Check each script and try again.');
+        });
     }
 
     // ---- New, duplicate, export, import ----
@@ -1108,12 +1285,12 @@ export default function (view) {
                 var wasClean = !(tracker && tracker.isDirty());
                 Shared.saveConfigWith(function (config) {
                     config.Scripts = (config.Scripts || []).filter(function (s) { return compactId(s.Id) !== script.Id; });
-                }, 'scriptStatus', { success: 'Deleted "' + name + '".', error: 'The server refused to delete the script.' }).then(function () {
+                }, 'transferStatus', { success: 'Deleted "' + name + '".', error: 'The server refused to delete the script.' }).then(function () {
                     scripts = scripts.filter(function (s) { return s.Id !== script.Id; });
                     selectedId = scripts.length ? scripts[0].Id : null;
+                    if (wasClean && tracker) tracker.markClean();
                     edited();
                     if (selectedId) renderEditor();
-                    if (wasClean && tracker) tracker.markClean();
                 }).catch(function () { /* the status line already says why */ });
             });
         });
@@ -1121,11 +1298,7 @@ export default function (view) {
         el('scriptName').addEventListener('input', function () { current().Name = this.value; edited(); });
         el('scriptDescription').addEventListener('input', function () { current().Description = this.value; edited(); });
         el('scriptEnabled').addEventListener('change', function () { current().Enabled = this.checked; edited(); });
-        el('scriptCooldown').addEventListener('input', function () { current().CooldownSeconds = parseInt(this.value, 10) || 0; edited(); });
-
-        TRIGGER_NUMBERS.forEach(function (option) {
-            el(option.input).addEventListener('input', function () { current()[option.key] = parseInt(this.value, 10) || 0; edited(); });
-        });
+        createNumbers();
         el('btnNewWebhook').addEventListener('click', function () {
             confirmDialog('Make a new webhook address? Anything still calling the old one stops working once you save.', { title: 'New webhook address', confirmText: 'Make a new address' }).then(function (ok) {
                 if (!ok) return;
@@ -1142,11 +1315,7 @@ export default function (view) {
             renderWarnings();
             edited();
         });
-        el('forEachLimit').addEventListener('input', function () { current().ForEachLimit = parseInt(this.value, 10) || 0; edited(); });
         el('onFailureScript').addEventListener('change', function () { current().OnFailureScriptId = this.value; edited(); });
-
-        el('pausedMinutes').addEventListener('input', function () { current().PausedForMinutes = parseInt(this.value, 10) || 0; edited(); });
-        el('playingMinutes').addEventListener('input', function () { current().PlayingForMinutes = parseInt(this.value, 10) || 0; edited(); });
         matchChoice = createChoiceGroup(el('conditionMatch'), {
             onChange: function (value) {
                 if (suppressWidgetEvents) return;
@@ -1210,6 +1379,8 @@ export default function (view) {
         });
 
         el('operationEditor').addEventListener('change', function (e) {
+            // A number leaves its control, so the step's card shows it.
+            if (e.target.closest('[data-number-mount]')) { operationList.render(); return; }
             if (!e.target.matches('[data-key]')) return;
             readOperationField(e.target);
             operationList.render();
@@ -1229,61 +1400,26 @@ export default function (view) {
             }
         });
 
-        // Secrets
-        el('btnAddSecret').addEventListener('click', function () {
-            var script = current();
-            script.Secrets = script.Secrets || [];
-            script.Secrets.push({ Name: '', Value: '' });
-            renderSecrets();
-            edited();
-        });
-
-        el('secretList').addEventListener('input', function (e) {
-            var script = current();
-            var name = e.target.closest('[data-secret-name]');
-            if (name) {
-                name.value = name.value.toUpperCase().replace(/[^A-Z0-9_]/g, '_');
-                script.Secrets[parseInt(name.getAttribute('data-secret-name'), 10)].Name = name.value;
-                renderVariables();
-                edited();
-                return;
-            }
-
-            var value = e.target.closest('[data-secret-value]');
-            if (value) {
-                script.Secrets[parseInt(value.getAttribute('data-secret-value'), 10)].Value = readSecretField(value);
-                edited();
+        variableList = createRecordList({
+            label: 'Variables',
+            openLabel: 'Copy {value}',
+            maxHeight: '60vh',
+            emptyText: 'No variables.',
+            onOpen: function (item) {
+                Shared.copyToClipboard(item.title).then(function (ok) {
+                    if (!toaster) {
+                        toaster = createToaster({ timeout: 2000 });
+                        page.addCleanup(function () { toaster.destroy(); toaster = null; });
+                    }
+                    if (ok) toaster.success('Copied ' + item.title + '.');
+                    else toaster.error('Could not copy ' + item.title + '.', 4000);
+                });
             }
         });
+        el('variableMount').appendChild(variableList.element);
 
-        el('secretList').addEventListener('click', function (e) {
-            var script = current();
-            var clear = e.target.closest('[data-secret-clear]');
-            if (clear) {
-                var index = parseInt(clear.getAttribute('data-secret-clear'), 10);
-                var inputEl = el('secretList').querySelector('[data-secret-value="' + index + '"]');
-                clearSecretField(inputEl);
-                script.Secrets[index].Value = readSecretField(inputEl);
-                edited();
-                return;
-            }
-
-            var del = e.target.closest('[data-secret-del]');
-            if (del) {
-                script.Secrets.splice(parseInt(del.getAttribute('data-secret-del'), 10), 1);
-                renderSecrets();
-                renderVariables();
-                edited();
-            }
-        });
-
-        el('variableList').addEventListener('click', function (e) {
-            var button = e.target.closest('[data-copy-var]');
-            if (!button) return;
-            Shared.copyWithFeedback(button.querySelector('code'), '{{' + button.getAttribute('data-copy-var') + '}}');
-        });
-
-        el('btnSaveScripts').addEventListener('click', save);
+        saveBar = createSaveBar({ onSave: save });
+        el('saveBarMount').appendChild(saveBar.element);
         el('btnTestScript').addEventListener('click', runTest);
         el('btnRunScript').addEventListener('click', runNow);
         webhookField = createCopyField({ label: 'Webhook address' });
@@ -1336,7 +1472,6 @@ export default function (view) {
         el('userMount').appendChild(userSelect.element);
 
         tracker = Shared.createChangeTracker({
-            indicatorId: 'unsavedIndicator',
             serialize: function () { return JSON.stringify(scripts); }
         });
     }
@@ -1361,9 +1496,9 @@ export default function (view) {
                 selectedId = scripts.length ? scripts[0].Id : null;
             }
 
+            if (tracker) tracker.markClean();
             edited();
             if (selectedId) renderEditor();
-            if (tracker) tracker.markClean();
         });
     }
 

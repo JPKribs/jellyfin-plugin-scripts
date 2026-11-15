@@ -22,10 +22,17 @@ changelog:
   - The webhook address has its own copy button beside it
   - Conditions are rows of Field, Operator, and Value with a remove button on each, and the warnings for them sit under the rows
   - The History table fills the window and scrolls inside, shows the trigger in its own column, and has Clear history beside the search
-  - The bar with Save, Test, and Run now has no line above it
+  - Save sits in its own bar with no line above it, whose status says when there are unsaved changes, and Test and Run now sit beside the trigger to test with
+  - Secrets are rows of a name and a secret field. A stored value shows as dots, and removing the secret drops it
+  - Times such as the cooldown, a pause, a timeout, and a wait are set in hours, minutes, and seconds, and counts such as streams, retries, and runs at once with a slider
+  - Variables are a list with what each one holds, and selecting one copies it
+  - A step's condition and saved output are rows of labeled fields
+  - Check path shows its answer under the command
+  - A run's result, trigger, start, and length show as a list at the top of its dialog
   fixed:
   - The arrows on collapsible sections are back to their usual size
   developer:
   - Uses JPKribs.Jellyfin.Base 2026.11.17, with its Timeline, Definition List, Copy Field, Panel, Repeater, and Data Table in place of the local run steps, variables list, copy button, trigger option frames, condition rows, and history table
+  - Base's Save Bar, Repeater, Record List, Slider Field, Duration Field, Field Row, Field Message, Record Selector, and Toast replace the local save bar, secret rows, variable cards, number inputs, step condition and output rows, path check line, and add step row, and scripts_shared.css keeps only two spacing rules
   - The pages import Base only through scripts_common.js, which also holds the page wrapper
   - The repository has contributor guides in starthere.md and skills/, and the design notes are the Architecture page of the docs

@@ -18,18 +18,18 @@
                         <div class="base-section-title">Running</div>
                         <div class="base-section-content">
                             <div class="inputContainer">
-                                <label for="maxConcurrentRuns">Runs at once</label>
-                                <input is="emby-input" type="number" id="maxConcurrentRuns" min="1" max="32" />
+                                <label>Runs at once</label>
+                                <div id="maxConcurrentRunsMount"></div>
                                 <div class="fieldDescription">How many scripts may run at the same time. Further runs wait their turn.</div>
                             </div>
                             <div class="inputContainer">
-                                <label for="defaultTimeout">Default command timeout in seconds</label>
-                                <input is="emby-input" type="number" id="defaultTimeout" min="1" max="3600" />
+                                <label>Default command timeout</label>
+                                <div id="defaultTimeoutMount"></div>
                                 <div class="fieldDescription">A command step that sets no timeout of its own is stopped after this long.</div>
                             </div>
                             <div class="inputContainer">
-                                <label for="historySize">Runs kept in the history</label>
-                                <input is="emby-input" type="number" id="historySize" min="0" max="5000" />
+                                <label>Runs kept in the history</label>
+                                <div id="historySizeMount"></div>
                                 <div class="fieldDescription">The oldest runs are dropped past this many. 0 keeps none.</div>
                             </div>
                         </div>
@@ -48,10 +48,7 @@
                         Commands run on the server as the account Jellyfin runs under. Only add commands you trust.
                     </div>
 
-                    <button is="emby-button" type="button" id="btnSaveSettings" class="raised base-button primary fill">
-                        <span>Save</span>
-                    </button>
-                    <span id="settingsStatus" class="base-status-text"></span>
+                    <div id="saveBarMount"></div>
 
                 </div>
             </form>

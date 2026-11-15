@@ -3,16 +3,17 @@
 // labels the server's enum names display as.
 
 import {
-    createConfigPage, createPaginatedTable, createChipSelect, createCheckboxList, createUserMultiSelector,
-    createSortableCardList, createChoiceGroup, createCopyField, createTimeline, createDefinitionList,
-    createRepeater, createDataTable, confirmDialog, promptDialog, openDialog, generateGuid, downloadJson, pickJsonFile,
-    bindSecretField, clearSecretField, readSecretField, SECRET_KEPT
+    createConfigPage, createChipSelect, createCheckboxList, createUserMultiSelector, createSortableCardList,
+    createChoiceGroup, createCopyField, createTimeline, createDefinitionList, createRepeater, createDataTable,
+    createRecordList, createSaveBar, createSliderField, createDurationField, createToaster,
+    confirmDialog, promptDialog, openDialog, generateGuid, downloadJson, pickJsonFile, setFieldState, SECRET_KEPT
 } from './configurationpage?name=scripts_jpkribs_shared.js';
 
 export {
-    createPaginatedTable, createRepeater, createDataTable, createChipSelect, createCheckboxList, createUserMultiSelector, createSortableCardList,
-    createChoiceGroup, createCopyField, confirmDialog, promptDialog, openDialog, generateGuid, downloadJson,
-    pickJsonFile, bindSecretField, clearSecretField, readSecretField, SECRET_KEPT
+    createRepeater, createDataTable, createChipSelect, createCheckboxList, createUserMultiSelector, createSortableCardList,
+    createChoiceGroup, createCopyField, createRecordList, createSaveBar, createSliderField, createDurationField,
+    createToaster, confirmDialog, promptDialog, openDialog, generateGuid, downloadJson, pickJsonFile,
+    setFieldState, SECRET_KEPT
 };
 
 export var PLUGIN_ID = '449817c2-7661-46fb-b302-bbd6dd3b0a01';
@@ -180,6 +181,25 @@ export function renderRunSteps(shared, run) {
         })
     });
     return timeline.element;
+}
+
+// renderRunSummary
+// Builds a run's result, trigger, start, and length as a Base Definition List in columns.
+//
+// Inputs
+// shared [object]: The helper bag from createShared.
+// run [object]: A run from the history or a test.
+// details [Array]: More { label, value } items after the result, such as the trigger and the start [optional].
+//
+// Output
+// [HTMLElement]: The list.
+export function renderRunSummary(shared, run, details) {
+    return createDefinitionList({
+        layout: 'columns',
+        items: [{ label: 'Result', value: { badge: { label: run.Succeeded ? 'Succeeded' : 'Failed', color: run.Succeeded ? 'green' : 'red' } } }]
+            .concat(details || [])
+            .concat([{ label: 'Length', value: formatDuration(shared, run.DurationMs) }])
+    }).element;
 }
 
 // renderRunVariables

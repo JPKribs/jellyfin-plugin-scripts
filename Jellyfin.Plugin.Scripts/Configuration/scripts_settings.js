@@ -1,46 +1,80 @@
 // scripts_settings.js
-// The Settings tab: runs at once, the default command timeout, and how many runs the history keeps.
+// The Settings tab: runs at once, the default command timeout, and how many runs the history keeps, with Save.
 
-import { createScriptsPage } from './configurationpage?name=scripts_common.js';
+import { createScriptsPage, createSliderField, createDurationField, createSaveBar } from './configurationpage?name=scripts_common.js';
 
 export default function (view) {
     'use strict';
 
-    var Shared = createScriptsPage(view, 2, {
+    var page = createScriptsPage(view, 2, {
         bind: bind,
-        load: load
-    }).shared;
+        load: load,
+        isDirty: function () { return !!(snapshot !== null && snapshot !== serialize()); }
+    });
+    var Shared = page.shared;
 
-    function inRange(value, min, max) {
-        return !isNaN(value) && value >= min && value <= max;
+    var concurrent = null;
+    var timeout = null;
+    var history = null;
+    var bar = null;
+    var snapshot = null;
+
+    function el(id) { return view.querySelector('#' + id); }
+
+    // serialize
+    // The three settings as text, to tell whether they changed since the last load or save.
+    //
+    // Output
+    // [string]: The settings.
+    function serialize() {
+        return JSON.stringify([concurrent.getValue(), timeout.getValue(), history.getValue()]);
+    }
+
+    function changed() {
+        if (bar && snapshot !== null) bar.setDirty(serialize() !== snapshot);
+    }
+
+    // mount
+    // Places a Base control under its label.
+    //
+    // Inputs
+    // id [string]: The prefix of the mount's ID.
+    // control [object]: The Base control handle.
+    //
+    // Output
+    // [object]: The control handle.
+    function mount(id, control) {
+        el(id + 'Mount').appendChild(control.element);
+        return control;
     }
 
     function save() {
-        var concurrent = Shared.getIntValue('maxConcurrentRuns', NaN);
-        var timeout = Shared.getIntValue('defaultTimeout', NaN);
-        var history = Shared.getIntValue('historySize', NaN);
-        if (!inRange(concurrent, 1, 32)) return Shared.setStatus('settingsStatus', 'Runs at once must be between 1 and 32.', true);
-        if (!inRange(timeout, 1, 3600)) return Shared.setStatus('settingsStatus', 'The timeout must be between 1 and 3600 seconds.', true);
-        if (!inRange(history, 0, 5000)) return Shared.setStatus('settingsStatus', 'The history size must be between 0 and 5000.', true);
-
-        Shared.saveConfigWith(function (config) {
-            config.MaxConcurrentRuns = concurrent;
-            config.DefaultTimeoutSeconds = timeout;
-            config.HistorySize = history;
-        }, 'settingsStatus').catch(function () { /* reported on the status line */ });
+        return Shared.saveConfigWith(function (config) {
+            config.MaxConcurrentRuns = concurrent.getValue();
+            config.DefaultTimeoutSeconds = timeout.getValue();
+            config.HistorySize = history.getValue();
+        }).then(function () {
+            snapshot = serialize();
+        });
     }
 
     function bind() {
-        Shared.bindClick('btnSaveSettings', save);
+        concurrent = mount('maxConcurrentRuns', createSliderField({ min: 1, max: 32, label: 'Runs at once', onChange: changed }));
+        timeout = mount('defaultTimeout', createDurationField({ units: ['m', 's'], min: 1, max: 3600, required: true, onChange: changed }));
+        history = mount('historySize', createSliderField({ min: 0, max: 5000, label: 'Runs kept in the history', onChange: changed }));
+        bar = createSaveBar({ form: el('ScriptsSettingsForm'), fill: true, onSave: save });
+        el('saveBarMount').appendChild(bar.element);
     }
 
     function load() {
         Shared.getConfig().then(function (config) {
-            Shared.setValue('maxConcurrentRuns', config.MaxConcurrentRuns);
-            Shared.setValue('defaultTimeout', config.DefaultTimeoutSeconds);
-            Shared.setValue('historySize', config.HistorySize);
+            concurrent.setValue(config.MaxConcurrentRuns);
+            timeout.setValue(config.DefaultTimeoutSeconds);
+            history.setValue(config.HistorySize);
+            snapshot = serialize();
+            bar.setDirty(false);
         }).catch(function () {
-            Shared.setStatus('settingsStatus', 'Could not load the settings.', true, { timeout: 0 });
+            bar.setState('failed', 'Could not load the settings.');
         });
     }
 }

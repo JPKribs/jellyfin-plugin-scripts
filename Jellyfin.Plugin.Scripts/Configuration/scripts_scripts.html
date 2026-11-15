@@ -12,7 +12,7 @@
                         <h1 class="sectionTitle">Scripts</h1>
                     </div>
 
-                    <div class="fieldDescription scripts-page-intro">
+                    <div class="fieldDescription">
                         A script runs its steps when one of its triggers happens. Item kinds, users, and conditions
                         narrow which events it runs for. Steps can message or control sessions, change items and
                         users, call webhooks, queue server tasks, or run a command at any path the server can reach.
@@ -84,8 +84,8 @@
                                 <div id="pausedOptions" class="base-panel hidden">
                                     <div class="base-panel-body">
                                         <div class="inputContainer">
-                                            <label for="pausedMinutes">Paused for a while: minutes</label>
-                                            <input is="emby-input" type="number" id="pausedMinutes" min="1" max="1440" />
+                                            <label>Paused for a while</label>
+                                            <div id="pausedMinutesMount"></div>
                                             <div class="fieldDescription">Runs once per pause, after the session has stayed paused this long.</div>
                                         </div>
                                     </div>
@@ -94,8 +94,8 @@
                                 <div id="playingOptions" class="base-panel hidden">
                                     <div class="base-panel-body">
                                         <div class="inputContainer">
-                                            <label for="playingMinutes">Playing for a while: minutes</label>
-                                            <input is="emby-input" type="number" id="playingMinutes" min="1" max="1440" />
+                                            <label>Playing for a while</label>
+                                            <div id="playingMinutesMount"></div>
                                             <div class="fieldDescription">Runs once per playback, after this much playing time. Pauses do not count.</div>
                                         </div>
                                     </div>
@@ -104,8 +104,8 @@
                                 <div id="progressOptions" class="base-panel hidden">
                                     <div class="base-panel-body">
                                         <div class="inputContainer">
-                                            <label for="progressPercent">Playback passed a percentage: percent</label>
-                                            <input is="emby-input" type="number" id="progressPercent" min="1" max="99" />
+                                            <label>Playback passed a percentage</label>
+                                            <div id="progressPercentMount"></div>
                                             <div class="fieldDescription">Runs once per playback, when it goes from below this percentage to at or past it.</div>
                                         </div>
                                     </div>
@@ -114,8 +114,8 @@
                                 <div id="streamOptions" class="base-panel hidden">
                                     <div class="base-panel-body">
                                         <div class="inputContainer">
-                                            <label for="streamCount">Stream count reached: streams</label>
-                                            <input is="emby-input" type="number" id="streamCount" min="1" max="100" />
+                                            <label>Stream count reached</label>
+                                            <div id="streamCountMount"></div>
                                             <div class="fieldDescription">Runs when the number of active streams rises to this many. The event is the stream that reached it.</div>
                                         </div>
                                     </div>
@@ -124,8 +124,8 @@
                                 <div id="transcodeOptions" class="base-panel hidden">
                                     <div class="base-panel-body">
                                         <div class="inputContainer">
-                                            <label for="transcodeCount">Transcode count reached: transcodes</label>
-                                            <input is="emby-input" type="number" id="transcodeCount" min="1" max="100" />
+                                            <label>Transcode count reached</label>
+                                            <div id="transcodeCountMount"></div>
                                             <div class="fieldDescription">Runs when the number of transcoding streams rises to this many. The event is the stream that reached it.</div>
                                         </div>
                                     </div>
@@ -143,23 +143,21 @@
                                                 missing is refused. Query parameters and JSON fields arrive as <code>{{WEBHOOK_NAME}}</code>.
                                             </div>
                                         </div>
-                                        <div class="scripts-webhook-actions">
-                                            <button is="emby-button" type="button" id="btnNewWebhook" class="raised base-button secondary small" title="The old address stops working once you save."><span>New address</span></button>
-                                        </div>
-                                        <pre id="webhookExample" class="base-code-block"></pre>
+                                        <pre id="webhookExample" class="base-code base-code-block"></pre>
+                                        <button is="emby-button" type="button" id="btnNewWebhook" class="raised base-button secondary small" title="The old address stops working once you save."><span>New address</span></button>
                                     </div>
                                 </div>
 
                                 <div id="scheduleOptions" class="base-panel hidden">
                                     <div class="base-panel-header">Schedule</div>
                                     <div class="base-panel-body">
-                                        <div class="fieldDescription scripts-schedule-note">
+                                        <div class="fieldDescription">
                                             A script on a schedule runs as a Jellyfin scheduled task. Once you save, it is listed under
                                             <a is="emby-linkbutton" class="button-link" href="#/dashboard/tasks">Dashboard, Scheduled Tasks</a>
                                             in the <strong>Scripts</strong> section, under this script's name and description. Set when
                                             it runs there, or run it by hand. It only runs on its schedule while the script is enabled.
                                         </div>
-                                        <div id="scheduleStart" class="fieldDescription scripts-schedule-note"></div>
+                                        <div id="scheduleStart" class="fieldDescription"></div>
                                     </div>
                                 </div>
                             </div>
@@ -223,12 +221,15 @@
                                 </div>
                                 <div id="operationList"></div>
                                 <div id="operationEmpty" class="hidden"></div>
-                                <div id="operationEditor" class="scripts-op-editor"></div>
-                                <div class="scripts-add-step">
-                                    <div class="scripts-cell scripts-add-step-type"><select is="emby-select" id="newOperationType" aria-label="Step type"></select></div>
-                                    <button is="emby-button" type="button" id="btnAddOperation" class="raised base-button primary small">
-                                        <span>Add step</span>
-                                    </button>
+                                <div id="operationEditor"></div>
+                                <div class="base-selector">
+                                    <select is="emby-select" id="newOperationType" class="base-selector-dropdown" aria-label="Step type"></select>
+                                    <div class="base-selector-actions">
+                                        <button is="emby-button" type="button" id="btnAddOperation" class="raised base-button primary">
+                                            <span class="material-icons" aria-hidden="true">add</span>
+                                            <span>Add step</span>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -242,10 +243,7 @@
                                     or <code>$JF_SECRET_NAME</code> in a command. Values are encrypted on the server, never
                                     shown again, left out of exports, and masked wherever they appear in the history.
                                 </div>
-                                <div id="secretList"></div>
-                                <button is="emby-button" type="button" id="btnAddSecret" class="raised base-button secondary small">
-                                    <span>Add secret</span>
-                                </button>
+                                <div id="secretMount"></div>
                             </div>
                         </div>
 
@@ -267,8 +265,8 @@
                                     </div>
                                 </div>
                                 <div id="forEachLimitRow" class="inputContainer hidden">
-                                    <label for="forEachLimit">Most runs per event</label>
-                                    <input is="emby-input" type="number" id="forEachLimit" min="1" max="500" />
+                                    <label>Most runs per event</label>
+                                    <div id="forEachLimitMount"></div>
                                     <div class="fieldDescription">Stops after this many matches. Each one is its own run in the history.</div>
                                 </div>
                                 <div id="forEachWarn" class="base-warn hidden"></div>
@@ -282,11 +280,11 @@
                                     </div>
                                 </div>
                                 <div class="inputContainer">
-                                    <label for="scriptCooldown">Cooldown in seconds</label>
-                                    <input is="emby-input" type="number" id="scriptCooldown" min="0" max="86400" />
+                                    <label>Cooldown</label>
+                                    <div id="cooldownMount"></div>
                                     <div class="fieldDescription">
-                                        After a run, skip this script for the same trigger, user, and item until this many
-                                        seconds pass. 0 turns it off.
+                                        After a run, skip this script for the same trigger, user, and item until this long
+                                        passes. 0 turns it off.
                                     </div>
                                 </div>
                             </div>
@@ -303,37 +301,36 @@
                                     A command receives each of these as an environment variable, such as
                                     <code>$JF_ITEM_NAME</code>, plus <code>$JF_EVENT_JSON</code> with all of them.
                                     In a step's text fields, use <code>{{ITEM_NAME}}</code>, <code>{{ITEM_NAME:json}}</code>
-                                    inside a JSON string, or <code>{{ITEM_NAME:url}}</code> in a URL. Click one to copy it.
+                                    inside a JSON string, or <code>{{ITEM_NAME:url}}</code> in a URL. Select one to copy it.
                                 </div>
-                                <div id="variableList" class="scripts-variables"></div>
+                                <div id="variableMount"></div>
                             </div>
                         </div>
 
-                        <!-- Save and test -->
-                        <div class="scripts-actions">
-                            <button is="emby-button" type="button" id="btnSaveScripts" class="raised base-button primary">
-                                <span>Save</span>
-                            </button>
-                            <span id="unsavedIndicator" class="base-unsaved">
-                                <span class="base-unsaved-dot"></span>Unsaved changes
-                            </span>
-                            <div class="scripts-test">
-                                <div class="scripts-cell scripts-test-trigger"><select is="emby-select" id="testTrigger" aria-label="Trigger to test with"></select></div>
+                        <!-- Test and run -->
+                        <div class="base-selector">
+                            <select is="emby-select" id="testTrigger" class="base-selector-dropdown" aria-label="Trigger to test with"></select>
+                            <div class="base-selector-actions">
                                 <button is="emby-button" type="button" id="btnTestScript" class="raised base-button secondary">
+                                    <span class="material-icons" aria-hidden="true">science</span>
                                     <span>Test</span>
                                 </button>
                                 <button is="emby-button" type="button" id="btnRunScript" class="raised base-button secondary">
+                                    <span class="material-icons" aria-hidden="true">play_arrow</span>
                                     <span>Run now</span>
                                 </button>
                             </div>
                         </div>
-                        <span id="scriptStatus" class="base-status-text"></span>
                         <div class="fieldDescription">
                             Test runs this script's steps now with sample values for the chosen trigger, including unsaved
                             edits. Filters and conditions are not applied, and steps that act on a session, item, or user
                             are skipped because the sample has none. Run now runs the saved script for real, whatever its
                             triggers, filters, and cooldown say.
                         </div>
+                        <span id="scriptStatus" class="base-status-text"></span>
+
+                        <!-- Save -->
+                        <div id="saveBarMount"></div>
                     </div>
 
                 </div>

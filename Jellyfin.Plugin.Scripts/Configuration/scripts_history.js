@@ -2,7 +2,7 @@
 // The History tab: recent runs in a table, a run's steps and variables in a dialog, and Clear history.
 
 import {
-    createScriptsPage, createDataTable, confirmDialog, openDialog, renderRunSteps, renderRunVariables, formatDuration
+    createScriptsPage, createDataTable, confirmDialog, openDialog, renderRunSummary, renderRunSteps, renderRunVariables, formatDuration
 } from './configurationpage?name=scripts_common.js';
 
 export default function (view) {
@@ -18,7 +18,6 @@ export default function (view) {
     var triggerLabels = {};
 
     function el(id) { return view.querySelector('#' + id); }
-    function esc(value) { return Shared.escapeHtml(value === null || value === undefined ? '' : String(value)); }
     function triggerLabel(key) { return triggerLabels[key] || key; }
 
     // Short enough for one line in the table: "Oct 25, 10:27:20 PM".
@@ -27,24 +26,26 @@ export default function (view) {
         return isNaN(date) ? '' : date.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit' });
     }
 
-    // Opens one run's steps and variables in a dialog.
+    // Opens one run's result, steps, and variables in a dialog.
     function showRun(run) {
         var body = document.createElement('div');
-        body.innerHTML =
-            '<div class="scripts-run-summary">' +
-                Shared.badge(run.Succeeded ? 'green' : 'red', run.Succeeded ? 'Succeeded' : 'Failed') +
-                '<span>' + esc(triggerLabel(run.Trigger)) + '</span>' +
-                '<span>' + esc(when(run.StartedUtc)) + '</span>' +
-                '<span>' + esc(formatDuration(Shared, run.DurationMs)) + '</span>' +
-            '</div>' +
-            (run.Summary ? '<div class="fieldDescription">' + esc(run.Summary) + '</div>' : '') +
-            '<div class="base-subsection-title">Steps</div>';
-        body.appendChild(renderRunSteps(Shared, run));
-        var title = document.createElement('div');
-        title.className = 'base-subsection-title';
-        title.textContent = 'Variables';
-        body.appendChild(title);
-        body.appendChild(renderRunVariables(Shared, run));
+        body.appendChild(renderRunSummary(Shared, run, [
+            { label: 'Trigger', value: triggerLabel(run.Trigger) },
+            { label: 'Started', value: when(run.StartedUtc) }
+        ]));
+        if (run.Summary) {
+            var summary = document.createElement('div');
+            summary.className = 'fieldDescription';
+            summary.textContent = run.Summary;
+            body.appendChild(summary);
+        }
+        [['Steps', renderRunSteps(Shared, run)], ['Variables', renderRunVariables(Shared, run)]].forEach(function (part) {
+            var title = document.createElement('h3');
+            title.className = 'base-subsection-title';
+            title.textContent = part[0];
+            body.appendChild(title);
+            body.appendChild(part[1]);
+        });
         openDialog({
             title: run.ScriptName + (run.IsTest ? ' (test)' : ''),
             body: body,
