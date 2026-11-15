@@ -2,7 +2,7 @@
 // The History tab: recent runs in a table, a run's steps and variables in a dialog, and Clear history.
 
 import {
-    createScriptsPage, createPaginatedTable, confirmDialog, openDialog, renderRunSteps, renderRunVariables, formatDuration
+    createScriptsPage, createDataTable, confirmDialog, openDialog, renderRunSteps, renderRunVariables, formatDuration
 } from './configurationpage?name=scripts_common.js';
 
 export default function (view) {
@@ -52,58 +52,100 @@ export default function (view) {
         });
     }
 
-    function createTable(scripts) {
-        var filters = [
-            { value: 'failed', label: 'Failed' },
-            { value: 'test', label: 'Tests' }
-        ].concat(scripts.map(function (s) { return { value: s.Id, label: s.Name }; }));
+    // fetchRuns
+    // Reads one page of runs for the table from the History route.
+    //
+    // Inputs
+    // query [object]: The table's search, filters, page, and page size.
+    //
+    // Output
+    // [Promise]: The page, as { Items, TotalCount }.
+    function fetchRuns(query) {
+        var filter = (query.filters.run || [])[0] || '';
+        var params = '?Skip=' + ((query.page - 1) * query.pageSize) + '&Take=' + query.pageSize
+            + (query.search ? '&Search=' + encodeURIComponent(query.search) : '')
+            + (filter ? '&Filter=' + encodeURIComponent(filter) : '');
+        return Shared.apiRequest('Scripts/History' + params, 'GET');
+    }
 
-        table = createPaginatedTable(view, Shared, {
-            containerId: 'historyTable',
-            endpoint: 'Scripts/History',
-            selection: { enabled: false, idKey: 'Id' },
-            search: { enabled: true, placeholder: 'Search runs' },
-            filters: { options: filters },
-            emptyState: { message: 'No runs yet.' },
+    // clearHistory
+    // Asks first, then deletes every recorded run.
+    function clearHistory() {
+        confirmDialog('Clear every recorded run? This cannot be undone.', { title: 'Clear history', confirmText: 'Clear', destructive: true }).then(function (ok) {
+            if (!ok) return;
+            Shared.apiRequest('Scripts/History', 'DELETE').then(function () {
+                Shared.setStatus('historyStatus', 'History cleared.', false);
+                if (table) table.reload();
+            }).catch(function () {
+                Shared.setStatus('historyStatus', 'Could not clear the history.', true);
+            });
+        });
+    }
+
+    // createTable
+    // Draws the runs with Base's Data Table, which fills the window and scrolls inside.
+    //
+    // Inputs
+    // scripts [Array]: The scripts, offered as filters.
+    function createTable(scripts) {
+        if (table) table.destroy();
+        var host = el('historyTable');
+        host.innerHTML = '';
+        table = createDataTable({
+            label: 'Runs',
+            fetch: fetchRuns,
+            rowKey: 'Id',
+            pageSize: 50,
+            height: 'fill',
+            search: { placeholder: 'Search runs' },
+            filters: [{
+                name: 'run',
+                label: 'Runs',
+                options: [
+                    { value: 'failed', label: 'Failed' },
+                    { value: 'test', label: 'Tests' }
+                ].concat(scripts.map(function (s) { return { value: s.Id, label: s.Name }; }))
+            }],
+            actions: [{ id: 'clear', label: 'Clear history', icon: 'delete', variant: 'destructive', onClick: clearHistory }],
+            emptyText: 'No runs yet.',
             columns: [
+                { key: 'ScriptName', label: 'Run', width: '2fr', sortable: false, render: function (run) { return run.ScriptName + (run.IsTest ? ' (test)' : ''); } },
+                { key: 'Trigger', label: 'Trigger', width: '1.5fr', sortable: false, render: function (run) { return triggerLabel(run.Trigger); } },
+                { key: 'StartedUtc', label: 'Started', width: '1.5fr', sortable: false, render: function (run) { return when(run.StartedUtc); } },
+                { key: 'DurationMs', label: 'Duration', align: 'end', sortable: false, render: function (run) { return formatDuration(Shared, run.DurationMs); } },
                 {
-                    key: 'ScriptName', type: 'custom', className: 'scripts-col-run', render: function (run) {
-                        return '<div class="base-table-item-info"><div class="base-table-item-title">' + esc(run.ScriptName) + (run.IsTest ? ' (test)' : '') + '</div>' +
-                            '<div class="base-table-item-sub">' + esc(triggerLabel(run.Trigger)) + (run.Summary ? ' · ' + esc(run.Summary) : '') + '</div></div>';
-                    }
-                },
-                { key: 'StartedUtc', type: 'custom', className: 'scripts-col-when', render: function (run) { return esc(when(run.StartedUtc)); } },
-                { key: 'DurationMs', type: 'custom', className: 'scripts-col-duration', render: function (run) { return esc(formatDuration(Shared, run.DurationMs)); } },
-                {
-                    key: 'Succeeded', type: 'custom', className: 'scripts-col-result', render: function (run) {
-                        return Shared.badge(run.Succeeded ? 'green' : 'red', run.Succeeded ? 'Succeeded' : 'Failed');
+                    key: 'Succeeded', label: 'Result', width: '8rem', sortable: false, render: function (run) {
+                        var cell = document.createElement('span');
+                        cell.innerHTML = Shared.badge(run.Succeeded ? 'green' : 'red', run.Succeeded ? 'Succeeded' : 'Failed');
+                        return cell;
                     }
                 }
             ],
-            actions: { onRowClick: showRun }
+            onOpen: showRun
         });
-        page.addCleanup(function () { table.destroy(); table = null; });
+        host.appendChild(table.element);
+
+        // A phone keeps the run and its result. The dialog shows the trigger, the start, and the length.
+        var phone = window.matchMedia('(max-width: 600px)');
+        function fit() {
+            if (!table) return;
+            table.setColumnHidden('Trigger', phone.matches);
+            table.setColumnHidden('StartedUtc', phone.matches);
+            table.setColumnHidden('DurationMs', phone.matches);
+        }
+        fit();
+        phone.addEventListener('change', fit);
+        page.addCleanup(function () { phone.removeEventListener('change', fit); });
     }
 
     function bind() {
-        el('btnClearHistory').addEventListener('click', function () {
-            confirmDialog('Clear every recorded run? This cannot be undone.', { title: 'Clear history', confirmText: 'Clear', destructive: true }).then(function (ok) {
-                if (!ok) return;
-                Shared.apiRequest('Scripts/History', 'DELETE').then(function () {
-                    Shared.setStatus('historyStatus', 'History cleared.', false);
-                    if (table) table.reload();
-                }).catch(function () {
-                    Shared.setStatus('historyStatus', 'Could not clear the history.', true);
-                });
-            });
-        });
+        page.addCleanup(function () { if (table) { table.destroy(); table = null; } });
     }
 
     function load() {
         Promise.all([Shared.getConfig(), Shared.apiRequest('Scripts/Catalog', 'GET')]).then(function (results) {
             (results[1].Triggers || []).forEach(function (t) { triggerLabels[t.Key] = t.Label; });
             createTable(results[0].Scripts || []);
-            return table.load();
         }).catch(function () {
             Shared.setStatus('historyStatus', 'Could not load the history.', true, { timeout: 0 });
         });

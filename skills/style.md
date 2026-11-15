@@ -370,7 +370,7 @@ grep -o "export function create[A-Za-z]*" ~/.nuget/packages/jpkribs.jellyfin.bas
 | Records in priority order | `createSortableCardList`, such as a script's steps |
 | A plain list of records | `base-card-list` with `base-card-item-*` |
 | Edit one record in a dialog | `openEditorDialog` |
-| A large searchable list | `createPaginatedTable` |
+| A large searchable list | `createDataTable` with `fetch` and `height: 'fill'` |
 | Edit table rows in place | `base-bulk-edit-bar` and `base-edit-row` |
 | Uploaded files | `base-asset-list` |
 | A thumbnail in a table row | A column `image(item)` loader with `imageShape`, one shape for each column |
@@ -379,7 +379,8 @@ grep -o "export function create[A-Za-z]*" ~/.nuget/packages/jpkribs.jellyfin.bas
 | Label and value pairs, such as a run's variables | `createDefinitionList` |
 
 * The script picker's actions read **New**, **Duplicate**, **Delete**, **Export**, and **Import**.
-* Use `createPaginatedTable` for any list that can grow past one screen, such as the history. Rows open with `actions.onRowClick`.
+* A list that can grow past one screen, such as the history, is a `createDataTable` with `height: 'fill'`, so it ends at the bottom of the window and scrolls inside. Rows open with `onOpen`, and an action on the whole list, such as **Clear history**, is one of its `actions`.
+* Rows of fields that are added and removed, such as the conditions, are a `createRepeater`. A field that needs a Base control the Repeater does not draw, such as a Chip Select, is a `custom` field.
 
 ### Status
 
@@ -465,7 +466,6 @@ These pieces are still built by hand in this plugin while Base has a component f
 
 | Hand built today | Replace with |
 | :--- | :--- |
-| `.scripts-condition*` rows under **Conditions** | `createRuleBuilder`, once its chips field takes labelled options such as users and libraries, grouped fields, and a warning for each rule |
 | `.scripts-secret*` rows under **Secrets** | `createRepeater` with a `secret` field. Secrets are a stop and ask area, so agree the move first |
 | `.scripts-onlyif` and `.scripts-saveas` rows in the step editor | `base-field-row` with `base-field` |
 | `.scripts-variable` cards under **Variables** | `placeholderHint` and `bindPlaceholders` |

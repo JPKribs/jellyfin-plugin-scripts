@@ -5,12 +5,12 @@
 import {
     createConfigPage, createPaginatedTable, createChipSelect, createCheckboxList, createUserMultiSelector,
     createSortableCardList, createChoiceGroup, createCopyField, createTimeline, createDefinitionList,
-    confirmDialog, promptDialog, openDialog, generateGuid, downloadJson, pickJsonFile,
+    createRepeater, createDataTable, confirmDialog, promptDialog, openDialog, generateGuid, downloadJson, pickJsonFile,
     bindSecretField, clearSecretField, readSecretField, SECRET_KEPT
 } from './configurationpage?name=scripts_jpkribs_shared.js';
 
 export {
-    createPaginatedTable, createChipSelect, createCheckboxList, createUserMultiSelector, createSortableCardList,
+    createPaginatedTable, createRepeater, createDataTable, createChipSelect, createCheckboxList, createUserMultiSelector, createSortableCardList,
     createChoiceGroup, createCopyField, confirmDialog, promptDialog, openDialog, generateGuid, downloadJson,
     pickJsonFile, bindSecretField, clearSecretField, readSecretField, SECRET_KEPT
 };

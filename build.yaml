@@ -20,9 +20,12 @@ changelog:
   - The dashboard pages take Base's new buttons, sections, panels, and dialogs
   - A run's steps show as a timeline with each step's result and output, and its variables as a list
   - The webhook address has its own copy button beside it
+  - Conditions are rows of Field, Operator, and Value with a remove button on each, and the warnings for them sit under the rows
+  - The History table fills the window and scrolls inside, shows the trigger in its own column, and has Clear history beside the search
+  - The bar with Save, Test, and Run now has no line above it
   fixed:
   - The arrows on collapsible sections are back to their usual size
   developer:
-  - Uses JPKribs.Jellyfin.Base 2026.11.17, with its Timeline, Definition List, Copy Field, and Panel in place of the local run steps, variables list, copy button, and trigger option frames
+  - Uses JPKribs.Jellyfin.Base 2026.11.17, with its Timeline, Definition List, Copy Field, Panel, Repeater, and Data Table in place of the local run steps, variables list, copy button, trigger option frames, condition rows, and history table
   - The pages import Base only through scripts_common.js, which also holds the page wrapper
   - The repository has contributor guides in starthere.md and skills/, and the design notes are the Architecture page of the docs

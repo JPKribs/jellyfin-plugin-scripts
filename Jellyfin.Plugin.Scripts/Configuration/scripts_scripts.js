@@ -3,7 +3,7 @@
 // secrets, and behavior, with Save, Test, and Run now.
 
 import {
-    createScriptsPage, createChipSelect, createCheckboxList, createUserMultiSelector, createSortableCardList,
+    createScriptsPage, createRepeater, createChipSelect, createCheckboxList, createUserMultiSelector, createSortableCardList,
     createChoiceGroup, createCopyField, confirmDialog, promptDialog, openDialog, generateGuid, downloadJson,
     pickJsonFile, bindSecretField, clearSecretField, readSecretField, SECRET_KEPT,
     FIELD_GROUPS, FIELD_LABELS, NUMERIC_FIELDS, OPERATOR_LABELS, OPERATION_TYPES, renderRunSteps, formatDuration
@@ -63,7 +63,8 @@ export default function (view) {
     var userSelect = null;
     var matchChoice = null;
     var operationList = null;
-    var conditionSelects = [];
+    var conditionRepeater = null;
+    var conditionsQuiet = false;
     var webhookField = null;
     var suppressWidgetEvents = false;
 
@@ -328,62 +329,124 @@ export default function (view) {
             : 'Never matches for ' + names + ', so with "all conditions" the script will not run on those.';
     }
 
-    function fieldSelect(index, selected) {
-        return '<select is="emby-select" data-cond-field="' + index + '" aria-label="Field">' +
-            FIELD_GROUPS.map(function (group) {
-                return '<optgroup label="' + esc(group.label) + '">' + group.fields.map(function (f) {
-                    return '<option value="' + f.key + '"' + (f.key === selected ? ' selected' : '') + '>' + esc(f.label) + '</option>';
-                }).join('') + '</optgroup>';
-            }).join('') + '</select>';
+    // conditionItems
+    // Turns a script's conditions into Repeater rows. The value cell carries its field, so it knows which choices to offer.
+    //
+    // Inputs
+    // conditions [Array]: The script's conditions.
+    //
+    // Output
+    // [Array]: One row per condition.
+    function conditionItems(conditions) {
+        return (conditions || []).map(function (c) {
+            return { Field: c.Field, Operator: c.Operator, Values: { field: c.Field, values: (c.Values || []).slice() } };
+        });
     }
 
+    // conditionValueField
+    // The Repeater's value cell, a Base Chip Select offering the choices of the row's field.
+    //
+    // Inputs
+    // value [object]: The cell value, as { field, values }.
+    // change [function]: Tells the Repeater the cell changed.
+    //
+    // Output
+    // [object]: The cell's element, input, getValue, setValue, and destroy.
+    function conditionValueField(value, change) {
+        var state = value || { field: null, values: [] };
+        var chips = enterPicksSuggestion(createChipSelect({
+            options: valueOptions(state.field),
+            value: labelled(state.field, state.values),
+            placeholder: 'Pick or type a value',
+            allowCreate: true,
+            onChange: function (values) {
+                state.values = values;
+                change();
+            }
+        }), false);
+        return {
+            element: chips.element,
+            input: chips.element.querySelector('input'),
+            getValue: function () { return { field: state.field, values: chips.getValue() }; },
+            setValue: function (next) {
+                state = next || { field: null, values: [] };
+                chips.setOptions(valueOptions(state.field));
+                chips.setValue(labelled(state.field, state.values));
+            },
+            destroy: function () { chips.destroy(); }
+        };
+    }
+
+    // onConditionsChanged
+    // Reads the Repeater back into the script, and clears a row's values when its field changes.
+    //
+    // Inputs
+    // items [Array]: The Repeater's rows.
+    function onConditionsChanged(items) {
+        if (conditionsQuiet) return;
+        var reset = false;
+        items.forEach(function (item) {
+            if (item.Values && item.Values.field === item.Field) return;
+            item.Values = { field: item.Field, values: [] };
+            if (NUMERIC_FIELDS[item.Field] && item.Operator === 'Is') item.Operator = 'AtLeast';
+            if (!NUMERIC_FIELDS[item.Field] && (item.Operator === 'AtLeast' || item.Operator === 'AtMost')) item.Operator = 'Is';
+            reset = true;
+        });
+        current().Conditions = items.map(function (item) {
+            return { Field: item.Field, Operator: item.Operator, Values: item.Values.values };
+        });
+        renderConditionWarnings();
+        edited();
+        // A new field offers other choices, so its row is drawn again.
+        if (reset) setTimeout(renderConditions, 0);
+    }
+
+    // renderConditionWarnings
+    // Lists the conditions that a selected trigger never supplies a value for.
+    function renderConditionWarnings() {
+        var script = current();
+        var host = el('conditionWarnings');
+        host.innerHTML = '';
+        script.Conditions.forEach(function (condition, index) {
+            var warning = conditionWarning(script, condition);
+            if (!warning) return;
+            var note = document.createElement('div');
+            note.className = 'base-warn';
+            note.textContent = 'Condition ' + (index + 1) + '. ' + warning;
+            host.appendChild(note);
+        });
+    }
+
+    // renderConditions
+    // Draws the script's conditions with Base's Repeater.
     function renderConditions() {
         var script = current();
-        conditionSelects.forEach(function (c) { c.destroy(); });
-        conditionSelects = [];
-        var list = el('conditionList');
-        list.innerHTML = '';
-
-        script.Conditions.forEach(function (condition, index) {
-            var row = document.createElement('div');
-            row.className = 'scripts-condition';
-            row.innerHTML =
-                '<div class="scripts-condition-line">' +
-                    '<div class="scripts-cell">' + fieldSelect(index, condition.Field) + '</div>' +
-                    '<div class="scripts-cell"><select is="emby-select" data-cond-op="' + index + '" aria-label="Operator">' +
-                        Object.keys(OPERATOR_LABELS).map(function (o) {
-                            return '<option value="' + o + '"' + (o === condition.Operator ? ' selected' : '') + '>' + esc(OPERATOR_LABELS[o]) + '</option>';
-                        }).join('') +
-                    '</select></div>' +
-                    '<div class="scripts-cell scripts-condition-values"></div>' +
-                    '<div class="scripts-cell"><button type="button" class="base-row-btn" data-cond-del="' + index + '" title="Remove condition" aria-label="Remove condition">' +
-                        '<span class="material-icons" aria-hidden="true">close</span></button></div>' +
-                '</div>';
-
-            var warning = conditionWarning(script, condition);
-            if (warning) {
-                var note = document.createElement('div');
-                note.className = 'base-warn scripts-inline-warn';
-                note.textContent = warning;
-                row.appendChild(note);
-            }
-
-            var numeric = condition.Operator === 'AtLeast' || condition.Operator === 'AtMost';
-            var chips = enterPicksSuggestion(createChipSelect({
-                options: valueOptions(condition.Field),
-                value: labelled(condition.Field, condition.Values),
-                placeholder: condition.Operator === 'MatchesRegex' ? 'Type a pattern, press Enter'
-                    : numeric ? 'Type a number, press Enter' : 'Pick or type a value, press Enter',
-                allowCreate: true,
-                onChange: function (values) {
-                    condition.Values = values;
-                    edited();
-                }
-            }), false);
-            row.querySelector('.scripts-condition-values').appendChild(chips.element);
-            conditionSelects.push(chips);
-            list.appendChild(row);
-        });
+        if (!conditionRepeater) {
+            conditionRepeater = createRepeater({
+                fields: [
+                    {
+                        key: 'Field', label: 'Field', type: 'select', width: '1fr',
+                        options: FIELD_GROUPS.reduce(function (all, group) {
+                            return all.concat(group.fields.map(function (f) { return { value: f.key, label: f.label }; }));
+                        }, [])
+                    },
+                    {
+                        key: 'Operator', label: 'Operator', type: 'select', width: '1fr',
+                        options: Object.keys(OPERATOR_LABELS).map(function (o) { return { value: o, label: OPERATOR_LABELS[o] }; })
+                    },
+                    { key: 'Values', label: 'Value', type: 'custom', width: '2fr', render: conditionValueField }
+                ],
+                addText: 'Add condition',
+                rowName: 'Condition',
+                emptyText: 'No conditions. The script runs on every trigger that passes its filters.',
+                onChange: onConditionsChanged
+            });
+            el('conditionList').appendChild(conditionRepeater.element);
+        }
+        conditionsQuiet = true;
+        conditionRepeater.setValue(conditionItems(script.Conditions));
+        conditionsQuiet = false;
+        renderConditionWarnings();
     }
 
     // ---- Steps ----
@@ -1091,42 +1154,6 @@ export default function (view) {
                 renderConditions();
                 edited();
             }
-        });
-
-        el('btnAddCondition').addEventListener('click', function () {
-            current().Conditions.push({ Field: 'User', Operator: 'Is', Values: [] });
-            renderConditions();
-            edited();
-        });
-
-        el('conditionList').addEventListener('change', function (e) {
-            var script = current();
-            var field = e.target.closest('[data-cond-field]');
-            if (field) {
-                var condition = script.Conditions[parseInt(field.getAttribute('data-cond-field'), 10)];
-                condition.Field = field.value;
-                condition.Values = [];
-                if (NUMERIC_FIELDS[field.value] && condition.Operator === 'Is') condition.Operator = 'AtLeast';
-                if (!NUMERIC_FIELDS[field.value] && (condition.Operator === 'AtLeast' || condition.Operator === 'AtMost')) condition.Operator = 'Is';
-                renderConditions();
-                edited();
-                return;
-            }
-
-            var op = e.target.closest('[data-cond-op]');
-            if (op) {
-                script.Conditions[parseInt(op.getAttribute('data-cond-op'), 10)].Operator = op.value;
-                renderConditions();
-                edited();
-            }
-        });
-
-        el('conditionList').addEventListener('click', function (e) {
-            var del = e.target.closest('[data-cond-del]');
-            if (!del) return;
-            current().Conditions.splice(parseInt(del.getAttribute('data-cond-del'), 10), 1);
-            renderConditions();
-            edited();
         });
 
         // Steps: one editor moves into whichever card is open.
