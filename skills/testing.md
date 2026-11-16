@@ -16,6 +16,7 @@ Test each behavior at the lowest layer that can prove it. Go up a layer only for
 | Runner | A script runs its steps through `ScriptRunner` and `OperationExecutor`, with the history and secret vault in a temporary folder | `dotnet test` | Seconds |
 | Resources | Every dashboard file is embedded, so no page loads blank | `dotnet test` | Seconds |
 | Page scripts | Each page module parses, and every Base name it imports exists | `node --check` and the typings | Seconds |
+| Harness | Each page draws, saves, and behaves with Jellyfin's real styles, at 1280 and 375 px | Headless Chromium, per [Harness](#harness) | Minutes |
 | Test server | A page looks right and a trigger runs its script on a real Jellyfin 12.4 | By hand | Minutes |
 
 | A change to | Needs |
@@ -103,11 +104,21 @@ grep -E "export (function|var|const) createTimeline\b" ~/.nuget/packages/jpkribs
 * Only `scripts_common.js` imports Base, so its import list is the one to check.
 * A function that needs elements can be tried against Base's `fake-dom.mjs` from `../Shared/jellyfin-plugin-base/JPKribs.Jellyfin.Base.Tests/js/`. Keep such a check outside the repository.
 
+## Harness
+
+A harness loads the page modules in headless Chromium with a stand-in `ApiClient`. The [screenshot kit](documentation.md#the-screenshot-kit) is one, and a check for a change can reuse it.
+
+* Load Jellyfin's real stylesheets as its `index.html` does, its two first, then the chunks and the dark theme, and mimic its emby-* element upgrades. Base's CSS alone hides real bugs.
+* Click through as a user would. Type real keystrokes in pickers, and open every tab, every collapsible, and every dialog, at 1280 and 375 px.
+* Type part of a real name in each lookup and see its list, then save and check that the stored value is the ID.
+* Look at each screenshot the harness saves.
+* A harness never decides that work is done. Check it on a test server afterwards.
+
 ## Test Server
 
 Install a build on a Jellyfin 12.4 test server to look at a page or raise a real event. See [documentation.md](documentation.md#installing-a-build-by-hand).
 
-* Reload the dashboard after installing a build, since it caches page scripts.
+* Hard reload the dashboard after installing a build, since it caches page scripts.
 * Use **Test** for a step's output with sample values, and **Run now** for the saved script. The **History** tab shows each run's steps, output, and variables.
 * Raise the trigger itself for anything a sample cannot show, such as playback starting or an item being added.
 * Use a test server, never one people watch on. A step can stop playback, sign users out, or change items.
@@ -120,4 +131,5 @@ Install a build on a Jellyfin 12.4 test server to look at a page or raise a real
 * [ ] Substitutes come from `TestServices` or NSubstitute.
 * [ ] `dotnet test` passes.
 * [ ] Every page script passes `node --check`, and its Base imports exist.
+* [ ] Every changed page was clicked through in the harness at 1280 and 375 px, and each screenshot was looked at.
 * [ ] Every changed page and trigger was tried on a test server.

@@ -279,7 +279,7 @@ Every save is one Save Bar, the same on every page.
 
 * Save with `createSaveBar` and `fill: true`. Its button reads **Save**, never Save and a noun.
 * One bar per thing that saves. **Settings** and **Scripts** each save once, so each has one bar at the bottom of the page. A page whose sections save on their own has one bar at the bottom of each section.
-* The bar is the last element of what it saves. Nothing sits beside it or below it.
+* The bar is the last element of what it saves. Nothing sits beside it or below it, and no divider line sits above it.
 * Other actions that belong with the save, such as **Test**, **Run now**, and the trigger to test with, go in one `base-button-row` directly above the bar. Each button is `raised base-button secondary fill`, or `destructive fill` when it deletes or resets data. A select in that row stays a plain emby select. No `small` buttons in that row. Base spaces that row. Its buttons have no margin of their own, so their edges line up with the Save Bar's, the row sits one `--base-gap-narrow` above the Save Bar, and its buttons use the same font weight as Save. A plugin adds no margin, gap, or weight of its own. The Save Bar's element goes directly after the row, never inside a wrapper, since Base spaces them as siblings.
 * Track unsaved changes with `createChangeTracker` and pass the result to the bar's `setDirty`, so its line reads "Unsaved changes." `onSave` returns the save promise.
 * Guard leaving the page with the `isDirty` option of `createScriptsPage`, or `page.guardUnsaved`.
@@ -302,7 +302,8 @@ grep -o "export function create[A-Za-z]*" ~/.nuget/packages/jpkribs.jellyfin.bas
 * The typings in that file document every option of every component. Read the component's block before using it.
 * Rows of fields with Add and Remove are a `createRepeater`. A list of checkboxes is a `createCheckboxList`. Field, operator, and value rows are a `createRuleBuilder`. Events in order with a status are a `createTimeline`. Label and value pairs are a `createDefinitionList`. A value to copy is a `createCopyField`.
 * A hand built version of any of these is a defect, even when it looks the same.
-* When a Base component lacks one thing the page needs, use the component and report the gap to Base. Never fall back to building it by hand.
+* A Base component used wrong is worse than none. Look at the result on a test server, not only at the code.
+* When a Base component lacks one thing the page needs, use the component and report the gap to Base. Never fall back to building it by hand, and never keep a gap silently. Name the missing option in [Hand Built Pieces](#hand-built-pieces) and ask the Base owner for it.
 
 ### Fields
 
@@ -323,12 +324,17 @@ grep -o "export function create[A-Za-z]*" ~/.nuget/packages/jpkribs.jellyfin.bas
 | Several users | `createUserMultiSelector` |
 | Several fields side by side | `base-field-row` with `base-field` |
 | A secret | `bindSecretField`, `readSecretField`, and `clearSecretField` |
-| A read only value to copy, such as a webhook address | `createCopyField` |
+| A read only value to copy, such as a webhook address, a code, or a path | `createCopyField` |
+| One number on a range, such as a percentage or a count | `createSliderField` |
+| A length of time, such as a cooldown or a timeout | `createDurationField`, with the units it needs |
+| A value with known choices, such as a user, a library, or a task | `createChipSelect` with the choices as `options`, storing each choice's ID and showing its name |
 | A template with `{name}` tokens | `placeholderHint` and `bindPlaceholders` |
 | Code or JSON, read only | `base-code-block` |
 
 * Use `emby-select`, never `base-selector-dropdown`, for a field. `base-selector-dropdown` is only for the record picker.
 * Every input has a `<label for>`.
+* Never build a slider, a color picker, or a copy field by hand. Base has each.
+* A lookup must look up. A value with known choices lists the matching choices as you type part of a name, and lists them all when the empty box is selected. It stores the choice's ID, such as a user ID, and shows the name. Try it by typing part of a real name and seeing the list.
 
 ### Buttons
 
@@ -379,6 +385,8 @@ grep -o "export function create[A-Za-z]*" ~/.nuget/packages/jpkribs.jellyfin.bas
 * The script picker's actions read **New**, **Duplicate**, **Delete**, **Export**, and **Import**.
 * A list that can grow past one screen, such as the history, is a `createDataTable` with `height: 'fill'`, so it ends at the bottom of the window and scrolls inside. Rows open with `onOpen`, and an action on the whole list, such as **Clear history**, is one of its `actions`.
 * Rows of fields that are added and removed, such as the conditions, are a `createRepeater`. A field that needs a Base control the Repeater does not draw, such as a Chip Select, is a `custom` field.
+* The condition rows bottom-align their cells with `align-items: end` in `scripts_shared.css`. A Chip Select puts its picked chips above its box, so **Field**, **Operator**, and the remove button line up with the **Value** box, not with the chips.
+* The **History** table fills the window. Keep `height: 'fill'` on it, so the page never scrolls past the table and its rows scroll inside it.
 
 ### Status
 
@@ -393,6 +401,7 @@ grep -o "export function create[A-Za-z]*" ~/.nuget/packages/jpkribs.jellyfin.bas
 | The result of an action | `shared.setStatus` |
 | A row of reset actions | `base-reset-group` with `base-reset-row` |
 
+* Each count card in a row takes its own color, and no two neighbors match. The script counts are blue, green, and gray.
 * Never use `Dashboard.alert` for a result. It blocks the page. Use `setStatus`.
 * A notice holds one sentence. Use a callout for something the reader must know before acting, not for a result.
 
@@ -440,6 +449,7 @@ The Scripts pages draw no charts today. When one is needed, pick it here.
 * Test every page at 375 px wide. Nothing scrolls sideways except a table.
 * Look at every changed page on a test server before calling it done. Reload the page after installing a build, since the dashboard caches scripts.
 * Spacing comes from `--base-gap-wide` and `--base-gap-narrow`. Never add margins between fields.
+* Rows are visibly separate, and every control says what it does next to it. A lone word at the far edge of a row, such as a toggle reading "Override", is a defect.
 * Never set a width in pixels on a field. Let it fill its container.
 
 ## Accessibility

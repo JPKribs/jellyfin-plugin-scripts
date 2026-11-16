@@ -44,7 +44,11 @@ The check to run on your own changes before you call them done. People and AI as
 * [ ] Each component is the one [style.md](style.md#components) names for the need.
 * [ ] Colors come from Base tokens and keep their [meaning](style.md#meaning).
 * [ ] The page works at 375 px wide.
-* [ ] Every changed page was opened on a test server and looked at, after a reload.
+* [ ] Every changed page was clicked through in the [harness](testing.md#harness) with Jellyfin's real styles, and each screenshot was looked at.
+* [ ] Every lookup lists its choices as you type and stores IDs.
+* [ ] Rows are visibly separate, and condition rows line up along the bottom of the **Value** box.
+* [ ] Each Save is a full width Save Bar with no divider above it, and the **History** table fills the window.
+* [ ] Every changed page was opened on a test server and looked at, after a hard reload.
 * [ ] Every top level group on a page has the same header frame, and a section with nothing to show is hidden.
 * [ ] Results use `setStatus`, confirms use `confirmDialog`, and nothing uses `Dashboard.alert` or `window.confirm`.
 
@@ -67,7 +71,7 @@ The check to run on your own changes before you call them done. People and AI as
 
 * [ ] Every page the change affects describes the current release only.
 * [ ] Labels in the docs match the page exactly.
-* [ ] Screenshots of anything that changed are retaken.
+* [ ] Screenshots of anything that changed are retaken with the [screenshot kit](documentation.md#the-screenshot-kit), and every screenshot when the Base version changed.
 * [ ] [Architecture](../docs/Architecture.md) still matches the code.
 * [ ] `build.yaml` has a changelog entry for any change a user would notice.
 * [ ] `mkdocs build --strict` passes.

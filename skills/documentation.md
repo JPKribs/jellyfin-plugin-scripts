@@ -189,19 +189,47 @@ Use `##` for README headings. Keep the README under 40 lines.
 
 * Capture every page and dialog a docs page describes.
 * Capture the dark theme only, which is Jellyfin's default.
-* Capture from a test server whose users, libraries, and addresses are generic.
-* Capture after a few runs so the history, counts, and badges are filled.
-* Hide nothing with editing. When a value is private, change the test server's data instead.
+* Capture from the [screenshot kit](#the-screenshot-kit), never from a live server's data.
+* Use generic data. Scripts such as "Limit transcodes" and "Nightly scan", users such as alex, jordan, and sam, and `example.com` addresses.
+* Fill the history, counts, and badges with a few runs, so no list shows empty.
+* Hide nothing with editing. When a value is private, change the kit's data instead.
+* Look at every PNG before saving it over the old one.
 
 ### Sizes
 
 | Kind | Size | How |
 | :--- | :--- | :--- |
-| Dialog | 800 wide | The browser at 800 px, cropped to the dialog |
-| Full page | 1920 wide | The browser at 1920 px, cropped to the content area |
-| Phone | 375 wide at 2x | The browser's device mode at 375 px |
+| Tab or dialog | 1600 by 1542 | An 800 by 771 viewport at 2x, with the dashboard header and tabs, scrolled to the subject |
+| A row of the dashboard, such as the task under **Scheduled Tasks** | 1600 wide | An 800 px viewport at 2x, as tall as the subject |
+| Phone | 750 wide | A 375 px viewport at 2x |
 
-Save every capture as PNG. Crop out the browser frame and the Jellyfin header unless the header is the subject.
+Save every capture as PNG. Keep a retaken image at the size and subject of the one it replaces, and keep its file name unless its subject no longer exists.
+
+### The Screenshot Kit
+
+The kit serves the plugin's real pages with jellyfin-web's real styles and a stand-in server, and drives headless Chromium. Keep it outside the repository.
+
+* **Server.** A small static server maps `configurationpage?name=scripts_X` to `Jellyfin.Plugin.Scripts/Configuration/`, `scripts_jpkribs_shared.js` and `.css` to the Base version the csproj names under `~/.nuget/packages/jpkribs.jellyfin.base/<version>/assets/`, and `/jf/` to an installed jellyfin-web.
+* **Page.** `index.html` loads jellyfin-web's CSS in the order its own `index.html` does, its two stylesheets first, then every chunk, then `themes/dark/theme.css`. It leaves out any chunk that shrinks the root font, such as one that sets `html { font-size: 82% }`, since the dashboard never loads those.
+* **Upgrades.** `upgrade.js` mimics the emby-* element upgrades Jellyfin runs, so inputs, selects, checkboxes, and buttons get the classes and labels they get on a server.
+* **Stand-ins.** `stub.js` gives `ApiClient`, `Dashboard`, and `LibraryMenu` with the generic data. `LibraryMenu.setTabs` draws the dashboard header and the three tabs. The catalog is the plugin's own `TriggerCatalog`, written to JSON by a small console project that references the plugin, so every trigger, field, and variable is real.
+* **Shots.** `shots.mjs` opens each tab at an 800 by 771 viewport and 2x with Playwright, selects a script, opens what the shot needs, scrolls the subject under the header, and saves the PNG.
+
+To rerun it, start the server, then run every shot or a list of them.
+
+```bash
+python3 server.py 8873
+```
+
+```bash
+node shots.mjs out
+```
+
+```bash
+node shots.mjs out Conditions,History
+```
+
+Read each PNG in `out/`, then copy it over its file in `docs/screenshots/`.
 
 ### Names and Placement
 
@@ -263,6 +291,7 @@ changelog:
     - The arrows on collapsible sections were too small. They are back to their usual size
 ```
 
+* List only this release. Drop a line that shipped in the last release, and a line that a later change in this release replaced.
 * This is the one place that may say "now", "no longer", and "was".
 * Write full sentences with no closing period.
 * Write one entry per change a user would notice. Fold internal steps into the change they serve.

@@ -13,6 +13,7 @@ How to write, comment, and test code in this plugin. It covers C#, JavaScript, H
 * Delete a local copy as soon as Base offers the same thing. Do it in the commit that moves to that Base version.
 * Never shadow a Base name. A local `FormatUtilities` beside Base's `FormatUtilities` is ambiguous.
 * Read Base from the package this plugin builds against. The C# source is in `~/.nuget/packages/jpkribs.jellyfin.base/<version>/src/`, and the JS typings are in `assets/jpkribs_shared.d.ts` beside it.
+* Moving a page's UI to a Base component is UI work, not a [stop and ask](../starthere.md#stop-and-ask) item. Only stored data, routes, authorization, and secret handling are.
 * Treat the local Base checkout as read only. Base has its own owner and its own release, so report a gap and wait for the version that closes it.
 * When Base differs from the local code it replaces, keep the local behavior in a small step around the Base call, and cover it with a test. The HTTP request step turns a 5xx, a 429, or no answer from `JpkHttp` into the exception `RetryPolicy` retries.
 
@@ -199,7 +200,8 @@ export function renderRunSteps(shared, run) {
 * Register every poller and observer with the page handle so `viewhide` stops it.
 * Pass the page handle to `openDialog` as `page`, so leaving the tab closes the dialog.
 * A Save Bar's `onSave` returns the save promise. To stop a save, reject with an `Error` whose message the bar shows.
-* Mount a Base control in a plain `base-field` with its label and description, never inside an `inputContainer`, which stretches every input in it.
+* Mount a Base control that holds inputs in a plain `base-field` with its label and description, never inside an `inputContainer`, which widens every input in it, unless the component's typings say it belongs there.
+* Watch for class names that collide with Jellyfin's own CSS. Jellyfin's global `.card` rule sets paint containment, and Base's card Repeater adds a bare `card` class. A Base component that draws a fixed popup, such as a Chip Select's list, never sits inside an element with `contain`, `transform`, or `filter`, since its popup lands off screen there.
 * Offer suggestions for one text value with `createComboBox`, never a `datalist`.
 * A Repeater row keeps keys that no field shows, such as a secret's `PreviousName`. Never add an empty field to carry one.
 * Rewrite typed text with a Repeater field's `transform`, never an input listener.
