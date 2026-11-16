@@ -17,6 +17,7 @@ artifacts:
 - "Jellyfin.Plugin.Scripts.dll"
 changelog:
   changed:
+  - In a condition row, Field, Operator, and the remove button line up with the bottom of the Value box
   - The dashboard pages take Base's new buttons, sections, panels, and dialogs
   - A run's steps show as a timeline with each step's result and output, and its variables as a list
   - The webhook address has its own copy button beside it

@@ -6,3 +6,8 @@
 
 /* The webhook example, a field gap above the New address button. */
 #webhookExample { margin-bottom: var(--base-gap-wide); }
+
+/* condition rows */
+/* Bottom-aligns Field, Operator, and the remove button with the Value box, since picked chips sit above that box. */
+/* Example: <div id="conditionList"><div class="base-repeater-row">...</div></div> */
+#conditionList .base-repeater-row { align-items: end; }
