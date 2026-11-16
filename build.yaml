@@ -36,6 +36,7 @@ changelog:
   - The History columns keep the widths you drag them to
   - A step condition's variable suggests the script's variable names as you type
   fixed:
+  - A Run now run showed as Manual in History. It shows as Run now
   - Condition values offer their choices as you type
   - Time, count, and webhook address fields keep their own layout on the server's dashboard
   - The arrows on collapsible sections are back to their usual size
