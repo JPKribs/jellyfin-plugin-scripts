@@ -4,7 +4,11 @@ Each script has **triggers**, optional **item kinds**, **users**, and **conditio
 
 ![The Scripts tab](screenshots/Scripts.png)
 
-Each script has a **name** and an optional **description** saying what it is for. **New script** asks for both and starts from a blank script or a template, such as stopping playback paused for 30 minutes, limiting the server to 3 transcodes, asking "Still watching?" after 3 hours, posting new items to Discord, or scanning every library nightly. **Duplicate** copies the open script. Changes are kept until you **Save**. The line above **Save** says when there are unsaved changes, and leaving the page with unsaved changes asks first.
+The counts at the top show how many scripts there are, and how many are enabled and disabled. Select a script from the list above **New**, **Duplicate**, **Delete**, **Export**, and **Import** to edit it.
+
+Each script has a **Name** and an optional **Description** saying what it is for. **New** asks for both and starts from a blank script or a template, such as stopping playback paused for 30 minutes, limiting the server to 3 transcodes, asking "Still watching?" after 3 hours, posting new items to Discord, or scanning every library nightly. **Duplicate** adds a disabled copy of the open script, without its secrets. **Delete** asks first, then deletes the open script and saves that at once. Unsaved edits to other scripts stay unsaved.
+
+Every other change is kept until you **Save**. **Save** is the full width bar at the bottom of the editor, and the line above it says when there are unsaved changes. Leaving the page with unsaved changes asks first.
 
 ![Starting from a template](screenshots/NewScript.png)
 
@@ -13,6 +17,8 @@ Each script has a **name** and an optional **description** saying what it is for
 A script runs on any of the triggers it lists. The list is grouped and searchable. A script with no triggers still runs from **Run now**, from another script's **Run another script** step, or as another script's failure script.
 
 ![Choosing triggers](screenshots/Triggers.png)
+
+A checked trigger that waits for a number shows it in a panel under the list. **Paused for a while** and **Playing for a while** take a duration in hours and minutes. **Playback passed a percentage**, **Stream count reached**, and **Transcode count reached** take their number on a slider.
 
 ### Playback
 
@@ -66,7 +72,7 @@ Every playback trigger carries the user, session, and item, plus `ACTIVE_STREAMS
 | New device seen | A device the server has not seen before starts a session. The plugin remembers devices from the moment it is installed, and takes the ones connected at that moment as already known. |
 | Client connected | A client opens its live connection, so it can receive messages and commands. Use this, not **Signed in**, to message a client as it arrives. |
 | Device settings changed | A device's settings, such as its custom name, change. |
-| Sign in failed | A sign in fails for an existing user. Jellyfin reports no event for a username that doesn't exist. |
+| Sign in failed | A sign in fails for an existing user. Jellyfin reports no event for a username that does not exist. |
 
 ### Accounts
 
@@ -106,7 +112,7 @@ The script's conditions still apply to each run, and its steps see the event as 
 
 ### Webhook
 
-**Webhook received** gives the script its own address, shown in the editor with a copy button and an example `curl` command. Another service runs the script by sending a `POST` there.
+**Webhook received** gives the script its own address. The **Webhook** panel shows it in an **Address** field with a copy button beside it, and an example `curl` command below. Another service runs the script by sending a `POST` there.
 
 ![The webhook address](screenshots/Webhook.png)
 
@@ -137,7 +143,7 @@ A schedule, a webhook, **Run now**, and most system triggers carry no item and n
 * **Each library item** goes through the items of the script's **item kinds**, which must list at least one, and runs for each one that passes the **conditions**. Besides the usual item fields, conditions can use **Days since added**, **Has subtitles**, **Played by anyone**, and **Days since last played**, which counts from when the item was added if nobody has played it.
 * **Each user** goes through the users in the script's **users** list, or everyone when it is empty, and runs for each one that passes the conditions, which can also use **Days since last active** and **Is disabled**.
 
-Each match is its own run in the history. **Most runs per event** caps how many one event may start, 50 unless you change it, at most 500. On a trigger that already has an item or a user, such as **Playback started**, the script runs once as usual.
+Each match is its own run in the history. **Most runs per event** is a slider that caps how many one event may start, 50 unless you change it, at most 500. On a trigger that already has an item or a user, such as **Playback started**, the script runs once as usual.
 
 For example, a script on a weekly schedule, for each **Movie** where **Days since last played is at least 90**, with an **Add tag** step, tags every movie nobody has watched in three months.
 
@@ -160,9 +166,13 @@ Users only filter triggers that carry a user. Others ignore them. For anything f
 
 ## Conditions
 
-Each condition compares one event value with one or more values, using **is**, **is not**, **contains**, **does not contain**, **starts with**, or **matches regex**. Numeric fields, such as **Year** or **Active transcodes**, also offer **is at least** and **is at most**. Text comparisons ignore case. A positive operator matches when any value matches, and a negative one matches when none do. Choose whether the script runs when **all** conditions match or when **any** does.
+Each condition is one row of **Field**, **Operator**, and **Value**. **Add condition** adds a row, and the cross at the end of a row removes it. A condition compares one event value with one or more values, using **is**, **is not**, **contains**, **does not contain**, **starts with**, or **matches regex**. Numeric fields, such as **Year** or **Active transcodes**, also offer **is at least** and **is at most**. Text comparisons ignore case. A positive operator matches when any value matches, and a negative one matches when none do. Choose **All conditions** to run only when every condition matches, or **Any condition** to run when at least one does.
 
-A numeric field takes one number. A field with known choices, such as a user, library, scheduled task, collection, or play method, lists the choices that match as you type, and lists them all when you select the empty field. Select one to add it. A user, library, or task is saved by its ID and shown by its name. Text that matches no choice is kept as typed when you press Enter, which suits **contains** and **matches regex**. For any other field, type each value and press Enter.
+The **Value** box depends on the field. The three boxes of a row line up along their bottom edge, since the values picked for a field sit above its **Value** box.
+
+* A numeric field takes one number in a number box.
+* A field with known choices, such as a user, library, scheduled task, collection, or play method, lists the choices that match as you type, and lists them all when you select the empty box. Select one to add it above the box. A user, library, or task is saved by its ID and shown by its name. Text that matches no choice is kept as typed when you press Enter, which suits **contains** and **matches regex**.
+* Any other field takes free text as tags. Type each value and press Enter.
 
 ![Conditions](screenshots/Conditions.png)
 
@@ -174,14 +184,14 @@ A numeric field takes one number. A field with known choices, such as a user, li
 | For each library item | Played by anyone, Days since last played |
 | For each user | Days since last active, Is disabled |
 | Playback | Play method, Progress percent, Played to completion, Transcode reasons, Video codec, Audio codec, Active streams, Active transcodes, Is played, Is favorite |
-| When | Hour (0 to 23), Day of week |
+| When | Hour (0-23), Day of week |
 | System | Scheduled task, Task status, Task category, Plugin name, Provider, Update reason, Activity type, Activity severity |
 
 Genre, Tag, and Studio match when any of the item's values does. A field the trigger does not supply, or a value this event happens to lack, never matches, for **is not** and **does not contain** too. For example, **Series name is not** does not match a movie, which has no series. The editor warns when a condition's field is missing from some of the selected triggers.
 
 **Matches regex** uses .NET regular expressions, ignores case, and counts as no match when a pattern is invalid or takes longer than 100 ms. The server keeps only the 15 most recently used patterns compiled. With more distinct patterns across your scripts, each one is rebuilt whenever it is checked, which slows down busy triggers such as a library scan. Prefer **contains** or **starts with** where they do the job.
 
-**Cooldown** skips the script for the same trigger, user, and item until the cooldown, set in hours, minutes, and seconds, has passed since its last run, so a script on both start and stop still sees the stop. It keeps pause and resume from running a script over and over.
+**Cooldown**, under **Behavior**, skips the script for the same trigger, user, and item until that long has passed since its last run, so a script on both start and stop still sees the stop. It keeps pause and resume from running a script over and over. It is a duration in hours, minutes, and seconds, and 0 turns it off.
 
 ## Steps
 
@@ -207,7 +217,7 @@ Steps run in order. Drag a step, or use its arrows, to reorder it, and open it t
 | Users | Disable or enable user | Disables or enables the event's user. Administrators are never disabled. | A user |
 | | Sign user out | Signs the event's user out of every device. Administrators are never signed out. | A user |
 | Server | Scan libraries | Queues a scan of every library. | |
-| | Run scheduled task | Queues a scheduled task. A task starting or finishing can't queue itself, and a task a script queued can't queue another, since tasks queuing each other would repeat forever. | |
+| | Run scheduled task | Queues a scheduled task. A task starting or finishing cannot queue itself, and a task a script queued cannot queue another, since tasks queuing each other would repeat forever. | |
 | | Write to activity log | Adds an entry to the server's activity log. | |
 | | Append to file | Appends a line to a file, creating the file if its folder exists. | |
 
@@ -231,13 +241,13 @@ Under **Behavior**, **When this script fails, run** names another script to run 
 
 ### HTTP request
 
-**Start from a preset** fills the request for a generic JSON webhook, Discord, Slack, ntfy, Gotify, or a Home Assistant service call. Replace the URL, and put tokens in the script's [secrets](#secrets). **Retries** tries again, up to 5 times and waiting longer each time, after no answer, a 5xx, or a 429.
+**Start from a preset** fills the request for a generic JSON webhook, Discord, Slack, ntfy, Gotify, or a Home Assistant service call. Replace the URL, and put tokens in the script's [secrets](#secrets). **Retries**, a slider, tries again up to 5 times and waiting longer each time, after no answer, a 5xx, or a 429.
 
 ### Run command
 
 Placeholders may fill the command, but a value holding a path (a `/`, a `\`, or `..`) is refused there, so an event value such as a device name can never change which program runs. Pass such values as arguments.
 
-Use **Check path** to confirm the server can see the file and that it is executable. The server runs it as the account Jellyfin runs under, in the folder that holds the script unless you set a working folder. It is stopped after its timeout, which defaults to the value on the Settings tab. A script may start a background process and exit; the step reports the script's own exit code as soon as it finishes.
+Use **Check path** to confirm the server can see the file and that it is executable. The server runs it as the account Jellyfin runs under, in the folder that holds the script unless you set a working folder. It is stopped after its **Timeout**, a duration in minutes and seconds. A timeout of 0 uses the **Default command timeout** on the **Settings** tab. A script may start a background process and exit; the step reports the script's own exit code as soon as it finishes.
 
 **Run directly** passes each line of **Arguments** as exactly one argument, with placeholders filled, so a value containing spaces or quotes never splits into more.
 
@@ -255,7 +265,7 @@ Use **Check path** to confirm the server can see the file and that it is executa
 
 ## Secrets
 
-Keep tokens and passwords in the script's **Secrets** rather than in its steps. Use one as `{{SECRET_NAME}}` in a step, or `$JF_SECRET_NAME` in a command. Values are encrypted into their own file on the server, never sent back to the browser in any form, and left out of exports. Wherever a secret of three or more characters shows up in a step's message or a command's output, the history and the activity log show `[SECRET_NAME]` instead. Renaming a secret keeps its value. A stored value shows as dots and stays until you type a new one. **Clear** empties it when you save, and removing the secret drops it.
+Keep tokens and passwords in the script's **Secrets** rather than in its steps. Use one as `{{SECRET_NAME}}` in a step, or `$JF_SECRET_NAME` in a command. Values are encrypted into their own file on the server, never sent back to the browser in any form, and left out of exports. Wherever a secret of three or more characters shows up in a step's message or a command's output, the history and the activity log show `[SECRET_NAME]` instead. Each secret is a row with a **Name** and a **Value**. **Add secret** adds a row, and the cross at the end of a row removes the secret when you save. A name is capital letters, digits, and underscores, and typing fixes it as you go. Renaming a secret keeps its value. A stored value shows as dots and stays until you type a new one. The **Clear Value** button beside a stored value empties it when you save.
 
 ![Secrets](screenshots/Secrets.png)
 
@@ -263,7 +273,7 @@ Keep tokens and passwords in the script's **Secrets** rather than in its steps. 
 
 A command receives every variable the trigger supplies as an environment variable with a `JF_` prefix, such as `$JF_ITEM_NAME`, plus `$JF_EVENT_JSON` holding all of them as one JSON object. A value the event lacks is set to an empty string, so a script under `set -u` can still test it.
 
-In a step's text fields, write a variable as `{{ITEM_NAME}}`. Use `{{ITEM_NAME:json}}` inside a JSON string, and `{{ITEM_NAME:url}}` inside a URL. The **Variables** section of the editor lists the ones the selected triggers supply, each with what it holds. Select one to copy it.
+In a step's text fields, write a variable as `{{ITEM_NAME}}`. Use `{{ITEM_NAME:json}}` inside a JSON string, and `{{ITEM_NAME:url}}` inside a URL. The **Variables** section at the bottom of the editor opens to list the ones the selected triggers supply, each with what it holds, along with the script's secrets and the outputs its steps save. Select one to copy it as a placeholder, such as `{{ITEM_NAME}}`, and a short note confirms the copy.
 
 | Group | Variables |
 |---|---|
@@ -298,7 +308,7 @@ Users are stored by ID, so on another server a script's users show as unknown un
 
 ## Testing
 
-**Test** runs the open script's steps right away, including unsaved edits and its secrets, with sample values for the chosen trigger. Item kinds and conditions are not applied, and steps that act on the event's session, user, or item are skipped, because the sample has none. A message for every session or every administrator goes only to your own sessions. Other steps, such as a command, an HTTP request, a library scan, or a queued task, really run.
+At the bottom of the editor, the trigger to test with sits over **Test** and **Run now**, directly above **Save**. **Test** runs the open script's steps right away, including unsaved edits and its secrets, with sample values for the chosen trigger, and shows each step's result in a dialog. Item kinds and conditions are not applied, and steps that act on the event's session, user, or item are skipped, because the sample has none. A message for every session or every administrator goes only to your own sessions. Other steps, such as a command, an HTTP request, a library scan, or a queued task, really run.
 
 ![A test run](screenshots/TestRun.png)
 
@@ -306,16 +316,22 @@ A test of a script that runs for each item or user uses one sample item or user.
 
 ## History
 
-Every run, tests included, is listed on the **History** tab. Search it, or filter it to failed runs, tests, or one script.
+Every run, tests included, is listed on the **History** tab, newest first. The table fills the window and scrolls inside it. Its columns are **Run**, **Trigger**, **Started**, **Duration**, and **Result**, and a test shows *(test)* after its script's name. Drag the edge of a heading to resize its column, and the width is kept for the next visit. On a phone the table shows only the run and its result.
+
+Search the runs, or filter them to **Failed**, **Tests**, or one script. **Clear history** asks first, then deletes every recorded run.
 
 ![History](screenshots/History.png)
 
-Open a run to see each step's result, the captured output, and the variables it received.
+Open a run to see its result, trigger, start, and length, each step's result with any captured output, and the variables it received.
 
 ![Run details](screenshots/RunDetails.png)
 
 ## Settings
 
-The **Settings** tab sets how many scripts run at once, the default command timeout, and how many runs the history keeps.
+The **Settings** tab sets how the scripts run, with **Save** at the bottom.
+
+* **Runs at once** is a slider that sets how many scripts may run at the same time. Further runs wait their turn.
+* **Default command timeout** is a duration in minutes and seconds. A **Run command** step that sets no timeout of its own is stopped after this long.
+* **Runs kept in the history** is a slider. The oldest runs are dropped past this many, and 0 keeps none.
 
 ![Settings](screenshots/Settings.png)

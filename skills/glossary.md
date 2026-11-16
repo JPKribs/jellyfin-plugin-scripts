@@ -37,7 +37,7 @@ The agreed name for every concept in this plugin. The UI, the docs, messages, an
 | Users | The users a script runs for. None means everyone | `UserIds` | Accounts, people |
 | Condition | One test of a field against values that a script must pass | `ScriptCondition` | Filter, rule |
 | All conditions, Any condition | Whether every condition or at least one must match | `ConditionMatch`, `Match` | And, or |
-| Cooldown | Seconds a script skips the same trigger, user, and item after a run | `CooldownSeconds` | Throttle, debounce |
+| Cooldown | How long a script skips the same trigger, user, and item after a run, set in hours, minutes, and seconds | `CooldownSeconds` | Throttle, debounce |
 | Run for each | Running once for each library item or user, for a trigger with none of its own | `ForEachMode`, `ForEach` | Loop, batch, fan out |
 | Most runs per event | The cap on runs one event starts while running for each | `ForEachLimit` | Limit, max |
 

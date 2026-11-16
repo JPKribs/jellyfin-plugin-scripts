@@ -1,6 +1,6 @@
 # Examples
 
-Each example lists what to set in the editor. Several are also offered as templates under **New script**, marked *(template)*. Replace URLs, names, and tokens with your own, and keep tokens in the script's **Secrets**.
+Each example lists what to set in the editor. Several are also offered as templates under **New**, marked *(template)*. Replace URLs, names, and tokens with your own, and keep tokens in the script's **Secrets**.
 
 ## Playback
 
@@ -17,7 +17,7 @@ Frees the stream when someone pauses and walks away.
 
 | Setting | Value |
 |---|---|
-| Trigger | **Playing for a while**, 180 minutes |
+| Trigger | **Playing for a while**, 3 hours |
 | Step | **Send message** to the session that raised the event, title `Still watching?`, message `You have been watching for 3 hours.` |
 
 The time counts playback only, not pauses, and the script runs once per playback.
@@ -90,7 +90,7 @@ Body, with `:json` so names containing quotes stay valid JSON:
 { "content": "New on {{SERVER_NAME:json}}: {{SERIES_NAME:json}} {{ITEM_NAME:json}} ({{YEAR}})" }
 ```
 
-**Item added** waits up to a minute for metadata, so the year and provider IDs are usually filled. Set **Retries** to 2 or 3 so a brief Discord outage doesn't lose the post.
+**Item added** waits up to a minute for metadata, so the year and provider IDs are usually filled. Set **Retries** to 2 or 3 so a brief Discord outage does not lose the post.
 
 ### Tag 4K movies as they arrive
 
@@ -139,7 +139,7 @@ A second script with **Is favorite** is `false` and **Remove from collection** k
 | Setting | Value |
 |---|---|
 | Trigger | **Sign in failed** |
-| Cooldown | 300 seconds, so a burst of attempts sends one alert per user |
+| Cooldown | 5 minutes, so a burst of attempts sends one alert per user |
 | Step | **HTTP request** from the **ntfy** preset, URL `https://ntfy.sh/{{SECRET_NTFY_TOPIC}}` |
 
 Body (plain text, so no `:json`):
@@ -255,7 +255,7 @@ Anything the script prints is kept as the step's output on the **History** tab.
 
 ### Pipes and redirects
 
-Choose **Through the shell** to write one `/bin/sh` line. Placeholders aren't filled there, so use the environment variables:
+Choose **Through the shell** to write one `/bin/sh` line. Placeholders are not filled there, so use the environment variables:
 
 ```sh
 echo "$JF_LOCAL_DATE $JF_USER_NAME $JF_ITEM_NAME" | tee -a /scripts/plays.log

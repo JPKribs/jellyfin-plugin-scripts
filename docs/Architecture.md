@@ -20,7 +20,9 @@ Scripts targets Jellyfin 12.4 (`net10.0`, ABI `12.4.0.0`). Every event and API i
 
 The API routes all sit under `Scripts/`: `GET Catalog`, `GET Status`, `POST Test`, `POST Run/{id}`, `POST Webhook/{token}`, `GET` and `DELETE History`, and `GET CheckPath`.
 
-The dashboard pages import Base only through `scripts_common.js`, which also holds the tab bar and the labels each enum name displays as.
+`GET History` takes Base's `PagedQuery`, so the **History** tab's Data Table reads one page at a time with its search and its filter, `failed`, `test`, or a script ID.
+
+The dashboard pages import Base only through `scripts_common.js`, which also holds the tab bar and the labels each enum name displays as. The lists, row editors, pickers, sliders, duration fields, and Save Bars on the three tabs are Base components. `scripts_shared.css` holds only spacing between them, and the bottom alignment of the condition rows.
 
 ## State
 
