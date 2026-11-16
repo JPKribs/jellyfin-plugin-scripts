@@ -20,9 +20,11 @@ changelog:
   - The dashboard pages take Base's new buttons, sections, panels, and dialogs
   - A run's steps show as a timeline with each step's result and output, and its variables as a list
   - The webhook address has its own copy button beside it
-  - Conditions are rows of Field, Operator, and Value with a remove button on each, and the warnings for them sit under the rows
+  - Each condition is one line of Field, Operator, and Value with a remove button. A number is a number box, and other values are tags inside the field
+  - The warnings for conditions sit under the rows
   - The History table fills the window and scrolls inside, shows the trigger in its own column, and has Clear history beside the search
-  - Save sits in its own bar with no line above it, whose status says when there are unsaved changes, and Test and Run now sit beside the trigger to test with
+  - Save sits in its own bar with no line above it, whose status says when there are unsaved changes
+  - Every Save is the same full width Save Bar, with any other actions in a full width row above it
   - Secrets are rows of a name and a secret field. A stored value shows as dots, and removing the secret drops it
   - Times such as the cooldown, a pause, a timeout, and a wait are set in hours, minutes, and seconds, and counts such as streams, retries, and runs at once with a slider
   - Variables are a list with what each one holds, and selecting one copies it
@@ -30,6 +32,7 @@ changelog:
   - Check path shows its answer under the command
   - A run's result, trigger, start, and length show as a list at the top of its dialog
   fixed:
+  - Time, count, and webhook address fields keep their own layout on the server's dashboard
   - The arrows on collapsible sections are back to their usual size
   developer:
   - Uses JPKribs.Jellyfin.Base 2026.11.17, with its Timeline, Definition List, Copy Field, Panel, Repeater, and Data Table in place of the local run steps, variables list, copy button, trigger option frames, condition rows, and history table

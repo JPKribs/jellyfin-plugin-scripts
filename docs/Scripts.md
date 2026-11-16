@@ -162,6 +162,8 @@ Users only filter triggers that carry a user. Others ignore them. For anything f
 
 Each condition compares one event value with one or more values, using **is**, **is not**, **contains**, **does not contain**, **starts with**, or **matches regex**. Numeric fields, such as **Year** or **Active transcodes**, also offer **is at least** and **is at most**. Text comparisons ignore case. A positive operator matches when any value matches, and a negative one matches when none do. Choose whether the script runs when **all** conditions match or when **any** does.
 
+A numeric field takes one number. For any other field, type each value and press Enter. A user, library, or task is typed by its name.
+
 ![Conditions](screenshots/Conditions.png)
 
 | Group | Fields |

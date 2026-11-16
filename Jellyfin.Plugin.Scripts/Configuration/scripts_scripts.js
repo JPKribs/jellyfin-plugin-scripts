@@ -3,7 +3,7 @@
 // secrets, and behavior, with Save, Test, and Run now.
 
 import {
-    createScriptsPage, createRepeater, createChipSelect, createCheckboxList, createUserMultiSelector, createSortableCardList,
+    createScriptsPage, createRepeater, createChipSelect, createTagInput, adornField, createCheckboxList, createUserMultiSelector, createSortableCardList,
     createChoiceGroup, createCopyField, createRecordList, createSaveBar, createSliderField, createDurationField,
     createToaster, confirmDialog, promptDialog, openDialog, generateGuid, downloadJson, pickJsonFile, setFieldState, SECRET_KEPT,
     FIELD_GROUPS, FIELD_LABELS, NUMERIC_FIELDS, OPERATOR_LABELS, OPERATION_TYPES, renderRunSummary, renderRunSteps
@@ -402,7 +402,8 @@ export default function (view) {
     }
 
     // conditionValueField
-    // The Repeater's value cell, a Base Chip Select offering the choices of the row's field.
+    // The Repeater's value cell, one field tall: a number box for a numeric field, and otherwise a Base Tag Input whose
+    // tags show the labels of the field's choices, such as user names, and store their values.
     //
     // Inputs
     // value [object]: The cell value, as { field, values }.
@@ -412,26 +413,66 @@ export default function (view) {
     // [object]: The cell's element, input, getValue, setValue, and destroy.
     function conditionValueField(value, change) {
         var state = value || { field: null, values: [] };
-        var chips = enterPicksSuggestion(createChipSelect({
-            options: valueOptions(state.field),
-            value: labelled(state.field, state.values),
-            placeholder: 'Pick or type a value',
-            allowCreate: true,
-            onChange: function (values) {
-                state.values = values;
-                change();
+        var control = null;
+
+        // A typed label stores its choice's value, and any other text is kept as typed.
+        function toValue(text) {
+            var match = valueOptions(state.field).find(function (o) { return String(o.label).toLowerCase() === String(text).toLowerCase(); });
+            return match ? match.value : text;
+        }
+
+        // Draws the control for the row's field, in place of the one before it.
+        function build() {
+            var before = control;
+            if (NUMERIC_FIELDS[state.field]) {
+                var input = document.createElement('input');
+                input.setAttribute('is', 'emby-input');
+                input.type = 'number';
+                input.setAttribute('aria-label', 'Value');
+                input.value = state.values.length ? state.values[0] : '';
+                input.addEventListener('input', function () {
+                    state.values = input.value === '' ? [] : [input.value];
+                    change();
+                });
+                var holder = document.createElement('div');
+                holder.appendChild(input);
+                var adorned = adornField(input);
+                control = { element: holder.firstElementChild, input: input, destroy: function () { adorned.destroy(); } };
+                swap(before);
+                return;
             }
-        }), false);
+            var choices = valueOptions(state.field);
+            var tags = createTagInput({
+                values: labelled(state.field, state.values).map(function (o) { return o.label; }),
+                placeholder: choices.length ? choices[0].label : 'Type a value and press Enter',
+                inputLabel: 'Value',
+                onChange: function (labels) {
+                    state.values = labels.map(toValue);
+                    change();
+                }
+            });
+            control = { element: tags.element, input: tags.input, destroy: function () { tags.destroy(); } };
+            swap(before);
+        }
+
+        // Puts the new control where the old one was, so it stays the cell's own child.
+        function swap(before) {
+            if (!before) return;
+            if (before.element.parentNode) before.element.parentNode.replaceChild(control.element, before.element);
+            before.destroy();
+        }
+
+        build();
         return {
-            element: chips.element,
-            input: chips.element.querySelector('input'),
-            getValue: function () { return { field: state.field, values: chips.getValue() }; },
+            get element() { return control.element; },
+            get input() { return control.input; },
+            getValue: function () { return { field: state.field, values: state.values.slice() }; },
             setValue: function (next) {
                 state = next || { field: null, values: [] };
-                chips.setOptions(valueOptions(state.field));
-                chips.setValue(labelled(state.field, state.values));
+                state.values = (state.values || []).slice();
+                build();
             },
-            destroy: function () { chips.destroy(); }
+            destroy: function () { if (control) control.destroy(); }
         };
     }
 
@@ -595,7 +636,8 @@ export default function (view) {
                     (opts.placeholder ? ' placeholder="' + esc(opts.placeholder) + '"' : '') + '>' + esc(value) + '</textarea>'
                 : '<input is="emby-input" type="text" id="' + id + '" data-key="' + key + '" value="' + esc(value) + '"' +
                     (opts.placeholder ? ' placeholder="' + esc(opts.placeholder) + '"' : '') + ' />';
-        return '<div class="inputContainer"><label' + (opts.number ? '' : ' for="' + id + '"') + '>' + esc(label) + '</label>' + field +
+        // A Base control sits in a plain field, since Jellyfin stretches every input inside an inputContainer.
+        return '<div class="' + (opts.number ? 'base-field' : 'inputContainer') + '"><label' + (opts.number ? '' : ' for="' + id + '"') + '>' + esc(label) + '</label>' + field +
             (opts.help ? '<div class="fieldDescription">' + opts.help + '</div>' : '') + '</div>';
     }
 
@@ -1418,7 +1460,7 @@ export default function (view) {
         });
         el('variableMount').appendChild(variableList.element);
 
-        saveBar = createSaveBar({ onSave: save });
+        saveBar = createSaveBar({ fill: true, onSave: save });
         el('saveBarMount').appendChild(saveBar.element);
         el('btnTestScript').addEventListener('click', runTest);
         el('btnRunScript').addEventListener('click', runNow);

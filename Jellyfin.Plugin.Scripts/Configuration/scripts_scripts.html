@@ -83,7 +83,7 @@
 
                                 <div id="pausedOptions" class="base-panel hidden">
                                     <div class="base-panel-body">
-                                        <div class="inputContainer">
+                                        <div class="base-field">
                                             <label>Paused for a while</label>
                                             <div id="pausedMinutesMount"></div>
                                             <div class="fieldDescription">Runs once per pause, after the session has stayed paused this long.</div>
@@ -93,7 +93,7 @@
 
                                 <div id="playingOptions" class="base-panel hidden">
                                     <div class="base-panel-body">
-                                        <div class="inputContainer">
+                                        <div class="base-field">
                                             <label>Playing for a while</label>
                                             <div id="playingMinutesMount"></div>
                                             <div class="fieldDescription">Runs once per playback, after this much playing time. Pauses do not count.</div>
@@ -103,7 +103,7 @@
 
                                 <div id="progressOptions" class="base-panel hidden">
                                     <div class="base-panel-body">
-                                        <div class="inputContainer">
+                                        <div class="base-field">
                                             <label>Playback passed a percentage</label>
                                             <div id="progressPercentMount"></div>
                                             <div class="fieldDescription">Runs once per playback, when it goes from below this percentage to at or past it.</div>
@@ -113,7 +113,7 @@
 
                                 <div id="streamOptions" class="base-panel hidden">
                                     <div class="base-panel-body">
-                                        <div class="inputContainer">
+                                        <div class="base-field">
                                             <label>Stream count reached</label>
                                             <div id="streamCountMount"></div>
                                             <div class="fieldDescription">Runs when the number of active streams rises to this many. The event is the stream that reached it.</div>
@@ -123,7 +123,7 @@
 
                                 <div id="transcodeOptions" class="base-panel hidden">
                                     <div class="base-panel-body">
-                                        <div class="inputContainer">
+                                        <div class="base-field">
                                             <label>Transcode count reached</label>
                                             <div id="transcodeCountMount"></div>
                                             <div class="fieldDescription">Runs when the number of transcoding streams rises to this many. The event is the stream that reached it.</div>
@@ -134,7 +134,7 @@
                                 <div id="webhookOptions" class="base-panel hidden">
                                     <div class="base-panel-header">Webhook</div>
                                     <div class="base-panel-body">
-                                        <div class="inputContainer">
+                                        <div class="base-field">
                                             <label id="webhookUrlLabel">Address</label>
                                             <div id="webhookUrlMount"></div>
                                             <div class="fieldDescription">
@@ -264,7 +264,7 @@
                                         passes its conditions. A trigger that already has one runs once as usual.
                                     </div>
                                 </div>
-                                <div id="forEachLimitRow" class="inputContainer hidden">
+                                <div id="forEachLimitRow" class="base-field hidden">
                                     <label>Most runs per event</label>
                                     <div id="forEachLimitMount"></div>
                                     <div class="fieldDescription">Stops after this many matches. Each one is its own run in the history.</div>
@@ -279,7 +279,7 @@
                                         needs no triggers of its own.
                                     </div>
                                 </div>
-                                <div class="inputContainer">
+                                <div class="base-field">
                                     <label>Cooldown</label>
                                     <div id="cooldownMount"></div>
                                     <div class="fieldDescription">
@@ -307,20 +307,7 @@
                             </div>
                         </div>
 
-                        <!-- Test and run -->
-                        <div class="base-selector">
-                            <select is="emby-select" id="testTrigger" class="base-selector-dropdown" aria-label="Trigger to test with"></select>
-                            <div class="base-selector-actions">
-                                <button is="emby-button" type="button" id="btnTestScript" class="raised base-button secondary">
-                                    <span class="material-icons" aria-hidden="true">science</span>
-                                    <span>Test</span>
-                                </button>
-                                <button is="emby-button" type="button" id="btnRunScript" class="raised base-button secondary">
-                                    <span class="material-icons" aria-hidden="true">play_arrow</span>
-                                    <span>Run now</span>
-                                </button>
-                            </div>
-                        </div>
+                        <!-- Test, Run now, and Save -->
                         <div class="fieldDescription">
                             Test runs this script's steps now with sample values for the chosen trigger, including unsaved
                             edits. Filters and conditions are not applied, and steps that act on a session, item, or user
@@ -328,8 +315,17 @@
                             triggers, filters, and cooldown say.
                         </div>
                         <span id="scriptStatus" class="base-status-text"></span>
-
-                        <!-- Save -->
+                        <div class="base-button-row">
+                            <select is="emby-select" id="testTrigger" class="base-selector-dropdown" aria-label="Trigger to test with"></select>
+                            <button is="emby-button" type="button" id="btnTestScript" class="raised base-button secondary fill">
+                                <span class="material-icons" aria-hidden="true">science</span>
+                                <span>Test</span>
+                            </button>
+                            <button is="emby-button" type="button" id="btnRunScript" class="raised base-button secondary fill">
+                                <span class="material-icons" aria-hidden="true">play_arrow</span>
+                                <span>Run now</span>
+                            </button>
+                        </div>
                         <div id="saveBarMount"></div>
                     </div>
 

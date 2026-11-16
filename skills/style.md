@@ -115,7 +115,7 @@ A placeholder shows an example of a valid value. It is never the only place an i
 
 * A verb, or a verb and a noun. **Save**, **Add step**, **Run now**.
 * Name the object when the page has more than one of that action. **Add condition**, **Add step**, and **Add secret** sit on the same page.
-* A primary Save is **Save**. Use **Save** and a noun only when one page has several saves.
+* Save is always **Save**, on the Save Bar. See [Saving](#saving).
 * An icon only button carries a `title` of one to three words, such as `Remove`, `Move Up`, or `Retry`. Never a sentence.
 * A button that runs for a while shows progress in place. See [Progress](#progress).
 
@@ -275,20 +275,17 @@ Every config page uses Jellyfin's page shell.
 
 ### Saving
 
-Pick one model per page and keep it.
+Every save is one Save Bar, the same on every page.
 
-| Model | Use it when | Save button |
-| :--- | :--- | :--- |
-| One Save per page | Settings depend on each other, as on **Settings** and **Scripts** | `raised base-button primary`, with `fill` when it stands alone |
-| One Save per section | Sections are independent and long | `raised base-button primary small` in `base-collapsible-actions flush` |
-| Editor dialog | Each record is edited on its own | **Done** in `openEditorDialog` |
-
-The **Scripts** tab saves every script together, and **Delete** saves at once.
-
-* Save with `createSaveBar`. Track unsaved changes with `createChangeTracker` and pass the result to the bar's `setDirty`, so its line reads "Unsaved changes."
+* Save with `createSaveBar` and `fill: true`. Its button reads **Save**, never Save and a noun.
+* One bar per thing that saves. **Settings** and **Scripts** each save once, so each has one bar at the bottom of the page. A page whose sections save on their own has one bar at the bottom of each section.
+* The bar is the last element of what it saves. Nothing sits beside it or below it.
+* Other actions that belong with the save, such as **Test**, **Run now**, and the trigger to test with, go in one `base-button-row` directly above the bar. Each button is `raised base-button secondary fill`, or `destructive fill` when it deletes or resets data. A select in that row stays a plain emby select. No `small` buttons in that row.
+* Track unsaved changes with `createChangeTracker` and pass the result to the bar's `setDirty`, so its line reads "Unsaved changes." `onSave` returns the save promise.
 * Guard leaving the page with the `isDirty` option of `createScriptsPage`, or `page.guardUnsaved`.
-* The Save Bar reports a save. Other actions report with `shared.setStatus` beside their button.
+* The Save Bar reports a save. Other actions report with `shared.setStatus` above their row.
 * Use `shared.saveConfigWith` for get, change, save, and report.
+* The **Scripts** tab saves every script together, and **Delete** saves at once.
 
 ## Components
 
@@ -340,7 +337,8 @@ grep -o "export function create[A-Za-z]*" ~/.nuget/packages/jpkribs.jellyfin.bas
 | Primary action | `raised base-button primary` |
 | Destructive action | `raised base-button destructive` |
 | Secondary action | `raised base-button secondary` |
-| Compact action in a section | add `small` |
+| Compact action in a section, never beside a Save | add `small` |
+| Action in the row above a Save Bar | `raised base-button secondary fill` |
 | Icon and label in a toolbar | `raised base-button` holding a `material-icons` span and a label |
 | Icon only in a row | `base-row-btn`, with `.dirty` for unsaved and `.success` after saving |
 
