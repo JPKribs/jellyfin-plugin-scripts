@@ -197,6 +197,12 @@ export function renderRunSteps(shared, run) {
 * Escape every value placed in HTML with `escapeHtml`.
 * Report results with `shared.setStatus`, and errors with `shared.errorText`.
 * Register every poller and observer with the page handle so `viewhide` stops it.
+* Pass the page handle to `openDialog` as `page`, so leaving the tab closes the dialog.
+* A Save Bar's `onSave` returns the save promise. To stop a save, reject with an `Error` whose message the bar shows.
+* Mount a Base control in a plain `base-field` with its label and description, never inside an `inputContainer`, which stretches every input in it.
+* Offer suggestions for one text value with `createComboBox`, never a `datalist`.
+* A Repeater row keeps keys that no field shows, such as a secret's `PreviousName`. Never add an empty field to carry one.
+* Rewrite typed text with a Repeater field's `transform`, never an input listener.
 
 ## Security
 

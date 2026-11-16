@@ -460,15 +460,11 @@ The Scripts pages draw no charts today. When one is needed, pick it here.
 
 ## Hand Built Pieces
 
-Every list, row, card, field, and bar on the three tabs is a Base component. These small steps in `scripts_scripts.js` stand in for a Base option that does not exist yet. Drop each one when Base adds its option. Add nothing to this list.
+Every list, row, card, field, and bar on the three tabs is a Base component. The one step below in `scripts_scripts.js` stands in for a Base option that does not exist yet. Drop it when Base adds the option. Add nothing to this list.
 
 | Built here | The Base option it waits for |
 | :--- | :--- |
-| `enterPicksSuggestion`, which lets Enter pick the suggestion whose label matches the typed text | An option on `createChipSelect` |
-| The empty `Previous` field of the **Secrets** Repeater, which carries the name a secret was loaded with | A way for `createRepeater` rows to keep values that have no field |
-| The listener that turns a secret's name into capitals, digits, and underscores as it is typed | A text field option on `createRepeater` that rewrites what is typed |
-| `failSave`, which puts the reason a save stopped on the Save Bar after its own failed line | A way for `createSaveBar`'s `onSave` to give the failed line's text |
-| The `datalist` of variable names on a step's **Only run this step if** variable | A single value suggestion field exported from Base |
+| `conditionValueField`, a Repeater custom cell that shows a number box for a numeric field and otherwise a Tag Input whose tags show a choice's label and store its value | A `createChipSelect` option that draws the chips inside the field box, one field tall, as Tag Input does |
 
 ## Checklist
 

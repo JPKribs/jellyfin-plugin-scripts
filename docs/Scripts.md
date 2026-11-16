@@ -255,7 +255,7 @@ Use **Check path** to confirm the server can see the file and that it is executa
 
 ## Secrets
 
-Keep tokens and passwords in the script's **Secrets** rather than in its steps. Use one as `{{SECRET_NAME}}` in a step, or `$JF_SECRET_NAME` in a command. Values are encrypted into their own file on the server, never sent back to the browser in any form, and left out of exports. Wherever a secret of three or more characters shows up in a step's message or a command's output, the history and the activity log show `[SECRET_NAME]` instead. Renaming a secret keeps its value. A stored value shows as dots and stays until you type a new one, and removing the secret drops it.
+Keep tokens and passwords in the script's **Secrets** rather than in its steps. Use one as `{{SECRET_NAME}}` in a step, or `$JF_SECRET_NAME` in a command. Values are encrypted into their own file on the server, never sent back to the browser in any form, and left out of exports. Wherever a secret of three or more characters shows up in a step's message or a command's output, the history and the activity log show `[SECRET_NAME]` instead. Renaming a secret keeps its value. A stored value shows as dots and stays until you type a new one. **Clear** empties it when you save, and removing the secret drops it.
 
 ![Secrets](screenshots/Secrets.png)
 

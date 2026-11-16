@@ -49,6 +49,7 @@ export default function (view) {
         openDialog({
             title: run.ScriptName + (run.IsTest ? ' (test)' : ''),
             body: body,
+            page: page,
             buttons: [{ text: 'Close', className: 'base-button secondary', action: function (close) { close(); } }]
         });
     }
@@ -109,6 +110,7 @@ export default function (view) {
             }],
             actions: [{ id: 'clear', label: 'Clear history', icon: 'delete', variant: 'destructive', onClick: clearHistory }],
             emptyText: 'No runs yet.',
+            widthKey: 'scripts-history',
             columns: [
                 { key: 'ScriptName', label: 'Run', width: '2fr', sortable: false, render: function (run) { return run.ScriptName + (run.IsTest ? ' (test)' : ''); } },
                 { key: 'Trigger', label: 'Trigger', width: '1.5fr', sortable: false, render: function (run) { return triggerLabel(run.Trigger); } },

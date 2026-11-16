@@ -3,7 +3,7 @@
 // secrets, and behavior, with Save, Test, and Run now.
 
 import {
-    createScriptsPage, createRepeater, createChipSelect, createTagInput, adornField, createCheckboxList, createUserMultiSelector, createSortableCardList,
+    createScriptsPage, createRepeater, createChipSelect, createTagInput, createComboBox, adornField, createCheckboxList, createUserMultiSelector, createSortableCardList,
     createChoiceGroup, createCopyField, createRecordList, createSaveBar, createSliderField, createDurationField,
     createToaster, confirmDialog, promptDialog, openDialog, generateGuid, downloadJson, pickJsonFile, setFieldState, SECRET_KEPT,
     FIELD_GROUPS, FIELD_LABELS, NUMERIC_FIELDS, OPERATOR_LABELS, OPERATION_TYPES, renderRunSummary, renderRunSteps
@@ -84,6 +84,9 @@ export default function (view) {
     var toaster = null;
     var numberControls = {};
     var editorControls = [];
+    // The script's variable names, offered by the step condition's variable field.
+    var variableNames = [];
+    var variableCombo = null;
     var webhookField = null;
     var suppressWidgetEvents = false;
 
@@ -190,24 +193,6 @@ export default function (view) {
             if (spec.block) Shared.setVisible(spec.block, has(script, spec.trigger));
         });
         suppressWidgetEvents = false;
-    }
-
-    // The shared chip select adds on Enter only once an option is highlighted with the arrow keys. Here Enter
-    // also picks the suggestion whose label matches the typed text, so a library or task typed by name stores
-    // its ID, and with firstMatch the top suggestion when nothing matches exactly.
-    function enterPicksSuggestion(chips, firstMatch) {
-        chips.element.addEventListener('keydown', function (e) {
-            if (e.key !== 'Enter' || e.target.tagName !== 'INPUT') return;
-            var typed = e.target.value.trim().toLowerCase();
-            var options = Array.from(chips.element.querySelectorAll('.base-combo-dropdown:not([hidden]) .base-combo-option'));
-            if (!typed || !options.length || options.some(function (o) { return o.classList.contains('active'); })) return;
-            var pick = options.find(function (o) { return o.textContent.trim().toLowerCase() === typed; }) || (firstMatch ? options[0] : null);
-            if (!pick) return;
-            e.preventDefault();
-            e.stopPropagation();
-            pick.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
-        }, true);
-        return chips;
     }
 
     // ---- Counts and selector ----
@@ -659,6 +644,37 @@ export default function (view) {
         });
     }
 
+    // mountVariableField
+    // Puts a Base Combo Box for the step condition's variable in its mount, offering the script's variable names.
+    //
+    // Inputs
+    // op [object]: The open step.
+    function mountVariableField(op) {
+        var combo = createComboBox({
+            value: op.OnlyIfVariable || '',
+            suggestions: variableNames,
+            placeholder: 'Always, or a variable',
+            onChange: function (value) {
+                var fixed = upperName(value);
+                if (fixed !== value) combo.setValue(fixed);
+                op.OnlyIfVariable = fixed;
+                edited();
+            }
+        });
+        combo.input.id = 'opFieldOnlyIfVariable';
+        combo.input.classList.add('base-mono');
+        var mount = el('onlyIfVariableMount');
+        mount.parentNode.replaceChild(combo.element, mount);
+        editorControls.push(combo);
+        variableCombo = combo;
+    }
+
+    // upperName
+    // A variable name as the server keys it: capitals, digits, and underscores, without braces, $ or JF_.
+    function upperName(text) {
+        return String(text || '').toUpperCase().replace(/^\{+|\}+$|^\$/g, '').replace(/^JF_/, '').replace(/[^A-Z0-9_]/g, '_');
+    }
+
     function checkbox(op, key, label, help) {
         return '<div class="checkboxContainer' + (help ? ' checkboxContainer-withDescription' : '') + '"><label class="emby-checkbox-label">' +
             '<input type="checkbox" is="emby-checkbox" data-key="' + key + '"' + (op[key] ? ' checked' : '') + ' />' +
@@ -777,7 +793,7 @@ export default function (view) {
     // each a Base Field Row under a Subsection Title.
     function stepExtras(op) {
         var condition = '<h3 class="base-subsection-title">Only run this step if</h3><div class="base-field-row">' +
-            rowField('opFieldOnlyIfVariable', 'Variable', '<input is="emby-input" type="text" id="opFieldOnlyIfVariable" class="base-mono" data-key="OnlyIfVariable" data-upper="1" list="scriptsVariableNames" value="' + esc(op.OnlyIfVariable) + '" placeholder="Always, or a variable" />') +
+            rowField('opFieldOnlyIfVariable', 'Variable', '<div id="onlyIfVariableMount"></div>') +
             rowField('opFieldOnlyIfOperator', 'Operator', '<select is="emby-select" id="opFieldOnlyIfOperator" data-key="OnlyIfOperator">' + Object.keys(OPERATOR_LABELS).map(function (o) {
                 return '<option value="' + o + '"' + (o === (op.OnlyIfOperator || 'Is') ? ' selected' : '') + '>' + esc(OPERATOR_LABELS[o]) + '</option>';
             }).join('') + '</select>') +
@@ -808,6 +824,7 @@ export default function (view) {
             checkbox(op, 'ContinueOnError', 'Continue on error', 'Run the following steps even if this one fails.') +
             '<button is="emby-button" type="button" class="raised base-button destructive small" id="btnRemoveOperation"><span>Remove step</span></button>';
         mountStepNumbers(op);
+        mountVariableField(op);
         var mode = editor.querySelector('.base-choice-group');
         if (mode) {
             createChoiceGroup(mode, {
@@ -840,7 +857,7 @@ export default function (view) {
 
         if (target.getAttribute('data-upper')) {
             var caret = target.selectionStart;
-            target.value = target.value.toUpperCase().replace(/^\{+|\}+$|^\$/g, '').replace(/^JF_/, '').replace(/[^A-Z0-9_]/g, '_');
+            target.value = upperName(target.value);
             try { target.selectionStart = target.selectionEnd = caret; } catch (e) { /* not a text field */ }
         }
 
@@ -871,7 +888,7 @@ export default function (view) {
 
     // secretItems
     // Turns a script's secrets into Repeater rows. A stored value stays on the server, and its row holds the kept
-    // sentinel. The hidden Previous field carries the name the secret was loaded with, so a renamed secret keeps it.
+    // sentinel. Each row keeps PreviousName, the name the secret was loaded with, so a renamed secret keeps its value.
     //
     // Inputs
     // secrets [Array]: The script's secrets.
@@ -880,25 +897,8 @@ export default function (view) {
     // [Array]: One row per secret.
     function secretItems(secrets) {
         return (secrets || []).map(function (secret) {
-            return { Name: secret.Name, Value: secret.Value, Previous: secret.PreviousName || '' };
+            return { Name: secret.Name, Value: secret.Value, PreviousName: secret.PreviousName || '' };
         });
-    }
-
-    // previousField
-    // The Repeater's Previous cell: no control, only the name the secret was loaded with.
-    //
-    // Inputs
-    // value [string]: The loaded name, or empty for a new secret.
-    //
-    // Output
-    // [object]: The cell's empty element, getValue, and setValue.
-    function previousField(value) {
-        var previous = value || '';
-        return {
-            element: document.createElement('span'),
-            getValue: function () { return previous; },
-            setValue: function (next) { previous = next || ''; }
-        };
     }
 
     // secretNameProblem
@@ -917,25 +917,18 @@ export default function (view) {
         if (!secretRepeater) {
             secretRepeater = createRepeater({
                 fields: [
-                    { key: 'Name', label: 'Name', placeholder: 'NAME', width: 'minmax(9rem, 1fr)', required: true, validate: secretNameProblem },
-                    { key: 'Value', label: 'Value', type: 'secret', placeholder: 'Value', width: 'minmax(11rem, 2fr)' },
-                    { key: 'Previous', label: '', type: 'custom', width: '0px', render: previousField }
+                    {
+                        key: 'Name', label: 'Name', placeholder: 'NAME', width: 'minmax(9rem, 1fr)', required: true, validate: secretNameProblem,
+                        // Names are capital letters, digits, and underscores, so typing fixes them as they go.
+                        transform: function (text) { return text.toUpperCase().replace(/[^A-Z0-9_]/g, '_'); }
+                    },
+                    { key: 'Value', label: 'Value', type: 'secret', placeholder: 'Value', width: 'minmax(11rem, 2fr)', clearable: true }
                 ],
                 addText: 'Add secret',
                 rowName: 'Secret',
                 emptyText: 'No secrets.',
                 onChange: onSecretsChanged
             });
-            // Names are capital letters, digits, and underscores, so typing fixes them before the Repeater reads them.
-            secretRepeater.element.addEventListener('input', function (e) {
-                var target = e.target;
-                if (target.tagName !== 'INPUT' || target.type !== 'text') return;
-                var fixed = target.value.toUpperCase().replace(/[^A-Z0-9_]/g, '_');
-                if (fixed === target.value) return;
-                var caret = target.selectionStart;
-                target.value = fixed;
-                try { target.selectionStart = target.selectionEnd = caret; } catch (err) { /* not a text field */ }
-            }, true);
             el('secretMount').appendChild(secretRepeater.element);
         }
         secretRepeater.setValue(secretItems(current().Secrets));
@@ -949,7 +942,7 @@ export default function (view) {
     function onSecretsChanged(items) {
         current().Secrets = items.map(function (item) {
             var secret = { Name: item.Name || '', Value: item.Value || '' };
-            if (item.Previous) secret.PreviousName = item.Previous;
+            if (item.PreviousName) secret.PreviousName = item.PreviousName;
             return secret;
         });
         renderVariables();
@@ -983,8 +976,8 @@ export default function (view) {
         variableList.setItems(rows.map(function (v) {
             return { id: v.Name, title: '{{' + v.Name + '}}', secondary: v.Description };
         }));
-        var names = view.querySelector('#scriptsVariableNames');
-        if (names) names.innerHTML = rows.map(function (v) { return '<option value="' + esc(v.Name) + '"></option>'; }).join('');
+        variableNames = rows.map(function (v) { return v.Name; });
+        if (variableCombo && variableCombo.element.isConnected) variableCombo.setSuggestions(variableNames);
     }
 
     function renderTestTriggers() {
@@ -1015,6 +1008,7 @@ export default function (view) {
         openDialog({
             title: 'Test: ' + (script.Name || 'Untitled'),
             body: body,
+            page: page,
             buttons: [{ text: 'Close', className: 'base-button secondary', action: function (close) { close(); } }]
         });
         Shared.apiRequest('Scripts/Test', 'POST', { Script: script, Trigger: el('testTrigger').value }).then(function (run) {
@@ -1108,24 +1102,11 @@ export default function (view) {
         return '';
     }
 
-    // failSave
-    // Rejects a save with a reason the Save Bar shows once it has drawn its own failed line.
-    //
-    // Inputs
-    // text [string]: The reason.
-    //
-    // Output
-    // [Promise]: A rejected promise.
-    function failSave(text) {
-        setTimeout(function () { if (saveBar) saveBar.setState('failed', text); }, 0);
-        return Promise.reject(new Error(text));
-    }
-
     // save
     // The Save Bar's save: checks every script, saves them, and reloads them.
     //
     // Output
-    // [Promise]: Resolves once saved, and rejects with the reason it did not save.
+    // [Promise]: Resolves once saved, and rejects with the reason it did not save, which the Save Bar shows.
     function save() {
         for (var i = 0; i < scripts.length; i++) {
             var problem = validate(scripts[i]);
@@ -1134,7 +1115,7 @@ export default function (view) {
                     selectScript(scripts[i].Id);
                     renderSelector();
                 }
-                return failSave(problem);
+                return Promise.reject(new Error(problem));
             }
         }
 
@@ -1149,7 +1130,7 @@ export default function (view) {
             // Reload so secrets come back as stored and new IDs settle.
             return reloadScripts();
         }, function () {
-            return failSave('The server refused the save. Check each script and try again.');
+            throw new Error('The server refused the save. Check each script and try again.');
         });
     }
 
@@ -1467,9 +1448,6 @@ export default function (view) {
         webhookField = createCopyField({ label: 'Webhook address' });
         el('webhookUrlMount').appendChild(webhookField.element);
 
-        var names = document.createElement('datalist');
-        names.id = 'scriptsVariableNames';
-        view.appendChild(names);
         Shared.initCollapsibles();
     }
 
@@ -1489,7 +1467,7 @@ export default function (view) {
         });
         el('triggerMount').appendChild(triggerList.element);
 
-        itemKindSelect = enterPicksSuggestion(createChipSelect({
+        itemKindSelect = createChipSelect({
             options: catalog.ItemKinds.map(function (k) { return { value: k.Value, label: k.Label }; }),
             placeholder: 'Any kind. Type to add one, such as Movie or Episode',
             onChange: function (values) {
@@ -1498,7 +1476,7 @@ export default function (view) {
                 renderWarnings();
                 edited();
             }
-        }), true);
+        });
         el('itemKindMount').appendChild(itemKindSelect.element);
 
         userSelect = createUserMultiSelector({

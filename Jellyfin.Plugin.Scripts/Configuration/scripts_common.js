@@ -3,14 +3,14 @@
 // labels the server's enum names display as.
 
 import {
-    createConfigPage, createChipSelect, createTagInput, adornField, createCheckboxList, createUserMultiSelector, createSortableCardList,
+    createConfigPage, createChipSelect, createTagInput, createComboBox, adornField, createCheckboxList, createUserMultiSelector, createSortableCardList,
     createChoiceGroup, createCopyField, createTimeline, createDefinitionList, createRepeater, createDataTable,
     createRecordList, createSaveBar, createSliderField, createDurationField, createToaster,
     confirmDialog, promptDialog, openDialog, generateGuid, downloadJson, pickJsonFile, setFieldState, SECRET_KEPT
 } from './configurationpage?name=scripts_jpkribs_shared.js';
 
 export {
-    createRepeater, createDataTable, createChipSelect, createTagInput, adornField, createCheckboxList, createUserMultiSelector, createSortableCardList,
+    createRepeater, createDataTable, createChipSelect, createTagInput, createComboBox, adornField, createCheckboxList, createUserMultiSelector, createSortableCardList,
     createChoiceGroup, createCopyField, createRecordList, createSaveBar, createSliderField, createDurationField,
     createToaster, confirmDialog, promptDialog, openDialog, generateGuid, downloadJson, pickJsonFile,
     setFieldState, SECRET_KEPT

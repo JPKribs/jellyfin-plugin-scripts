@@ -31,11 +31,14 @@ changelog:
   - A step's condition and saved output are rows of labeled fields
   - Check path shows its answer under the command
   - A run's result, trigger, start, and length show as a list at the top of its dialog
+  - A stored secret has a Clear button that empties it on the next save
+  - The History columns keep the widths you drag them to
+  - A step condition's variable suggests the script's variable names as you type
   fixed:
   - Time, count, and webhook address fields keep their own layout on the server's dashboard
   - The arrows on collapsible sections are back to their usual size
   developer:
-  - Uses JPKribs.Jellyfin.Base 2026.11.17, with its Timeline, Definition List, Copy Field, Panel, Repeater, and Data Table in place of the local run steps, variables list, copy button, trigger option frames, condition rows, and history table
+  - Uses JPKribs.Jellyfin.Base 2026.11.18, with its Timeline, Definition List, Copy Field, Panel, Repeater, Data Table, Combo Box, and Tag Input in place of the local run steps, variables list, copy button, trigger option frames, condition rows, history table, variable name list, and condition chips, and its Save Bar, Chip Select, and Repeater options in place of the local save failure line, Enter pick, secret name carrier, and name rewrite
   - Base's Save Bar, Repeater, Record List, Slider Field, Duration Field, Field Row, Field Message, Record Selector, and Toast replace the local save bar, secret rows, variable cards, number inputs, step condition and output rows, path check line, and add step row, and scripts_shared.css keeps only two spacing rules
   - The pages import Base only through scripts_common.js, which also holds the page wrapper
   - The repository has contributor guides in starthere.md and skills/, and the design notes are the Architecture page of the docs
