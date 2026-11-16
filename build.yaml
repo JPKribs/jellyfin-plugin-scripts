@@ -20,7 +20,7 @@ changelog:
   - The dashboard pages take Base's new buttons, sections, panels, and dialogs
   - A run's steps show as a timeline with each step's result and output, and its variables as a list
   - The webhook address has its own copy button beside it
-  - Each condition is one line of Field, Operator, and Value with a remove button. A number is a number box, and other values are tags inside the field
+  - Each condition is a row of Field, Operator, and Value with a remove button. A number is a number box, a value with known choices is a list you search, and other values are tags inside the field
   - The warnings for conditions sit under the rows
   - The History table fills the window and scrolls inside, shows the trigger in its own column, and has Clear history beside the search
   - Save sits in its own bar with no line above it, whose status says when there are unsaved changes
@@ -35,10 +35,11 @@ changelog:
   - The History columns keep the widths you drag them to
   - A step condition's variable suggests the script's variable names as you type
   fixed:
+  - Condition values offer their choices as you type
   - Time, count, and webhook address fields keep their own layout on the server's dashboard
   - The arrows on collapsible sections are back to their usual size
   developer:
-  - Uses JPKribs.Jellyfin.Base 2026.11.19, with its Timeline, Definition List, Copy Field, Panel, Repeater, Data Table, Combo Box, and Tag Input in place of the local run steps, variables list, copy button, trigger option frames, condition rows, history table, variable name list, and condition chips, and its Save Bar, Chip Select, and Repeater options in place of the local save failure line, Enter pick, secret name carrier, and name rewrite
+  - Uses JPKribs.Jellyfin.Base 2026.11.19, with its Timeline, Definition List, Copy Field, Panel, Repeater, Data Table, Combo Box, Chip Select, and Tag Input in place of the local run steps, variables list, copy button, trigger option frames, condition rows, history table, variable name list, condition choices, and condition chips, and its Save Bar, Chip Select, and Repeater options in place of the local save failure line, Enter pick, secret name carrier, and name rewrite
   - Base's Save Bar, Repeater, Record List, Slider Field, Duration Field, Field Row, Field Message, Record Selector, and Toast replace the local save bar, secret rows, variable cards, number inputs, step condition and output rows, path check line, and add step row, and scripts_shared.css keeps only two spacing rules
   - The pages import Base only through scripts_common.js, which also holds the page wrapper
   - The repository has contributor guides in starthere.md and skills/, and the design notes are the Architecture page of the docs

@@ -162,7 +162,7 @@ Users only filter triggers that carry a user. Others ignore them. For anything f
 
 Each condition compares one event value with one or more values, using **is**, **is not**, **contains**, **does not contain**, **starts with**, or **matches regex**. Numeric fields, such as **Year** or **Active transcodes**, also offer **is at least** and **is at most**. Text comparisons ignore case. A positive operator matches when any value matches, and a negative one matches when none do. Choose whether the script runs when **all** conditions match or when **any** does.
 
-A numeric field takes one number. For any other field, type each value and press Enter. A user, library, or task is typed by its name.
+A numeric field takes one number. A field with known choices, such as a user, library, scheduled task, collection, or play method, lists the choices that match as you type, and lists them all when you select the empty field. Select one to add it. A user, library, or task is saved by its ID and shown by its name. Text that matches no choice is kept as typed when you press Enter, which suits **contains** and **matches regex**. For any other field, type each value and press Enter.
 
 ![Conditions](screenshots/Conditions.png)
 

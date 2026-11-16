@@ -464,7 +464,7 @@ Every list, row, card, field, and bar on the three tabs is a Base component. The
 
 | Built here | The Base option it waits for |
 | :--- | :--- |
-| `conditionValueField`, a Repeater custom cell that shows a number box for a numeric field and otherwise a Tag Input whose tags show a choice's label and store its value | A `createChipSelect` option that draws the chips inside the field box, one field tall, as Tag Input does |
+| `conditionValueField`, a Repeater custom cell that shows a number box for a numeric field, a Chip Select for a field with choices, and a Tag Input for any other field | A `createChipSelect` option that draws the chips inside the field box, one field tall, as Tag Input does, or a `createTagInput` option that offers suggestions |
 
 ## Checklist
 

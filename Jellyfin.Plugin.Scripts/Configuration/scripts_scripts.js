@@ -387,8 +387,9 @@ export default function (view) {
     }
 
     // conditionValueField
-    // The Repeater's value cell, one field tall: a number box for a numeric field, and otherwise a Base Tag Input whose
-    // tags show the labels of the field's choices, such as user names, and store their values.
+    // The Repeater's value cell: a number box for a numeric field, a Base Chip Select for a field with choices, which
+    // lists the choices that match as you type and shows their labels, such as user names, while storing their values,
+    // and a Base Tag Input for any other field.
     //
     // Inputs
     // value [object]: The cell value, as { field, values }.
@@ -399,12 +400,6 @@ export default function (view) {
     function conditionValueField(value, change) {
         var state = value || { field: null, values: [] };
         var control = null;
-
-        // A typed label stores its choice's value, and any other text is kept as typed.
-        function toValue(text) {
-            var match = valueOptions(state.field).find(function (o) { return String(o.label).toLowerCase() === String(text).toLowerCase(); });
-            return match ? match.value : text;
-        }
 
         // Draws the control for the row's field, in place of the one before it.
         function build() {
@@ -427,12 +422,32 @@ export default function (view) {
                 return;
             }
             var choices = valueOptions(state.field);
+            if (choices.length) {
+                var shown = labelled(state.field, state.values);
+                // Each chip keeps the value as stored, so a saved condition reads back unchanged.
+                var picker = createChipSelect({
+                    value: state.values.map(function (v, i) { return { value: v, label: shown[i].label }; }),
+                    options: choices,
+                    placeholder: choices[0].label,
+                    allowCreate: true,
+                    pill: true,
+                    onChange: function (values) {
+                        state.values = values.map(String);
+                        change();
+                    }
+                });
+                var search = picker.element.querySelector('input');
+                search.setAttribute('aria-label', 'Value');
+                control = { element: picker.element, input: search, destroy: function () { picker.destroy(); } };
+                swap(before);
+                return;
+            }
             var tags = createTagInput({
-                values: labelled(state.field, state.values).map(function (o) { return o.label; }),
-                placeholder: choices.length ? choices[0].label : 'Type a value and press Enter',
+                values: state.values,
+                placeholder: 'Type a value and press Enter',
                 inputLabel: 'Value',
-                onChange: function (labels) {
-                    state.values = labels.map(toValue);
+                onChange: function (values) {
+                    state.values = values;
                     change();
                 }
             });
