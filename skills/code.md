@@ -201,7 +201,7 @@ export function renderRunSteps(shared, run) {
 * Pass the page handle to `openDialog` as `page`, so leaving the tab closes the dialog.
 * A Save Bar's `onSave` returns the save promise. To stop a save, reject with an `Error` whose message the bar shows.
 * Mount a Base control that holds inputs in a plain `base-field` with its label and description, never inside an `inputContainer`, which widens every input in it, unless the component's typings say it belongs there.
-* Watch for class names that collide with Jellyfin's own CSS. Jellyfin's global `.card` rule sets paint containment, and Base's card Repeater adds a bare `card` class. A Base component that draws a fixed popup, such as a Chip Select's list, never sits inside an element with `contain`, `transform`, or `filter`, since its popup lands off screen there.
+* Watch for class names that collide with Jellyfin's own CSS. Jellyfin's global `.card` rule sets paint containment, so never add a bare `card` class to an element that holds a Base control, and never target a Repeater by `card` or `inline`. Its layout classes are `base-repeater-layout-card` and `base-repeater-layout-inline`. A Base component that draws a fixed popup, such as a Chip Select's list, never sits inside an element with `contain`, `transform`, or `filter`, since its popup lands off screen there.
 * Offer suggestions for one text value with `createComboBox`, never a `datalist`.
 * A Repeater row keeps keys that no field shows, such as a secret's `PreviousName`. Never add an empty field to carry one.
 * Rewrite typed text with a Repeater field's `transform`, never an input listener.

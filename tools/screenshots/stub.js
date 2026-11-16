@@ -79,8 +79,9 @@ var ITEM_VARS = {
     EVENT: 'ItemAdded', TIMESTAMP: '2026-11-15T21:04:12Z', LOCAL_DATE: '2026-11-15', LOCAL_TIME: '21:04:12', HOUR: '21', DAY_OF_WEEK: 'Sunday', SCRIPT_NAME: 'Post new movies',
     SERVER_NAME: 'Home', SERVER_ID: '00000000000000000000000000000001', SERVER_VERSION: '12.4.0', ITEM_ID: '6f6f6f6f6f6f46f6f6f6f6f6f6f6f601', ITEM_NAME: 'Sample Movie', ITEM_KIND: 'Movie',
     ITEM_PATH: '/media/movies/Sample Movie (2024)/Sample Movie (2024).mkv', LIBRARY_ID: '1a1a1a1a1a1a41a1a1a1a1a1a1a1a101', LIBRARY_NAME: 'Movies', YEAR: '2024',
-    GENRES: 'Adventure, Science Fiction', TAGS: '', STUDIOS: 'Example Studios', OFFICIAL_RATING: 'PG-13', VIDEO_WIDTH: '1920', VIDEO_HEIGHT: '1080',
-    DATE_ADDED: '2026-11-15T21:03:40Z', HAS_SUBTITLES: 'true'
+    RUNTIME_SECONDS: '7260', GENRES: 'Adventure, Science Fiction', TAGS: '', STUDIOS: 'Example Studios', OFFICIAL_RATING: 'PG-13', COMMUNITY_RATING: '7.4',
+    VIDEO_WIDTH: '1920', VIDEO_HEIGHT: '1080', DATE_ADDED: '2026-11-15T21:03:40Z', DAYS_SINCE_ADDED: '0', HAS_SUBTITLES: 'true',
+    PROVIDER_IMDB: 'tt0000001', PROVIDER_TMDB: '100001'
 };
 var runs = [
     { Id: 'r01', ScriptName: 'Limit transcodes', Trigger: 'PlaybackStart', StartedUtc: ago(3), DurationMs: 42, Succeeded: true, IsTest: false, Summary: '',

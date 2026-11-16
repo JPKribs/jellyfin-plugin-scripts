@@ -37,7 +37,7 @@ These rules apply to every string a user can see. That includes HTML, JS, C# mes
 | Text | Case | Example |
 | :--- | :--- | :--- |
 | Tab | Title Case, one word | History |
-| Section and collapsible title | Title Case | Item kinds |
+| Section and collapsible title | Title Case | Item Kinds |
 | Field label | Sentence case | Runs at once |
 | Checkbox label | Sentence case | Continue on error |
 | Button | Sentence case, verb first | Add condition |
