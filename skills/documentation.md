@@ -207,29 +207,30 @@ Save every capture as PNG. Keep a retaken image at the size and subject of the o
 
 ### The Screenshot Kit
 
-The kit serves the plugin's real pages with jellyfin-web's real styles and a stand-in server, and drives headless Chromium. Keep it outside the repository.
+`tools/screenshots/` holds everything the captures need. Its [README](../tools/screenshots/README.md) lists the requirements and the commands.
 
-* **Server.** A small static server maps `configurationpage?name=scripts_X` to `Jellyfin.Plugin.Scripts/Configuration/`, `scripts_jpkribs_shared.js` and `.css` to the Base version the csproj names under `~/.nuget/packages/jpkribs.jellyfin.base/<version>/assets/`, and `/jf/` to an installed jellyfin-web.
-* **Page.** `index.html` loads jellyfin-web's CSS in the order its own `index.html` does, its two stylesheets first, then every chunk, then `themes/dark/theme.css`. It leaves out any chunk that shrinks the root font, such as one that sets `html { font-size: 82% }`, since the dashboard never loads those.
+* **Server.** `server.py` maps `configurationpage?name=scripts_X` to `Jellyfin.Plugin.Scripts/Configuration/`, `scripts_jpkribs_shared.js` and `.css` to the Base version the csproj names under `~/.nuget/packages/jpkribs.jellyfin.base/<version>/assets/`, and `/jf/` to jellyfin-web.
+* **Page.** `index.html` gets jellyfin-web's CSS from the server in the order its own `index.html` loads it, its two stylesheets first, then `themes/dark/theme.css`, then every chunk. The server leaves out any chunk that sets another root font size, such as `html { font-size: 82% }`, since the dashboard never loads those.
 * **Upgrades.** `upgrade.js` mimics the emby-* element upgrades Jellyfin runs, so inputs, selects, checkboxes, and buttons get the classes and labels they get on a server.
-* **Stand-ins.** `stub.js` gives `ApiClient`, `Dashboard`, and `LibraryMenu` with the generic data. `LibraryMenu.setTabs` draws the dashboard header and the three tabs. The catalog is the plugin's own `TriggerCatalog`, written to JSON by a small console project that references the plugin, so every trigger, field, and variable is real.
-* **Shots.** `shots.mjs` opens each tab at an 800 by 771 viewport and 2x with Playwright, selects a script, opens what the shot needs, scrolls the subject under the header, and saves the PNG.
+* **Stand-ins.** `stub.js` gives `ApiClient`, `Dashboard`, and `LibraryMenu` with the generic data. `LibraryMenu.setTabs` draws the dashboard header and the three tabs. The catalog is the plugin's own `TriggerCatalog`, written to `catalog.json` by the `catalog/` console project, so every trigger, field, and variable is real. That project is not in the solution or the plugin build.
+* **Shots.** `shots.mjs` opens each tab at an 800 by 771 viewport and 2x with Playwright, selects a script, opens what the shot needs, scrolls the subject under the header, and writes the PNG to `docs/screenshots/`.
 
-To rerun it, start the server, then run every shot or a list of them.
+To rerun it, write the catalog, start the server, then run every shot or a list of them from `tools/screenshots/`.
 
 ```bash
-python3 server.py 8873
+dotnet run --project catalog -- catalog.json
+python3 -I server.py 8873 &
 ```
 
 ```bash
-node shots.mjs out
+node shots.mjs
 ```
 
 ```bash
-node shots.mjs out Conditions,History
+node shots.mjs Conditions,History
 ```
 
-Read each PNG in `out/`, then copy it over its file in `docs/screenshots/`.
+Look at each PNG it writes before committing it. A new subject is one more entry in the `shots` list of `shots.mjs`, and new sample data goes in `stub.js`.
 
 ### Names and Placement
 
