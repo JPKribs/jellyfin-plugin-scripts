@@ -1,7 +1,7 @@
 ---
 name: "Scripts"
 guid: "449817c2-7661-46fb-b302-bbd6dd3b0a01"
-version: "12.4.1.3"
+version: "12.4.1.4"
 targetAbi: "12.4.0.0"
 framework: "net10.0"
 overview: "Run your own scripts when server events happen."
@@ -39,7 +39,6 @@ changelog:
   - A Run now run showed as Manual in History. It shows as Run now
   - Condition values offer their choices as you type
   - Time, count, and webhook address fields keep their own layout on the server's dashboard
-  - The arrows on collapsible sections are back to their usual size
   developer:
   - Uses JPKribs.Jellyfin.Base 2026.11.19, with its Timeline, Definition List, Copy Field, Panel, Repeater, Data Table, Combo Box, Chip Select, and Tag Input in place of the local run steps, variables list, copy button, trigger option frames, condition rows, history table, variable name list, condition choices, and condition chips, and its Save Bar, Chip Select, and Repeater options in place of the local save failure line, Enter pick, secret name carrier, and name rewrite
   - Base's Save Bar, Repeater, Record List, Slider Field, Duration Field, Field Row, Field Message, Record Selector, and Toast replace the local save bar, secret rows, variable cards, number inputs, step condition and output rows, path check line, and add step row, and scripts_shared.css keeps only two spacing rules
