@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using MediaBrowser.Controller.Library;
 
 namespace Jellyfin.Plugin.Scripts.Services;
@@ -13,9 +14,21 @@ namespace Jellyfin.Plugin.Scripts.Services;
 /// </summary>
 public sealed class PlaybackTracker
 {
-    // A session that never reports a stop would otherwise stay forever. Past this many the state is dropped,
-    // which at worst misses one edge per active session.
+    /// <summary>
+    /// How long a playback may go without a report before it is forgotten. Jellyfin itself ends a playback that
+    /// sends no report for five to ten minutes, so one silent for this long has no viewer. Its last event holds
+    /// the item, the session and the user.
+    /// </summary>
+    public static readonly TimeSpan AbandonedAfter = TimeSpan.FromMinutes(15);
+
+    // The backstop for a burst of playbacks. Past this many the state is dropped, which at worst misses one edge
+    // per active session.
     private const int MaxTracked = 5000;
+
+    // How often the abandoned playbacks are looked for.
+    private static readonly TimeSpan SweepEvery = TimeSpan.FromMinutes(1);
+
+    private long _lastSweepTicks;
 
     private const string TranscodeMethod = "Transcode";
 
@@ -29,7 +42,7 @@ public sealed class PlaybackTracker
     /// <param name="now">The current time.</param>
     public void Started(string key, PlaybackProgressEventArgs? args, DateTime now)
     {
-        Trim();
+        Trim(now);
         _sessions[key] = new PlaybackState(args, now, isPaused: false);
     }
 
@@ -47,7 +60,7 @@ public sealed class PlaybackTracker
         {
             // First report for a session already playing when the server or plugin started: there is no
             // earlier state to compare, so record it without an edge.
-            Trim();
+            Trim(now);
             _sessions[key] = new PlaybackState(args, now, isPaused);
             return null;
         }
@@ -116,11 +129,14 @@ public sealed class PlaybackTracker
     /// <param name="now">The current time.</param>
     /// <returns>Each due session's last event and how long it has been paused.</returns>
     public IReadOnlyList<(PlaybackProgressEventArgs Args, TimeSpan Paused)> DuePaused(Guid scriptId, TimeSpan threshold, DateTime now)
-        => _sessions.Values
+    {
+        Trim(now);
+        return _sessions.Values
             .Select(s => s.ClaimPaused(scriptId, threshold, now))
             .Where(d => d is not null)
             .Select(d => d!.Value)
             .ToList();
+    }
 
     /// <summary>
     /// Finds sessions that have played, not counting pauses, for at least <paramref name="threshold"/> and have
@@ -131,17 +147,39 @@ public sealed class PlaybackTracker
     /// <param name="now">The current time.</param>
     /// <returns>Each due session's last event and how long it has played.</returns>
     public IReadOnlyList<(PlaybackProgressEventArgs Args, TimeSpan Played)> DuePlaying(Guid scriptId, TimeSpan threshold, DateTime now)
-        => _sessions.Values
+    {
+        Trim(now);
+        return _sessions.Values
             .Select(s => s.ClaimPlaying(scriptId, threshold, now))
             .Where(d => d is not null)
             .Select(d => d!.Value)
             .ToList();
+    }
 
-    private void Trim()
+    /// <summary>Gets how many playbacks are being followed.</summary>
+    public int Count => _sessions.Count;
+
+    // Forgets the playbacks that stopped reporting without a stop, at most once per sweep interval.
+    private void Trim(DateTime now)
     {
         if (_sessions.Count >= MaxTracked)
         {
             _sessions.Clear();
+            return;
+        }
+
+        var last = Interlocked.Read(ref _lastSweepTicks);
+        if (now.Ticks - last < SweepEvery.Ticks || Interlocked.CompareExchange(ref _lastSweepTicks, now.Ticks, last) != last)
+        {
+            return;
+        }
+
+        foreach (var pair in _sessions)
+        {
+            if (now - pair.Value.LastReport > AbandonedAfter)
+            {
+                _sessions.TryRemove(pair);
+            }
         }
     }
 
@@ -157,17 +195,23 @@ public sealed class PlaybackTracker
         private DateTime _since;
         private TimeSpan _played;
 
+        private long _lastReportTicks;
+
         public string? PlayMethod { get; set; }
+
+        public DateTime LastReport => new(Interlocked.Read(ref _lastReportTicks), DateTimeKind.Utc);
 
         public PlaybackState(PlaybackProgressEventArgs? args, DateTime now, bool isPaused)
         {
             _args = args;
             _isPaused = isPaused;
             _since = now;
+            _lastReportTicks = now.Ticks;
         }
 
         public bool? Report(bool isPaused, PlaybackProgressEventArgs? args, DateTime now)
         {
+            Interlocked.Exchange(ref _lastReportTicks, now.Ticks);
             lock (_lock)
             {
                 _args = args ?? _args;

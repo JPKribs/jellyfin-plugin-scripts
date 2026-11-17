@@ -188,6 +188,7 @@ export function renderRunSteps(shared, run) {
 * Read the clock once in a method and reuse the value. Two reads can straddle a second and disagree.
 * Take a `TimeProvider` wherever time decides an outcome, so a test can move it.
 * Register services in `PluginServiceRegistrator`.
+* Give state kept per playback, session, or user a way out that needs no closing event. A client can vanish without a stop, so drop what has been silent too long, as `PlaybackTracker` does.
 
 ## JavaScript Conventions
 
