@@ -1,7 +1,7 @@
 ---
 name: "Scripts"
 guid: "449817c2-7661-46fb-b302-bbd6dd3b0a01"
-version: "12.4.1.5"
+version: "12.4.1.6"
 targetAbi: "12.4.0.0"
 framework: "net10.0"
 overview: "Run your own scripts when server events happen."
@@ -17,7 +17,6 @@ artifacts:
 - "Jellyfin.Plugin.Scripts.dll"
 changelog:
   fixed:
-  - In a run's details, long variable names such as JF_COMMUNITY_RATING ran over their values. The names share one column and wrap, and stack over their values on phones
+  - A playback that ended without telling the server, such as an app that was force quit, was kept in memory with its item, session, and user until 5,000 had gathered. A playback that sends no report for 15 minutes is forgotten
   developer:
-  - Uses JPKribs.Jellyfin.Base 2026.11.20, whose Definition List sizes the run variable names to a shared column and whose section titles show as written, so Item Kinds is written in Title Case. Nothing local is replaced
-  - The screenshot kit lives in tools/screenshots, with a catalog project that writes the plugin's own trigger catalog for the sample pages
+  - PlaybackTracker drops a playback silent for AbandonedAfter on a sweep that runs at most once a minute, and its tests report the way a present client does
