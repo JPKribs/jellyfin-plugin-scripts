@@ -9,6 +9,14 @@
     "category": "General",
     "versions": [
       {
+        "version": "12.4.1.6",
+        "changelog": "\n## Fixed\n- A playback that ended without telling the server, such as an app that was force quit, was kept in memory with its item, session, and user until 5,000 had gathered. A playback that sends no report for 15 minutes is forgotten\n\n## Developer\n- PlaybackTracker drops a playback silent for AbandonedAfter on a sweep that runs at most once a minute, and its tests report the way a present client does",
+        "targetAbi": "12.4.0.0",
+        "sourceUrl": "https://github.com/JPKribs/jellyfin-plugin-scripts/releases/download/v12.4.1.6/jellyfin-plugin-scripts-12.4.1.6.zip",
+        "checksum": "8f880da4c71f576884cc292120439444",
+        "timestamp": "2026-11-17T15:43:46Z"
+      },
+      {
         "version": "12.4.1.5",
         "changelog": "\n## Fixed\n- In a run's details, long variable names such as JF_COMMUNITY_RATING ran over their values. The names share one column and wrap, and stack over their values on phones\n\n## Developer\n- Uses JPKribs.Jellyfin.Base 2026.11.20, whose Definition List sizes the run variable names to a shared column and whose section titles show as written, so Item Kinds is written in Title Case. Nothing local is replaced\n- The screenshot kit lives in tools/screenshots, with a catalog project that writes the plugin's own trigger catalog for the sample pages",
         "targetAbi": "12.4.0.0",
