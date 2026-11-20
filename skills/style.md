@@ -34,22 +34,23 @@ These rules apply to every string a user can see. That includes HTML, JS, C# mes
 
 ### Casing
 
-| Text | Case | Example |
-| :--- | :--- | :--- |
-| Tab | Title Case, one word | History |
-| Section and collapsible title | Title Case | Item Kinds |
-| Field label | Sentence case | Runs at once |
-| Checkbox label | Sentence case | Continue on error |
-| Button | Sentence case, verb first | Add condition |
-| Dialog title | Sentence case | Import scripts |
-| Badge and status chip | Title Case | Succeeded |
-| Column header | Title Case | Started |
-| Activity log name | Title Case | 3 Script Runs Failed |
-| Description, message, placeholder sentence | Sentence case | Runs once per pause. |
+Every label, heading, button, tab, column header, option, title, badge, and message is in sentence case, mirroring Jellyfin, such as "Allow media playback".
 
-The other JPKribs plugins write labels, buttons, and section titles in Title Case. The Scripts pages, its docs, and its trigger and step names use sentence case throughout, as the table shows. Keep that consistent. Move a whole page to Title Case at once, with its docs and screenshots, never one string at a time.
+| Text | Example |
+| :--- | :--- |
+| Tab | History |
+| Section and collapsible title | Item kinds |
+| Field and checkbox label | Continue on error |
+| Button, verb first | Add condition |
+| Dialog title | Import scripts |
+| Badge and status chip | Continues on error |
+| Column header | Started |
+| Activity log name | 3 script runs failed |
+| Description, message, placeholder sentence | Runs once per pause. |
 
-Keep acronyms as written, such as "API key", "URL", "HTTP", and "JSON".
+* Product names, services, formats, and acronyms keep their casing, such as "Discord", "ntfy", "JSON", and "API key". Base keeps Jellyfin, TV, ID, API, URL, HTTP, HTTPS, IP, DNS, HDR, SDR, and 4K. Add any other word to `Localization/casing.json`. See [translations.md](translations.md#casing).
+* A Jellyfin string stays as Jellyfin writes it. Set `Case="sentence"` on it only when it reads wrong next to its neighbors, as the item kinds do.
+* A fragment placed inside a longer label, such as an operator or "empty" in a step condition badge, stays in lower case.
 
 ### Words to Use
 
@@ -116,7 +117,7 @@ A placeholder shows an example of a valid value. It is never the only place an i
 * A verb, or a verb and a noun. **Save**, **Add step**, **Run now**.
 * Name the object when the page has more than one of that action. **Add condition**, **Add step**, and **Add secret** sit on the same page.
 * Save is always **Save**, on the Save Bar. See [Saving](#saving).
-* An icon only button carries a `title` of one to three words, such as `Remove`, `Move Up`, or `Retry`. Never a sentence.
+* An icon only button carries a `title` of one to three words, such as `Remove`, `Move up`, or `Retry`. Never a sentence.
 * A button that runs for a while shows progress in place. See [Progress](#progress).
 
 ### Messages
@@ -173,7 +174,7 @@ Use `shared.emptySection(text)` for a region and `shared.emptySection(text, { in
 
 Use `ActivitySummary` and `ActivityText` from Base.
 
-* The name is short and Title Case. "3 Script Runs Failed".
+* The name is short and in sentence case, with a key for one and a key for many. "3 script runs failed".
 * The overview is one sentence with no closing period, as Base writes it. "3 script runs failed in Nightly scan (2), Notify (1)".
 * Use the same verb the UI uses for the action.
 
@@ -252,7 +253,7 @@ Every config page uses Jellyfin's page shell.
 ### Tabs
 
 * One registered page per tab, wired with `createScriptsPage` in `scripts_common.js`, which wraps Base's `createConfigPage`.
-* Tab names are one Title Case word.
+* Tab names are one word.
 * Keep the tab list in one place, `TABS` in `scripts_common.js`, never copied into each page.
 * Order tabs from what is used most to what is set once. Scripts is **Scripts**, **History**, **Settings**.
 
@@ -484,7 +485,7 @@ Run every new or changed string through this list.
 * [ ] No colon at the end of a label, and none in a sentence unless it introduces a list.
 * [ ] One sentence, or two when the second is the fix or the consequence.
 * [ ] Sentences end with a period. Labels, buttons, and titles do not.
-* [ ] The casing in [Casing](#casing). Title Case for tabs and badges, sentence case for labels, buttons, and sentences.
+* [ ] Sentence case, per [Casing](#casing), with casing.json words kept as written.
 * [ ] No "please", "successfully", exclamation marks, ALL CAPS, "(s)", or contractions.
 * [ ] The word matches [Words to Use](#words-to-use).
 * [ ] Base's typings were searched before any markup was built by hand.

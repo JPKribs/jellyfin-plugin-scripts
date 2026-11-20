@@ -43,6 +43,13 @@ How this plugin shows its text in the viewer's language. Base builds the strings
 * Template and preset names are strings. A template's own step text, such as a message it sends, is part of the script and stays as written.
 * The screenshot kit's `server.py` serves the strings at `/Scripts/Translations`, so the harness shows them as the server does.
 
+## Casing
+
+* Write every local string in sentence case, as Jellyfin does, such as "Add condition" and "Item kinds".
+* Keep product names, services, formats, and acronyms as written by listing them in `Localization/casing.json`, a JSON array, such as `["Discord", "ntfy", "JSON"]`. Base already keeps Jellyfin, TV, ID, API, URL, HTTP, HTTPS, IP, DNS, HDR, SDR, and 4K, so leave those out.
+* A Jellyfin string keeps Jellyfin's casing. Add `Case="sentence"` or `Case="title"` to its `JellyfinString` only when it reads wrong beside its neighbors, as `MusicAlbum`, `MusicArtist`, and `MusicVideo` do among the item kinds.
+* Text built at runtime is cased with `ToSentenceCase` and `ToTitleCase` in C#, and `sentenceCase`, `titleCase`, `t.sentence(key)`, and `t.title(key)` on a page. Each keeps the casing list.
+
 ## Add a Language
 
 Add `Localization/<code>.json`, such as `de.json` or `pt-br.json`, with only keys `en-us.json` has. A missing key falls back to the language's base and then to US English. Jellyfin's strings come in every language Jellyfin has, with no file.

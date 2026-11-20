@@ -44,10 +44,10 @@ markdown_extensions:
 
 nav:
   - Overview: index.md
-  - Getting Started:
+  - Getting started:
       - Installation: Installation.md
-  - Using Scripts:
-      - Writing Scripts: Scripts.md
+  - Using scripts:
+      - Writing scripts: Scripts.md
       - Examples: Examples.md
   - Reference:
       - Versioning: Versioning.md

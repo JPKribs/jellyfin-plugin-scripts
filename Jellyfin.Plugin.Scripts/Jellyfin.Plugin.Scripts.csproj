@@ -71,9 +71,9 @@
     <JellyfinString Include="MarkUnplayed" />
     <JellyfinString Include="Monday" />
     <JellyfinString Include="Movie" />
-    <JellyfinString Include="MusicAlbum" />
-    <JellyfinString Include="MusicArtist" />
-    <JellyfinString Include="MusicVideo" />
+    <JellyfinString Include="MusicAlbum" Case="sentence" />
+    <JellyfinString Include="MusicArtist" Case="sentence" />
+    <JellyfinString Include="MusicVideo" Case="sentence" />
     <JellyfinString Include="New" />
     <JellyfinString Include="NotificationOptionPluginInstalled" />
     <JellyfinString Include="NotificationOptionPluginUninstalled" />

@@ -1,6 +1,6 @@
 # Installation
 
-## Add the Plugin Repository
+## Add the plugin repository
 
 1. Open Jellyfin and go to **Dashboard → Plugins → Repositories**.
 2. Click **Add Repository**.
@@ -10,7 +10,7 @@
 https://raw.githubusercontent.com/JPKribs/jellyfin-plugin-scripts/master/manifest.json
 ```
 
-## Install the Plugin
+## Install the plugin
 
 1. Open the **Catalog** tab in the Plugins section.
 2. Find **Scripts** and click **Install**.
@@ -20,8 +20,8 @@ https://raw.githubusercontent.com/JPKribs/jellyfin-plugin-scripts/master/manifes
 
 Restart your Jellyfin server completely and wait for it to fully start up.
 
-## Check It Works
+## Check it works
 
 Go to **Dashboard → Plugins → Scripts** and confirm the configuration page loads.
 
-Next: [Writing Scripts](Scripts.md).
+Next: [Writing scripts](Scripts.md).

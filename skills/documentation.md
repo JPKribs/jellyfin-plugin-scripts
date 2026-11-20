@@ -42,7 +42,7 @@ A version number belongs in docs only when the reader needs it to act, such as t
 
 ### Headings
 
-* Overview, Installation, and Architecture use Title Case headings, such as "## How It Works". Writing Scripts and Examples use sentence case, as the UI does, such as "## Step conditions and saved output". Keep each page consistent with itself, and move a page to Title Case whole, with its anchors.
+* Headings, page titles, and nav entries use sentence case, mirroring Jellyfin, such as "## How it works" and "## Step conditions and saved output". Product names and the words in `Localization/casing.json` keep their casing.
 * Page titles are `#` and appear once per page.
 * Name the thing, not the action, unless the section is a procedure. "## Settings" and "## Add the Plugin Repository" are both correct.
 * Never rename a heading without fixing its anchors. `mkdocs build --strict` fails on a broken anchor.
@@ -52,7 +52,7 @@ A version number belongs in docs only when the reader needs it to act, such as t
 * Write a label exactly as the page shows it, in bold. **Cooldown**.
 * Write a path through the UI with `→` between the steps, in bold, as the existing pages do. **Dashboard → Plugins → Scripts**.
 * Write a tab as its label, in bold. **Scripts**, **History**, **Settings**.
-* Quote activity log names and on-screen messages in double quotes. "3 Script Runs Failed".
+* Quote activity log names and on-screen messages in double quotes. "3 script runs failed".
 * Write routes, files, variables, and values in code. `POST /Scripts/Webhook/{token}`, `{{ITEM_NAME}}`.
 
 A docs page and the UI must use the same word for the same thing. When a label changes, search `docs/` for the old one and change it everywhere in the same commit.
@@ -66,8 +66,8 @@ The docs site is MkDocs with the Material theme, built from `docs/` by `mkdocs.y
 Keep the nav in this order.
 
 1. **Overview** (`index.md`). What the plugin is, how it works, and the warning about commands.
-2. **Getting Started**. Installation.
-3. **Using Scripts**. Writing Scripts, then Examples.
+2. **Getting started**. Installation.
+3. **Using scripts**. Writing scripts, then Examples.
 4. **Reference**. Versioning.
 5. **Development**. [Architecture](../docs/Architecture.md).
 
@@ -88,10 +88,10 @@ Name classes and files exactly as the code does, in code format, with the folder
 
 ### Page Templates
 
-A page on one area, such as **Writing Scripts**, opens with one sentence on what it covers, then one section per thing a reader sets or reads, in the order the editor shows them.
+A page on one area, such as **Writing scripts**, opens with one sentence on what it covers, then one section per thing a reader sets or reads, in the order the editor shows them.
 
 ```markdown
-# Writing Scripts
+# Writing scripts
 
 One sentence that says what a script is.
 
@@ -171,7 +171,7 @@ Give every admonition a short title.
 ### Links
 
 * Link pages relatively with their `.md` name, such as `[Secrets](Scripts.md#secrets)`.
-* End a Getting Started page with one "Next" line, such as `Next: [Writing Scripts](Scripts.md).`
+* End a Getting started page with one "Next" line, such as `Next: [Writing scripts](Scripts.md).`
 * Link to Base's README for a shared component instead of describing it again.
 
 ## README

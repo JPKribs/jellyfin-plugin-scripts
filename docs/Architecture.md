@@ -1,10 +1,10 @@
 # Architecture
 
-How the parts of Scripts connect, and the rules that hold across all of them. What a user sees is in [Writing Scripts](Scripts.md).
+How the parts of Scripts connect, and the rules that hold across all of them. What a user sees is in [Writing scripts](Scripts.md).
 
 Scripts targets Jellyfin 12.4 (`net10.0`, ABI `12.4.0.0`). Every event and API it uses is checked against `Jellyfin.Controller`, `Jellyfin.Data`, and `Jellyfin.Model` 12.4.0.
 
-## The Parts
+## The parts
 
 | Area | Files |
 | :--- | :--- |
