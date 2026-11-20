@@ -56,7 +56,7 @@ public static class ItemKindLabels
     /// </summary>
     /// <param name="kind">The kind.</param>
     /// <param name="language">The language, or <c>null</c> for US English.</param>
-    /// <returns>The name, such as "Music Video" for MusicVideo, or the kind itself when it has no name.</returns>
+    /// <returns>The name, such as "Music video" for MusicVideo, or the kind itself when it has no name.</returns>
     public static string For(BaseItemKind kind, string? language = null)
         => Keys.TryGetValue(kind, out var key) ? BaseTranslations.Get(key, language) : kind.ToString();
 }

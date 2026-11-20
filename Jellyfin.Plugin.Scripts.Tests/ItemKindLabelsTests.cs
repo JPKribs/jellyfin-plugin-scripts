@@ -9,7 +9,7 @@ public class ItemKindLabelsTests
     [Theory]
     [InlineData(BaseItemKind.BoxSet, "Collection")]
     [InlineData(BaseItemKind.AggregateFolder, "Aggregate Folder")]
-    [InlineData(BaseItemKind.MusicVideo, "Music Video")]
+    [InlineData(BaseItemKind.MusicVideo, "Music video")]
     [InlineData(BaseItemKind.LiveTvChannel, "Live TV Channel")]
     [InlineData(BaseItemKind.Movie, "Movie")]
     public void ReadsLikeWords(BaseItemKind kind, string label)

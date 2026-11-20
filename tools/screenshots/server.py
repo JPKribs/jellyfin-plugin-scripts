@@ -11,6 +11,7 @@ JF = os.environ.get('JELLYFIN_WEB', '/Applications/Jellyfin.app/Contents/Resourc
 BASEVER = re.search(r'Include="JPKribs\.Jellyfin\.Base"\s+Version="([^"]+)"', open(os.path.join(PLUGIN, 'Jellyfin.Plugin.Scripts.csproj')).read()).group(1)
 BASE = os.path.expanduser('~/.nuget/packages/jpkribs.jellyfin.base/%s/assets' % BASEVER)
 STRINGS = os.path.expanduser('~/.nuget/packages/jpkribs.jellyfin.base/%s/jellyfin' % BASEVER)
+BASESTRINGS = os.path.expanduser('~/.nuget/packages/jpkribs.jellyfin.base/%s/strings' % BASEVER)
 TYPES = {'.js': 'text/javascript', '.css': 'text/css', '.html': 'text/html', '.json': 'application/json', '.woff2': 'font/woff2', '.woff': 'font/woff', '.svg': 'image/svg+xml', '.png': 'image/png'}
 
 for path, what in ((BASE, 'Base %s (run dotnet restore on the plugin)' % BASEVER), (JF, 'jellyfin-web (set JELLYFIN_WEB)'), (os.path.join(HERE, 'catalog.json'), 'catalog.json (see README.md)')):
@@ -42,22 +43,56 @@ def links(names):
     return ''.join('<link rel="stylesheet" href="/jf/%s">' % n for n in names)
 
 
+DEFAULT_CASING = ['Jellyfin', 'TV', 'ID', 'API', 'URL', 'HTTP', 'HTTPS', 'IP', 'DNS', 'HDR', 'SDR', '4K']
+
+
+def casing():
+    """Base's default casing list and the plugin's Localization/casing.json, as the build embeds them."""
+    path = os.path.join(PLUGIN, 'Localization', 'casing.json')
+    return DEFAULT_CASING + (json.load(open(path, encoding='utf-8')) if os.path.isfile(path) else [])
+
+
+def recase(text, case, words):
+    """Writes English text in sentence or title case, keeping the casing list and words with a capital inside."""
+    keep = {w.lower(): w for w in words}
+    small = {'a', 'an', 'and', 'as', 'at', 'but', 'by', 'for', 'from', 'in', 'into', 'nor', 'of', 'on', 'or', 'per', 'the', 'to', 'via', 'vs', 'with'}
+    parts = text.split(' ')
+    out = []
+    for i, word in enumerate(parts):
+        if word.lower() in keep:
+            out.append(keep[word.lower()])
+        elif re.search(r'[a-z][A-Z]|\d|^\{', word) or (len(word) > 1 and word.isupper()):
+            out.append(word)
+        elif case == 'title' and (i == 0 or i == len(parts) - 1 or word.lower() not in small):
+            out.append(word[:1].upper() + word[1:].lower())
+        else:
+            out.append(word[:1].upper() + word[1:].lower() if i == 0 else word.lower())
+    return ' '.join(out)
+
+
 def translations(language):
-    """The plugin's strings as its Translations route serves them: the declared Jellyfin strings in the language,
-    else in US English, and the local strings from Localization."""
+    """The plugin's strings as its Translations route serves them, { language, strings, casing }: Base's own strings,
+    the declared Jellyfin strings in the language, else in US English, with any Case applied to English, and the local
+    strings from Localization."""
     project = open(os.path.join(PLUGIN, 'Jellyfin.Plugin.Scripts.csproj')).read()
-    declared = re.findall(r'<JellyfinString Include="(\w+)"', project)
-    out = {}
+    base = json.load(open(os.path.join(BASESTRINGS, 'jellyfin.json'), encoding='utf-8'))
+    cases = {e['key']: e.get('case') for e in base['strings']}
+    for key, case in re.findall(r'<JellyfinString Include="(\w+)"(?:\s+Case="(\w+)")?', project):
+        cases[key] = case or cases.get(key)
+    words = casing()
+    out = dict(json.load(open(os.path.join(BASESTRINGS, 'en-us.json'), encoding='utf-8')))
     for code in ('en-us', language):
         for source in ('server', 'web'):
             path = os.path.join(STRINGS, source, code + '.json')
             if code and os.path.isfile(path):
                 found = json.load(open(path, encoding='utf-8'))
-                out.update({k: found[k] for k in declared if found.get(k)})
+                for key, case in cases.items():
+                    if found.get(key):
+                        out[key] = recase(found[key], case, words) if case and code.startswith('en') else found[key]
         local = os.path.join(PLUGIN, 'Localization', (code or '') + '.json')
         if code and os.path.isfile(local):
             out.update({k: v for k, v in json.load(open(local, encoding='utf-8')).items() if v})
-    return json.dumps(out).encode()
+    return json.dumps({'language': language or 'en-us', 'strings': out, 'casing': words}).encode()
 
 
 class H(http.server.BaseHTTPRequestHandler):

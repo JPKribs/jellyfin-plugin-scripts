@@ -23,7 +23,7 @@ The API routes all sit under `Scripts/`: `GET Catalog`, `GET Status`, `POST Test
 
 `GET History` takes Base's `PagedQuery`, so the **History** tab's Data Table reads one page at a time with its search and its filter, `failed`, `test`, or a script ID.
 
-The dashboard pages import Base only through `scripts_common.js`, which also holds the tab bar, the plugin's strings in the viewer's language, and the labels each enum name displays as. Every word a page shows comes from a key, and the catalog's labels and descriptions come in the language the page asks for. The lists, row editors, pickers, sliders, duration fields, and Save Bars on the three tabs are Base components. `scripts_shared.css` holds only spacing between them, and the bottom alignment of the condition rows.
+The dashboard pages import Base only through `scripts_common.js`, which also holds the tab bar, the plugin's strings in the viewer's language, and the labels each enum name displays as. Every word a page shows comes from a key, and the catalog, the path check, and the errors the API returns come in the page's language. The lists, row editors, pickers, sliders, duration fields, and Save Bars on the three tabs are Base components. `scripts_shared.css` holds only spacing between them, and the bottom alignment of the condition rows.
 
 ## State
 

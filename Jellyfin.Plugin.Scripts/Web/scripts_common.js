@@ -282,7 +282,7 @@ export var STATUS_BADGES = { Succeeded: 'green', Failed: 'red', Skipped: 'gray' 
 export function renderRunSteps(shared, run) {
     var timeline = createTimeline({
         emptyText: t.tr('EmptyRunSteps'),
-        statusLabels: { green: t.tr('StatusSucceeded'), red: t.tr('LabelFailed'), gray: t.tr('StatusSkipped') },
+        statusLabels: { green: t.tr('StatusSucceeded'), gray: t.tr('StatusSkipped') },
         items: (run.Operations || []).map(function (step) {
             var types = operationTypes();
             return {

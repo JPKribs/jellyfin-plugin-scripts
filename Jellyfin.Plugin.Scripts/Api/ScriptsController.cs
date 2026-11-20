@@ -81,12 +81,12 @@ public class ScriptsController : ControllerBase
     /// Gets what the editor offers: the triggers and their variables, which condition fields apply to which
     /// triggers, every item kind, and the server's users, libraries, and scheduled tasks.
     /// </summary>
-    /// <param name="language">The language of the labels and descriptions, such as de. Leave out for US English.</param>
-    /// <returns>The catalog.</returns>
+    /// <returns>The catalog, in the page's language.</returns>
     [HttpGet("Catalog")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public ActionResult<object> GetCatalog([FromQuery] string? language)
+    public ActionResult<object> GetCatalog()
     {
+        var language = BaseTranslations.RequestLanguage(Request);
         var triggers = TriggerCatalog.All.Where(t => t.Selectable).Select(t => new
         {
             Key = t.Trigger.ToString(),
@@ -163,18 +163,17 @@ public class ScriptsController : ControllerBase
     /// request, so unsaved edits can be tried. Its filters are not applied, since the values are samples.
     /// </summary>
     /// <param name="request">The script and the trigger to imitate.</param>
-    /// <param name="language">The language of the error text, such as de. Leave out for US English.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The run record.</returns>
+    /// <returns>The run record, or an error in the page's language.</returns>
     [HttpPost("Test")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<ScriptRun>> Test([FromBody] TestRequest request, [FromQuery] string? language, CancellationToken cancellationToken)
+    public async Task<ActionResult<ScriptRun>> Test([FromBody] TestRequest request, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
         if (request.Script is null || !Enum.IsDefined(request.Trigger))
         {
-            return BadRequest(BaseTranslations.Get(TranslationKeys.ErrorScriptAndTriggerRequired, language));
+            return BadRequest(BaseTranslations.Get(TranslationKeys.ErrorScriptAndTriggerRequired, BaseTranslations.RequestLanguage(Request)));
         }
 
         try
@@ -201,14 +200,14 @@ public class ScriptsController : ControllerBase
     /// other and shows up in the history.
     /// </summary>
     /// <param name="id">The script's ID.</param>
-    /// <param name="language">The language of the error text, such as de. Leave out for US English.</param>
-    /// <returns>Accepted when queued.</returns>
+    /// <returns>Accepted when queued, or an error in the page's language.</returns>
     [HttpPost("Run/{id}")]
     [ProducesResponseType(StatusCodes.Status202Accepted)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
-    public ActionResult RunNow([FromRoute] Guid id, [FromQuery] string? language)
+    public ActionResult RunNow([FromRoute] Guid id)
     {
+        var language = BaseTranslations.RequestLanguage(Request);
         var script = Plugin.Instance?.ReadConfiguration(c => c.Scripts.FirstOrDefault(s => s.Id == id));
         if (script is null)
         {
@@ -303,13 +302,13 @@ public class ScriptsController : ControllerBase
     /// it runs. In Docker this is the container's view, which differs from the host's.
     /// </summary>
     /// <param name="path">The path to check.</param>
-    /// <param name="language">The language of the answer, such as de. Leave out for US English.</param>
-    /// <returns>Whether it exists, what it is, and whether it is executable.</returns>
+    /// <returns>Whether it exists, what it is, and whether it is executable, in the page's language.</returns>
     [HttpGet("CheckPath")]
     [SuppressMessage("Security", "CA3003:Review code for file path injection vulnerabilities", Justification = "Administrators only. Reporting what the server can see at a path the administrator typed is the purpose of this route.")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public ActionResult<PathCheck> CheckPath([FromQuery] string? path, [FromQuery] string? language)
+    public ActionResult<PathCheck> CheckPath([FromQuery] string? path)
     {
+        var language = BaseTranslations.RequestLanguage(Request);
         var check = new PathCheck { Path = path ?? string.Empty };
         if (string.IsNullOrWhiteSpace(path))
         {

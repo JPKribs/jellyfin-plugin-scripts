@@ -1,4 +1,6 @@
 {
+  "ActivityNameRunFailedMany": "{0} script runs failed",
+  "ActivityNameRunFailedOne": "{0} script run failed",
   "ActivityRunFailed": "{0} script run failed in {1}",
   "ActivityRunFailedWithErrors": "{0} script run failed in {1}, with errors {2}",
   "ActivityRunsFailed": "{0} script runs failed in {1}",

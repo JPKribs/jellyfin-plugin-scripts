@@ -925,7 +925,7 @@ export default function (view) {
         var command = el('opFieldCommand');
         if (!op || !command) return;
         setFieldState(command, 'info', t.tr('StatusChecking'));
-        Shared.apiRequest('Scripts/CheckPath?path=' + encodeURIComponent(op.Command || '') + '&language=' + encodeURIComponent(t.language), 'GET').then(function (check) {
+        Shared.apiRequest('Scripts/CheckPath?path=' + encodeURIComponent(op.Command || ''), 'GET').then(function (check) {
             var ok = check && check.Exists && !check.IsDirectory && check.IsExecutable;
             setFieldState(command, ok ? 'success' : 'error', check ? check.Message : t.tr('ErrorNoAnswer'));
         }).catch(function () {
@@ -1060,7 +1060,7 @@ export default function (view) {
             page: page,
             buttons: [{ text: t.tr('ButtonClose'), className: 'base-button secondary', action: function (close) { close(); } }]
         });
-        Shared.apiRequest('Scripts/Test?language=' + encodeURIComponent(t.language), 'POST', { Script: script, Trigger: el('testTrigger').value }).then(function (run) {
+        Shared.apiRequest('Scripts/Test', 'POST', { Script: script, Trigger: el('testTrigger').value }).then(function (run) {
             body.innerHTML = '';
             body.appendChild(renderRunSummary(Shared, run));
             body.appendChild(renderRunSteps(Shared, run));
@@ -1081,7 +1081,7 @@ export default function (view) {
 
         var button = el('btnRunScript');
         button.disabled = true;
-        Shared.apiRequest('Scripts/Run/' + script.Id + '?language=' + encodeURIComponent(t.language), 'POST').then(function () {
+        Shared.apiRequest('Scripts/Run/' + script.Id, 'POST').then(function () {
             Shared.setStatus('scriptStatus', t.tr('StatusRunStarted'), false, { timeout: 8000 });
         }).catch(function () {
             Shared.setStatus('scriptStatus', t.tr('ErrorRunFailed'), true);
@@ -1585,7 +1585,7 @@ export default function (view) {
     }
 
     function load() {
-        Shared.apiRequest('Scripts/Catalog?language=' + encodeURIComponent(t.language), 'GET').then(function (result) {
+        Shared.apiRequest('Scripts/Catalog', 'GET').then(function (result) {
             catalog = result;
             if (!triggerList) createWidgets();
             return Promise.all([reloadScripts(), userSelect.ready]);

@@ -36,7 +36,9 @@ How this plugin shows its text in the viewer's language. Base builds the strings
 
 * `createScriptsPage` loads the strings and translates the page's markup before a page's `bind` and `load` run, so a page script reads `t` only inside them or in functions they call.
 * Labels the pages build, such as the condition fields, operators, and step types, come from functions in `scripts_common.js`, never from lists built when the module loads.
-* The trigger catalog holds keys. `GET /Scripts/Catalog?language=` answers with its labels, groups, descriptions, variables, and item kinds in that language.
+* The trigger catalog holds keys. `GET /Scripts/Catalog` answers with its labels, groups, descriptions, variables, and item kinds in the page's language.
+* A message the API returns to a page, such as a path check or an error, is in the page's language. The controller reads it with `BaseTranslations.RequestLanguage(Request)`, which takes `?language=`, then the `X-Jellyfin-Plugin-Language` header Base's `apiRequest` sends, then `Accept-Language`.
+* The activity log entry is in the server's display language, from `BaseTranslations.ServerLanguage`.
 * A run's step messages and summary are written into the history once, in US English, and stay that way.
 * Template and preset names are strings. A template's own step text, such as a message it sends, is part of the script and stays as written.
 * The screenshot kit's `server.py` serves the strings at `/Scripts/Translations`, so the harness shows them as the server does.

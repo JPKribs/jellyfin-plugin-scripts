@@ -147,7 +147,7 @@ export default function (view) {
     }
 
     function load() {
-        Promise.all([Shared.getConfig(), Shared.apiRequest('Scripts/Catalog?language=' + encodeURIComponent(t.language), 'GET')]).then(function (results) {
+        Promise.all([Shared.getConfig(), Shared.apiRequest('Scripts/Catalog', 'GET')]).then(function (results) {
             (results[1].Triggers || []).forEach(function (t) { triggerLabels[t.Key] = t.Label; });
             // The catalog lists only triggers a script can pick, so a Run now run takes its label here.
             if (!triggerLabels.Manual) triggerLabels.Manual = t.tr('TriggerManual');

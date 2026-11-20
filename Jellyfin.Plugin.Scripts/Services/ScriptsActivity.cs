@@ -13,12 +13,25 @@ namespace Jellyfin.Plugin.Scripts.Services;
 public sealed class ScriptsActivity : IDisposable
 {
     /// <summary>
+    /// Gets the outcome of script runs that ended with a failed step, by script name, with each first failure's message.
+    /// Its name and overview are written in the language the summary is given.
+    /// </summary>
+    public static ActivityOutcome RunFailed { get; } = new(
+        "Scripts.ScriptFailed",
+        TranslationKeys.ActivityNameRunFailedOne,
+        TranslationKeys.ActivityNameRunFailedMany,
+        (tally, language) => tally.Reasons.Count > 0
+            ? BaseTranslations.Format(tally.Total == 1 ? TranslationKeys.ActivityRunFailedWithErrors : TranslationKeys.ActivityRunsFailedWithErrors, language, tally.Total, ActivityText.CountedList(tally.Sources), ActivityText.CountedList(tally.Reasons))
+            : BaseTranslations.Format(tally.Total == 1 ? TranslationKeys.ActivityRunFailed : TranslationKeys.ActivityRunsFailed, language, tally.Total, ActivityText.CountedList(tally.Sources)),
+        LogLevel.Error);
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="ScriptsActivity"/> class, writing in the server's display language.
     /// </summary>
     /// <param name="activityLogger">The activity log writer.</param>
     /// <param name="config">The server configuration, read for its display language each time an entry is written.</param>
     public ScriptsActivity(ActivityLogger activityLogger, IServerConfigurationManager config)
-        : this(new ActivitySummary(activityLogger), () => BaseTranslations.ServerLanguage(config))
+        : this(new ActivitySummary(activityLogger, language: () => BaseTranslations.ServerLanguage(config)))
     {
     }
 
@@ -27,7 +40,7 @@ public sealed class ScriptsActivity : IDisposable
     /// </summary>
     /// <param name="activityLogger">The activity log writer.</param>
     public ScriptsActivity(ActivityLogger activityLogger)
-        : this(new ActivitySummary(activityLogger), () => null)
+        : this(new ActivitySummary(activityLogger))
     {
     }
 
@@ -35,15 +48,10 @@ public sealed class ScriptsActivity : IDisposable
     /// Initializes a new instance of the <see cref="ScriptsActivity"/> class around a given summary, for tests.
     /// </summary>
     /// <param name="summary">The summary entries are counted into.</param>
-    /// <param name="language">Gives the language entries are written in, <c>null</c> for US English.</param>
-    public ScriptsActivity(ActivitySummary summary, Func<string?> language)
+    public ScriptsActivity(ActivitySummary summary)
     {
         Summary = summary;
-        RunFailed = RunFailedIn(language);
     }
-
-    /// <summary>Gets the outcome of script runs that ended with a failed step, by script name, with each first failure's message.</summary>
-    public ActivityOutcome RunFailed { get; }
 
     /// <summary>Gets the summary entries are counted into.</summary>
     public ActivitySummary Summary { get; }
@@ -55,24 +63,6 @@ public sealed class ScriptsActivity : IDisposable
     {
         var reason = ActivityText.Sentence(message);
         Summary.Add(RunFailed, scriptName, string.IsNullOrWhiteSpace(reason) ? null : reason);
-    }
-
-    /// <summary>
-    /// Builds the outcome of failed script runs, whose overview is written in a language.
-    /// </summary>
-    /// <param name="language">Gives the language, read each time an overview is written. <c>null</c> is US English.</param>
-    /// <returns>The outcome.</returns>
-    public static ActivityOutcome RunFailedIn(Func<string?> language)
-    {
-        ArgumentNullException.ThrowIfNull(language);
-        return new ActivityOutcome(
-            "Scripts.ScriptFailed",
-            "Failed",
-            tally => tally.Reasons.Count > 0
-                ? BaseTranslations.Format(tally.Total == 1 ? TranslationKeys.ActivityRunFailedWithErrors : TranslationKeys.ActivityRunsFailedWithErrors, language(), tally.Total, ActivityText.CountedList(tally.Sources), ActivityText.CountedList(tally.Reasons))
-                : BaseTranslations.Format(tally.Total == 1 ? TranslationKeys.ActivityRunFailed : TranslationKeys.ActivityRunsFailed, language(), tally.Total, ActivityText.CountedList(tally.Sources)),
-            LogLevel.Error,
-            "Script Run");
     }
 
     /// <inheritdoc />
