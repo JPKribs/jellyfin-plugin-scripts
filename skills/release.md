@@ -84,9 +84,9 @@ git push
 
 ## Publish
 
-1. **Draft.** Run the **Create/Update Release Draft** workflow from the Actions tab. It builds the zip and writes a draft release named `v<version>` with the changelog as its notes. A push that only changes `build.yaml` does not start it.
-2. **Check.** Open the releases page on GitHub. A push can leave a second draft for the same version with no files. Publish only the draft that has the notes, the zip, and its `.md5`, never the empty one. The notes must match `build.yaml`.
-3. **Release.** Publish that draft. The **Publish Plugin** workflow takes the attached zip's checksum, adds the version to `manifest.json`, and commits "Update manifest for release v<version>".
+1. **Draft.** The **Create/Update Release Draft** workflow builds the zip and writes a draft release named `v<version>` with the changelog as its notes. A push that only changes `build.yaml` does not start it, so start it from the Actions tab then. Draft builds run one at a time, so a push and a manual start that overlap build one after the other.
+2. **Check.** Wait until no draft build is queued or running, since each one replaces the zip. Then open the draft on GitHub. The notes must match `build.yaml`, and the zip and its `.md5` must be attached.
+3. **Release.** Publish the draft. The **Publish Plugin** workflow waits for any draft build still running, hashes the attached zip, checks it against the `.md5`, adds the version to `manifest.json`, and commits "Update manifest for release v<version>". A draft build never replaces the assets of a published release.
 4. **Confirm.** Open that commit. The new entry must name the version, and its `checksum` must equal the `.md5` attached to the release.
 5. **Pull.**
 
