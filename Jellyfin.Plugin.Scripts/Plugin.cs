@@ -98,7 +98,7 @@ public class Plugin : PluginBase<Plugin, PluginConfiguration>
         yield return new PluginPageInfo
         {
             Name = "scripts_scripts",
-            EmbeddedResourcePath = $"{ns}.Configuration.scripts_scripts.html",
+            EmbeddedResourcePath = $"{ns}.Web.scripts_scripts.html",
             MenuSection = "server",
             DisplayName = "Scripts",
             EnableInMainMenu = false
@@ -107,51 +107,51 @@ public class Plugin : PluginBase<Plugin, PluginConfiguration>
         yield return new PluginPageInfo
         {
             Name = "scripts_scripts.js",
-            EmbeddedResourcePath = $"{ns}.Configuration.scripts_scripts.js"
+            EmbeddedResourcePath = $"{ns}.Web.scripts_scripts.js"
         };
 
         // Tab 2: History.
         yield return new PluginPageInfo
         {
             Name = "scripts_history",
-            EmbeddedResourcePath = $"{ns}.Configuration.scripts_history.html"
+            EmbeddedResourcePath = $"{ns}.Web.scripts_history.html"
         };
 
         yield return new PluginPageInfo
         {
             Name = "scripts_history.js",
-            EmbeddedResourcePath = $"{ns}.Configuration.scripts_history.js"
+            EmbeddedResourcePath = $"{ns}.Web.scripts_history.js"
         };
 
         // Tab 3: Settings.
         yield return new PluginPageInfo
         {
             Name = "scripts_settings",
-            EmbeddedResourcePath = $"{ns}.Configuration.scripts_settings.html"
+            EmbeddedResourcePath = $"{ns}.Web.scripts_settings.html"
         };
 
         yield return new PluginPageInfo
         {
             Name = "scripts_settings.js",
-            EmbeddedResourcePath = $"{ns}.Configuration.scripts_settings.js"
+            EmbeddedResourcePath = $"{ns}.Web.scripts_settings.js"
         };
 
         yield return new PluginPageInfo
         {
             Name = "scripts_common.js",
-            EmbeddedResourcePath = $"{ns}.Configuration.scripts_common.js"
+            EmbeddedResourcePath = $"{ns}.Web.scripts_common.js"
         };
 
         yield return new PluginPageInfo
         {
             Name = "scripts_templates.js",
-            EmbeddedResourcePath = $"{ns}.Configuration.scripts_templates.js"
+            EmbeddedResourcePath = $"{ns}.Web.scripts_templates.js"
         };
 
         yield return new PluginPageInfo
         {
             Name = "scripts_shared.css",
-            EmbeddedResourcePath = $"{ns}.Configuration.scripts_shared.css"
+            EmbeddedResourcePath = $"{ns}.Web.scripts_shared.css"
         };
 
         // Shared base CSS and JS compiled in from the JPKribs.Jellyfin.Base package.

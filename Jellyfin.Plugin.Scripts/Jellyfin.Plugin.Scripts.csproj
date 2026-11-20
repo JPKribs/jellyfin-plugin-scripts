@@ -25,15 +25,8 @@
 
   <ItemGroup>
     <!-- Admin dashboard pages -->
-    <EmbeddedResource Include="Configuration\scripts_scripts.html" />
-    <EmbeddedResource Include="Configuration\scripts_scripts.js" />
-    <EmbeddedResource Include="Configuration\scripts_history.html" />
-    <EmbeddedResource Include="Configuration\scripts_history.js" />
-    <EmbeddedResource Include="Configuration\scripts_settings.html" />
-    <EmbeddedResource Include="Configuration\scripts_settings.js" />
-    <EmbeddedResource Include="Configuration\scripts_common.js" />
-    <EmbeddedResource Include="Configuration\scripts_templates.js" />
-    <EmbeddedResource Include="Configuration\scripts_shared.css" />
+    <None Remove="Web\**\*" />
+    <EmbeddedResource Include="Web\**\*" />
   </ItemGroup>
 
 </Project>

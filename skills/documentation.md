@@ -209,7 +209,7 @@ Save every capture as PNG. Keep a retaken image at the size and subject of the o
 
 `tools/screenshots/` holds everything the captures need. Its [README](../tools/screenshots/README.md) lists the requirements and the commands.
 
-* **Server.** `server.py` maps `configurationpage?name=scripts_X` to `Jellyfin.Plugin.Scripts/Configuration/`, `scripts_jpkribs_shared.js` and `.css` to the Base version the csproj names under `~/.nuget/packages/jpkribs.jellyfin.base/<version>/assets/`, and `/jf/` to jellyfin-web.
+* **Server.** `server.py` maps `configurationpage?name=scripts_X` to `Jellyfin.Plugin.Scripts/Web/`, `scripts_jpkribs_shared.js` and `.css` to the Base version the csproj names under `~/.nuget/packages/jpkribs.jellyfin.base/<version>/assets/`, and `/jf/` to jellyfin-web.
 * **Page.** `index.html` gets jellyfin-web's CSS from the server in the order its own `index.html` loads it, its two stylesheets first, then `themes/dark/theme.css`, then every chunk. The server leaves out any chunk that sets another root font size, such as `html { font-size: 82% }`, since the dashboard never loads those.
 * **Upgrades.** `upgrade.js` mimics the emby-* element upgrades Jellyfin runs, so inputs, selects, checkboxes, and buttons get the classes and labels they get on a server.
 * **Stand-ins.** `stub.js` gives `ApiClient`, `Dashboard`, and `LibraryMenu` with the generic data. `LibraryMenu.setTabs` draws the dashboard header and the three tabs. The catalog is the plugin's own `TriggerCatalog`, written to `catalog.json` by the `catalog/` console project, so every trigger, field, and variable is real. That project is not in the solution or the plugin build.

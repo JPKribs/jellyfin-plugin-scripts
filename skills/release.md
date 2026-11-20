@@ -31,7 +31,7 @@ Raising a part sets every part after it to `0`. `12.4.1.3` becomes `12.4.2.0` fo
     ```
 
     ```bash
-    for f in Jellyfin.Plugin.Scripts/Configuration/*.js; do node --check "$f"; done
+    for f in Jellyfin.Plugin.Scripts/Web/*.js; do node --check "$f"; done
     ```
 
 5. **Test server.** Install the zip from `./build.sh` on a Jellyfin 12.4 test server, open each tab, and run **Test** and **Run now** on a script that uses every step the release changed. See [testing.md](testing.md#test-server).

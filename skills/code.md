@@ -54,6 +54,25 @@ Code belongs in Base when another plugin could use it unchanged. A helper with n
 
 Never commit this plugin against an unreleased Base package.
 
+## Layout
+
+Each folder holds one kind of file, and a C# namespace matches its folder.
+
+| Path | Holds |
+| :--- | :--- |
+| `Plugin.cs` | The plugin class and its dashboard pages. |
+| `PluginServiceRegistrator.cs` | Service registration. |
+| `Api/` | The `Scripts` controller. |
+| `Configuration/` | `PluginConfiguration.cs` only. No web files. |
+| `Web/` | Every file served to the browser, as `scripts_<page>.html`, `.js`, and `.css`. The csproj embeds the whole folder. |
+| `Assets/` | The plugin logo. |
+| `Models/` | Scripts, steps, conditions, runs, and state files. |
+| `Services/` | Event capture, matching, running, steps, secrets, and stores. |
+| `Tasks/` | `IScheduledTask` types. |
+| `../Jellyfin.Plugin.Scripts.Tests/` | The xUnit tests. |
+| `../docs/` | The MkDocs site. |
+| `../tools/` | Development tools that never ship. |
+
 ## Comments
 
 ### The Rules

@@ -5,9 +5,10 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.Scripts.Models;
+using Jellyfin.Plugin.Scripts.Services;
 using MediaBrowser.Model.Tasks;
 
-namespace Jellyfin.Plugin.Scripts.Services;
+namespace Jellyfin.Plugin.Scripts.Tasks;
 
 /// <summary>
 /// One script's Jellyfin scheduled task. It shows under Scheduled Tasks, in the Scripts category, under the

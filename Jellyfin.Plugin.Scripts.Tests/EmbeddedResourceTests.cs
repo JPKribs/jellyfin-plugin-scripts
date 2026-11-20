@@ -22,7 +22,7 @@ public class EmbeddedResourceTests
     {
         var names = typeof(Plugin).Assembly.GetManifestResourceNames();
 
-        Assert.Contains("Jellyfin.Plugin.Scripts.Configuration." + file, names);
+        Assert.Contains("Jellyfin.Plugin.Scripts.Web." + file, names);
     }
 
     [Fact]

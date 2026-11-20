@@ -62,14 +62,18 @@ Explain what you would change, why, and what it risks. Wait for an answer before
 | Path | What it holds |
 | :--- | :--- |
 | `Jellyfin.Plugin.Scripts/` | The plugin source. |
-| `Jellyfin.Plugin.Scripts/API/` | The `Scripts` controller. |
-| `Jellyfin.Plugin.Scripts/Configuration/` | The plugin configuration and the dashboard pages, as HTML, JS, and CSS. |
+| `Jellyfin.Plugin.Scripts/Api/` | The `Scripts` controller. |
+| `Jellyfin.Plugin.Scripts/Configuration/` | The plugin configuration class. |
+| `Jellyfin.Plugin.Scripts/Web/` | The dashboard pages, as HTML, JS, and CSS. |
+| `Jellyfin.Plugin.Scripts/Assets/` | The plugin logo. |
 | `Jellyfin.Plugin.Scripts/Models/` | The script, step, condition, run, and state models. |
 | `Jellyfin.Plugin.Scripts/Services/` | Event capture, matching, running, steps, secrets, and the state files. |
+| `Jellyfin.Plugin.Scripts/Tasks/` | The scheduled task each scheduled script runs as. |
 | `Jellyfin.Plugin.Scripts.Tests/` | The xUnit tests. |
 | `docs/` | The documentation site, built with MkDocs. |
 | `build.yaml` | The version, the artifacts, and the release notes. |
 | `build.sh` | Builds the plugin zip into `dist/`. |
 | `manifest.json` | The plugin catalog every server reads, written by the publish workflow. |
 | `skills/` | The guides. |
+| `tools/` | Development tools that never ship, such as the screenshot rig. |
 | `../Shared/jellyfin-plugin-base/` | A local checkout of Base, when present. Read it, and never change it from work on this plugin. |

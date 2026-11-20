@@ -19,7 +19,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Jellyfin.Plugin.Scripts.API;
+namespace Jellyfin.Plugin.Scripts.Api;
 
 /// <summary>
 /// The dashboard's API: what the editor offers, test runs, the run history, and path checks. Every route is

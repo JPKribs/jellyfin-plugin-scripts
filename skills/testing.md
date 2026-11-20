@@ -92,7 +92,7 @@ dotnet test
 There are no JavaScript unit tests. Check each page module before you call a change done.
 
 ```bash
-for f in Jellyfin.Plugin.Scripts/Configuration/*.js; do node --check "$f"; done
+for f in Jellyfin.Plugin.Scripts/Web/*.js; do node --check "$f"; done
 ```
 
 Then check that every name `scripts_common.js` imports from Base is in the typings of the version the csproj names.

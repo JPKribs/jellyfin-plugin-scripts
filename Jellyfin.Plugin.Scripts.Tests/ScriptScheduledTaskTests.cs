@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using Jellyfin.Plugin.Scripts.Models;
 using Jellyfin.Plugin.Scripts.Services;
+using Jellyfin.Plugin.Scripts.Tasks;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Model.Tasks;
 using NSubstitute;

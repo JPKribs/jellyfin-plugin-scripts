@@ -70,15 +70,15 @@ validate_resources() {
 
     local missing_files=()
     local config_files=(
-        "$PROJECT_DIR/Configuration/scripts_scripts.html"
-        "$PROJECT_DIR/Configuration/scripts_scripts.js"
-        "$PROJECT_DIR/Configuration/scripts_history.html"
-        "$PROJECT_DIR/Configuration/scripts_history.js"
-        "$PROJECT_DIR/Configuration/scripts_settings.html"
-        "$PROJECT_DIR/Configuration/scripts_settings.js"
-        "$PROJECT_DIR/Configuration/scripts_common.js"
-        "$PROJECT_DIR/Configuration/scripts_templates.js"
-        "$PROJECT_DIR/Configuration/scripts_shared.css"
+        "$PROJECT_DIR/Web/scripts_scripts.html"
+        "$PROJECT_DIR/Web/scripts_scripts.js"
+        "$PROJECT_DIR/Web/scripts_history.html"
+        "$PROJECT_DIR/Web/scripts_history.js"
+        "$PROJECT_DIR/Web/scripts_settings.html"
+        "$PROJECT_DIR/Web/scripts_settings.js"
+        "$PROJECT_DIR/Web/scripts_common.js"
+        "$PROJECT_DIR/Web/scripts_templates.js"
+        "$PROJECT_DIR/Web/scripts_shared.css"
     )
 
     for file in "${config_files[@]}"; do

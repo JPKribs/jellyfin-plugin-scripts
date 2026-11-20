@@ -9,14 +9,14 @@ Scripts targets Jellyfin 12.4 (`net10.0`, ABI `12.4.0.0`). Every event and API i
 | Area | Files |
 | :--- | :--- |
 | Configuration model | `Models/ScriptDefinition.cs`, `Models/ScriptCondition.cs`, `Models/ScriptOperation.cs`, `Configuration/PluginConfiguration.cs` |
-| Event capture | `Services/EventSubscriber.cs` (manager events and the tick), `Services/ServerEventConsumers.cs` (sign ins, users, plugins, pending restart), `Services/PlaybackTracker.cs`, `Services/ScriptScheduledTasks.cs`, `Services/ScriptScheduledTask.cs` |
+| Event capture | `Services/EventSubscriber.cs` (manager events and the tick), `Services/ServerEventConsumers.cs` (sign ins, users, plugins, pending restart), `Services/PlaybackTracker.cs`, `Services/ScriptScheduledTasks.cs`, `Tasks/ScriptScheduledTask.cs` |
 | Event data | `Services/EventContextBuilder.cs`, `Services/EventContext.cs`, `Services/TriggerCatalog.cs` |
 | Matching | `Services/ScriptDispatcher.cs` (triggers, cooldown), `Services/ConditionEvaluator.cs` (item kinds, conditions) |
 | Running | `Services/ScriptRunner.cs`, `Services/ForEachExpander.cs`, `Services/OutputCapture.cs`, `Services/WebhookVariables.cs`, `Services/OperationExecutor.cs`, `Services/OperationExecutor.Actions.cs`, `Services/CommandRunner.cs`, `Services/Placeholders.cs`, `Services/ScriptSecrets.cs` |
 | State files | `Services/ScriptPaths.cs`, `Services/HistoryStore.cs`, `Services/SecretVault.cs` |
 | Validation | `Services/ConfigurationValidator.cs`, called from `Plugin.OnConfigurationSaving` and the test route |
-| API | `API/ScriptsController.cs` |
-| Dashboard | `Configuration/scripts_scripts.*`, `scripts_history.*`, `scripts_settings.*`, `scripts_common.js`, `scripts_templates.js`, `scripts_shared.css` |
+| API | `Api/ScriptsController.cs` |
+| Dashboard | `Web/scripts_scripts.*`, `scripts_history.*`, `scripts_settings.*`, `scripts_common.js`, `scripts_templates.js`, `scripts_shared.css` |
 
 The API routes all sit under `Scripts/`: `GET Catalog`, `GET Status`, `POST Test`, `POST Run/{id}`, `POST Webhook/{token}`, `GET` and `DELETE History`, and `GET CheckPath`.
 

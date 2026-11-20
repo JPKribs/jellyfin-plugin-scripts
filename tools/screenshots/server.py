@@ -6,7 +6,7 @@ Base comes from the NuGet cache at the version the plugin's csproj names. JELLYF
 import http.server, json, os, re, sys, urllib.parse
 HERE = os.path.dirname(os.path.abspath(__file__))
 PLUGIN = os.path.join(HERE, '..', '..', 'Jellyfin.Plugin.Scripts')
-REPO = os.path.join(PLUGIN, 'Configuration')
+REPO = os.path.join(PLUGIN, 'Web')
 JF = os.environ.get('JELLYFIN_WEB', '/Applications/Jellyfin.app/Contents/Resources/jellyfin-web')
 BASEVER = re.search(r'Include="JPKribs\.Jellyfin\.Base"\s+Version="([^"]+)"', open(os.path.join(PLUGIN, 'Jellyfin.Plugin.Scripts.csproj')).read()).group(1)
 BASE = os.path.expanduser('~/.nuget/packages/jpkribs.jellyfin.base/%s/assets' % BASEVER)
