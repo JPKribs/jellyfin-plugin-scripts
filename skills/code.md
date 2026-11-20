@@ -15,13 +15,13 @@ How to write, comment, and test code in this plugin. It covers C#, JavaScript, H
 * Read Base from the package this plugin builds against. The C# source is in `~/.nuget/packages/jpkribs.jellyfin.base/<version>/src/`, and the JS typings are in `assets/jpkribs_shared.d.ts` beside it.
 * Moving a page's UI to a Base component is UI work, not a [stop and ask](../starthere.md#stop-and-ask) item. Only stored data, routes, authorization, and secret handling are.
 * Treat the local Base checkout as read only. Base has its own owner and its own release, so report a gap and wait for the version that closes it.
-* When Base differs from the local code it replaces, keep the local behavior in a small step around the Base call, and cover it with a test. The HTTP request step turns a 5xx, a 429, or no answer from `JpkHttp` into the exception `RetryPolicy` retries.
+* When Base differs from the local code it replaces, keep the local behavior in a small step around the Base call, and cover it with a test. The HTTP request step turns a 5xx, a 429, or no answer from `BaseHttp` into the exception `RetryPolicy` retries.
 
 | Need | Use from Base |
 | :--- | :--- |
 | Plugin class and config lock | `PluginBase<TPlugin, TConfiguration>` |
 | Scheduled task | `PluginScheduledTask`, `TaskTriggers` |
-| Outbound HTTP | `JpkHttp` and `HttpResult` |
+| Outbound HTTP | `BaseHttp` and `HttpResult` |
 | Retry and backoff | `RetryPolicy`, `BackoffPolicy`, `HttpRetry` |
 | Addresses a user supplied, when the plugin must refuse private ones | `SsrfGuard` |
 | Secrets | `SecretProtector`, `StableSecretProtection`, `AddPluginSecretProtector` |

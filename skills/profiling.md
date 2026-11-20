@@ -250,7 +250,7 @@ Try these in order. Each is cheaper and safer than the next.
 
 ### HTTP
 
-* Send every request through `JpkHttp` and the `IHttpClientFactory` the plugin takes. Never build a new `HttpClient` per call.
+* Send every request through `BaseHttp` and the `IHttpClientFactory` the plugin takes. Never build a new `HttpClient` per call.
 * Keep the HTTP step's retry count and backoff as the user set them. Never retry more to hide a slow service.
 
 ### Logging

@@ -260,7 +260,7 @@ public partial class OperationExecutor
         var contentType = mediaType.Length == 0 ? "application/json" : mediaType;
         var method = new HttpMethod(string.IsNullOrWhiteSpace(op.Method) ? "POST" : op.Method.Trim().ToUpperInvariant());
 
-        // JpkHttp never throws, so a response worth retrying (no answer, a 5xx, or a 429) is turned into the
+        // BaseHttp never throws, so a response worth retrying (no answer, a 5xx, or a 429) is turned into the
         // HttpRequestException RetryPolicy treats as transient. The last one is caught and reported below.
         // The last answer is kept, so when the retries run out the step still reports its status and body.
         var retries = Math.Clamp(op.Retries, 0, MaxRetries);
@@ -271,7 +271,7 @@ public partial class OperationExecutor
             response = await RetryPolicy.ExecuteWithRetryAsync(
                 async ct =>
                 {
-                    var result = await JpkHttp.SendAsync(_httpClientFactory, method, uri.ToString(), ct, headers, body, contentType).ConfigureAwait(false);
+                    var result = await BaseHttp.SendAsync(_httpClientFactory, method, uri.ToString(), ct, headers, body, contentType).ConfigureAwait(false);
                     last = result;
                     if (retries > 0 && (result.Status == 0 || result.Status >= 500 || result.Status == 429))
                     {
