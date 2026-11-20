@@ -1,7 +1,7 @@
 ---
 name: "Scripts"
 guid: "449817c2-7661-46fb-b302-bbd6dd3b0a01"
-version: "12.4.1.8"
+version: "12.4.2.0"
 targetAbi: "12.4.0.0"
 framework: "net10.0"
 overview: "Run your own scripts on server events."
@@ -13,7 +13,14 @@ owner: "JPKribs"
 artifacts:
 - "Jellyfin.Plugin.Scripts.dll"
 changelog:
+  added:
+  - The Scripts, History, and Settings tabs show their text in the viewer's language. Jellyfin's own words, such as day names, item kinds, and step names Jellyfin already has, come in every language Jellyfin has, and the rest is in US English until it is translated
+  changed:
+  - Every label, badge, section title, and item kind is written in sentence case, as Jellyfin writes its own, such as Item kinds and Continues on error
+  - The trigger list, the path check under a command, and the errors Test and Run now report follow the page's language
+  - The activity entry for failed runs is written in the server's display language, such as "3 script runs failed"
   developer:
-  - Raises every GitHub Action in the workflows to its latest major version, pinned to a commit digest
-  - Builds the docs with Python 3.15 and mkdocs-material 9.8.2
-  - Renovate brings every update in one pull request, with Base on its own, and leaves the packages Jellyfin ships to the Jellyfin version
+  - Uses JPKribs.Jellyfin.Base 12.4.1, after 12.4.0. Base's translations build embeds the strings and Localization/casing.json, BaseHttp replaces JpkHttp, the failed run outcome uses ActivityOutcome's key constructor, and the controller reads the language with BaseTranslations.RequestLanguage in place of its language query parameters
+  - Catalog, Test, Run/{id}, and CheckPath take the language from ?language=, the X-Jellyfin-Plugin-Language header, or Accept-Language
+  - The project is split into Api, Configuration, Web, Assets, Models, Services, Localization, and Tasks folders, and every page file is embedded from Web
+  - The screenshot kit serves translations as { language, strings, casing }, with Base's own strings
