@@ -34,6 +34,7 @@ How to write, comment, and test code in this plugin. It covers C#, JavaScript, H
 | Formatting and names | `FormatUtilities`, `ItemTitles`, `FileNameSanitizer` |
 | Config page lifecycle | `createConfigPage`, through `createScriptsPage` in `scripts_common.js` |
 | Page helpers | `createShared` |
+| Strings in the viewer's language | `loadTranslations`, through `t` in `scripts_common.js`, and `BaseTranslations` in C# |
 | Tables | `createDataTable` |
 | Lists and row editors | `createCheckboxList`, `createChipSelect`, `createUserMultiSelector`, `createSortableCardList`, `createRepeater`, `createRecordList` |
 | Numbers and times | `createSliderField`, `createDurationField` |
@@ -66,6 +67,7 @@ Each folder holds one kind of file, and a C# namespace matches its folder.
 | `Configuration/` | `PluginConfiguration.cs` only. No web files. |
 | `Web/` | Every file served to the browser, as `scripts_<page>.html`, `.js`, and `.css`. The csproj embeds the whole folder. |
 | `Assets/` | The plugin logo. |
+| `Localization/` | The plugin's own strings, one file per language. See [translations.md](translations.md). |
 | `Models/` | Scripts, steps, conditions, runs, and state files. |
 | `Services/` | Event capture, matching, running, steps, secrets, and stores. |
 | `Tasks/` | `IScheduledTask` types. |
@@ -165,6 +167,7 @@ export function renderRunSteps(shared, run) {
 * Do not comment the methods inside a returned handle. List them in the Output line instead.
 * Open each file with a header naming the file and saying what it holds in one sentence. Use no `// ====` banners.
 * Only `scripts_common.js` imports Base, by the relative path `./configurationpage?name=scripts_jpkribs_shared.js`. It exports each Base builder a page uses, and every page imports from `scripts_common.js`.
+* Every word a page shows comes from a key, through `t` from `scripts_common.js`. See [translations.md](translations.md).
 
 ### HTML
 

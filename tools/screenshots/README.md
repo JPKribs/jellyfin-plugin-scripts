@@ -4,7 +4,7 @@ Takes every image in `docs/screenshots/`. It serves the plugin's real pages with
 
 | File | Does |
 | :--- | :--- |
-| `server.py` | Serves the plugin pages, Base from the NuGet cache, and jellyfin-web, the way Jellyfin's `configurationpage` route does |
+| `server.py` | Serves the plugin pages, Base from the NuGet cache, jellyfin-web, and the plugin's strings, the way Jellyfin's `configurationpage` route and the plugin's Translations route do |
 | `index.html` | Loads jellyfin-web's stylesheets in load order, draws the dashboard header, and mounts one tab |
 | `tasks.html` | The Scripts row of Dashboard, Scheduled Tasks |
 | `upgrade.js` | Adds the classes and markup Jellyfin's `emby-*` elements add on upgrade, so the real CSS applies |

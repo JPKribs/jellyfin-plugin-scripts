@@ -4,6 +4,16 @@ window.addEventListener('error', function (e) { __errs.push(String(e.message)); 
 window.addEventListener('unhandledrejection', function (e) { __errs.push('rejection: ' + String(e.reason && e.reason.stack || e.reason)); });
 (function () { var ce = console.error; console.error = function () { __errs.push([].join.call(arguments, ' ')); ce.apply(console, arguments); }; })();
 
+// The plugin's strings come from server.py, which serves them as the plugin's Translations route does.
+(function () {
+    var real = window.fetch;
+    window.fetch = function (url, options) {
+        var text = String(url);
+        var at = text.indexOf('Scripts/Translations');
+        return real.call(window, at >= 0 ? '/' + text.slice(at) : url, options);
+    };
+})();
+
 var USERS = [
     { Id: '3f0c9a1e5b7d4c2a8e6f1b3d5a7c9e01', Name: 'alex', Policy: { IsAdministrator: true } },
     { Id: '7a2e4c6b8d0f41e3a5c7e9b1d3f5a702', Name: 'jordan', Policy: { IsAdministrator: false } },

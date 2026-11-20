@@ -6,9 +6,9 @@ import {
     createScriptsPage, createRepeater, createChipSelect, createTagInput, createComboBox, adornField, createCheckboxList, createUserMultiSelector, createSortableCardList,
     createChoiceGroup, createCopyField, createRecordList, createSaveBar, createSliderField, createDurationField,
     createToaster, confirmDialog, promptDialog, openDialog, generateGuid, downloadJson, pickJsonFile, setFieldState, SECRET_KEPT,
-    FIELD_GROUPS, FIELD_LABELS, NUMERIC_FIELDS, OPERATOR_LABELS, OPERATION_TYPES, renderRunSummary, renderRunSteps
+    fieldGroups, fieldLabel, NUMERIC_FIELDS, operatorLabels, operationTypes, renderRunSummary, renderRunSteps, t
 } from './configurationpage?name=scripts_common.js';
-import { TEMPLATES, HTTP_PRESETS } from './configurationpage?name=scripts_templates.js';
+import { templates, httpPresetLabels, HTTP_PRESETS } from './configurationpage?name=scripts_templates.js';
 
 export default function (view) {
     'use strict';
@@ -39,34 +39,51 @@ export default function (view) {
         Hour: Array.from({ length: 24 }, function (_, h) { return String(h); })
     };
     var HTTP_METHODS = ['POST', 'GET', 'PUT', 'PATCH', 'DELETE'];
-    var MESSAGE_TARGETS = [
-        { value: 'EventSession', label: 'The session that raised the event' },
-        { value: 'UserSessions', label: 'Every session of the event\'s users' },
-        { value: 'AllSessions', label: 'Every active session' },
-        { value: 'AdminSessions', label: 'Every administrator\'s session' }
-    ];
+
+    // Who a Send message step reaches.
+    function messageTargets() {
+        return [
+            { value: 'EventSession', label: t.tr('TargetEventSession') },
+            { value: 'UserSessions', label: t.tr('TargetUserSessions') },
+            { value: 'AllSessions', label: t.tr('TargetAllSessions') },
+            { value: 'AdminSessions', label: t.tr('TargetAdminSessions') }
+        ];
+    }
+
+    // A day of the week in the viewer's language.
+    function dayLabel(day) {
+        var labels = {
+            Monday: t.tr('Monday'), Tuesday: t.tr('Tuesday'), Wednesday: t.tr('Wednesday'), Thursday: t.tr('Thursday'),
+            Friday: t.tr('Friday'), Saturday: t.tr('Saturday'), Sunday: t.tr('Sunday')
+        };
+        return labels[day] || day;
+    }
 
     // Steps whose output a later step can use.
     var HAS_OUTPUT = { RunCommand: true, HttpRequest: true };
     // The script's numbers, each a Base Slider or Duration Field: the mount, the script property, what it shows
     // while the property is missing, and for a trigger's number the trigger and the panel that holds it.
     // A minutes property is edited as a duration and stored in whole minutes.
-    var SCRIPT_NUMBERS = [
-        { mount: 'pausedMinutesMount', key: 'PausedForMinutes', fallback: 10, trigger: 'PlaybackPausedFor', block: 'pausedOptions', minutes: true, min: 1, max: 1440 },
-        { mount: 'playingMinutesMount', key: 'PlayingForMinutes', fallback: 60, trigger: 'PlaybackPlayingFor', block: 'playingOptions', minutes: true, min: 1, max: 1440 },
-        { mount: 'progressPercentMount', key: 'ProgressPercentThreshold', fallback: 90, trigger: 'PlaybackProgressReached', block: 'progressOptions', slider: { min: 1, max: 99, suffix: '%', label: 'Percentage' } },
-        { mount: 'streamCountMount', key: 'StreamCountThreshold', fallback: 3, trigger: 'StreamCountReached', block: 'streamOptions', slider: { min: 1, max: 100, label: 'Streams' } },
-        { mount: 'transcodeCountMount', key: 'TranscodeCountThreshold', fallback: 2, trigger: 'TranscodeCountReached', block: 'transcodeOptions', slider: { min: 1, max: 100, label: 'Transcodes' } },
-        { mount: 'forEachLimitMount', key: 'ForEachLimit', fallback: 50, slider: { min: 1, max: 500, label: 'Most runs per event' } },
-        { mount: 'cooldownMount', key: 'CooldownSeconds', fallback: 0, units: ['h', 'm', 's'], min: 0, max: 86400 }
-    ];
+    function scriptNumbers() {
+        return [
+            { mount: 'pausedMinutesMount', key: 'PausedForMinutes', fallback: 10, trigger: 'PlaybackPausedFor', block: 'pausedOptions', minutes: true, min: 1, max: 1440 },
+            { mount: 'playingMinutesMount', key: 'PlayingForMinutes', fallback: 60, trigger: 'PlaybackPlayingFor', block: 'playingOptions', minutes: true, min: 1, max: 1440 },
+            { mount: 'progressPercentMount', key: 'ProgressPercentThreshold', fallback: 90, trigger: 'PlaybackProgressReached', block: 'progressOptions', slider: { min: 1, max: 99, suffix: '%', label: t.tr('LabelPercentage') } },
+            { mount: 'streamCountMount', key: 'StreamCountThreshold', fallback: 3, trigger: 'StreamCountReached', block: 'streamOptions', slider: { min: 1, max: 100, label: t.tr('LabelStreams') } },
+            { mount: 'transcodeCountMount', key: 'TranscodeCountThreshold', fallback: 2, trigger: 'TranscodeCountReached', block: 'transcodeOptions', slider: { min: 1, max: 100, label: t.tr('LabelTranscodes') } },
+            { mount: 'forEachLimitMount', key: 'ForEachLimit', fallback: 50, slider: { min: 1, max: 500, label: t.tr('LabelForEachLimit') } },
+            { mount: 'cooldownMount', key: 'CooldownSeconds', fallback: 0, units: ['h', 'm', 's'], min: 0, max: 86400 }
+        ];
+    }
     // A step's numbers, each a Base Slider or Duration Field in the step editor.
-    var STEP_NUMBERS = {
-        TimeoutSeconds: { units: ['m', 's'], min: 0, max: 3600 },
-        Retries: { slider: { min: 0, max: 5, label: 'Retries' } },
-        DisplaySeconds: { slider: { min: 0, max: 300, suffix: ' s', label: 'Seconds shown' } },
-        WaitSeconds: { units: ['m', 's'], min: 1, max: 3600 }
-    };
+    function stepNumbers() {
+        return {
+            TimeoutSeconds: { units: ['m', 's'], min: 0, max: 3600 },
+            Retries: { slider: { min: 0, max: 5, label: t.tr('LabelRetries') } },
+            DisplaySeconds: { slider: { min: 0, max: 300, suffix: ' s', label: t.tr('LabelSecondsShown') } },
+            WaitSeconds: { units: ['m', 's'], min: 1, max: 3600 }
+        };
+    }
 
     var catalog = null;
     var scripts = [];
@@ -170,7 +187,7 @@ export default function (view) {
     // createNumbers
     // Mounts the script's number controls. Each writes its script property as it changes.
     function createNumbers() {
-        SCRIPT_NUMBERS.forEach(function (spec) {
+        scriptNumbers().forEach(function (spec) {
             var control = numberControl(spec, function (value) {
                 if (suppressWidgetEvents || !current()) return;
                 var number = value === null || value === undefined ? 0 : value;
@@ -187,7 +204,7 @@ export default function (view) {
     function showNumbers() {
         var script = current();
         suppressWidgetEvents = true;
-        SCRIPT_NUMBERS.forEach(function (spec) {
+        scriptNumbers().forEach(function (spec) {
             var value = orDefault(script[spec.key], spec.fallback);
             numberControls[spec.key].setValue(spec.minutes ? value * 60 : value);
             if (spec.block) Shared.setVisible(spec.block, has(script, spec.trigger));
@@ -200,19 +217,20 @@ export default function (view) {
     function renderCounts() {
         var enabled = scripts.filter(function (s) { return s.Enabled; }).length;
         Shared.renderCards('scriptCounts', [
-            { count: scripts.length, label: 'Scripts', color: 'blue' },
-            { count: enabled, label: 'Enabled', color: 'green' },
-            { count: scripts.length - enabled, label: 'Disabled', color: 'gray' }
+            { count: scripts.length, label: t.tr('TabScripts'), color: 'blue' },
+            { count: enabled, label: t.tr('LabelEnabled'), color: 'green' },
+            { count: scripts.length - enabled, label: t.tr('Disabled'), color: 'gray' }
         ]);
     }
 
     function renderSelector() {
         var select = el('selectScript');
         select.innerHTML = scripts.map(function (s) {
-            return '<option value="' + esc(s.Id) + '">' + esc(s.Name || 'Untitled') + (s.Enabled ? '' : ' (disabled)') + '</option>';
+            var name = s.Name || t.tr('ScriptUntitled');
+            return '<option value="' + esc(s.Id) + '">' + esc(s.Enabled ? name : t.format('ScriptNameDisabled', name)) + '</option>';
         }).join('');
         if (selectedId) select.value = selectedId;
-        el('emptyState').innerHTML = scripts.length ? '' : Shared.emptySection('No scripts yet. Select New to add one, or Import a file.');
+        el('emptyState').innerHTML = scripts.length ? '' : Shared.emptySection(t.tr('EmptyScripts'));
         Shared.setVisible('emptyState', scripts.length === 0);
         Shared.setVisible('scriptEditor', scripts.length > 0);
         el('btnDeleteScript').disabled = scripts.length === 0;
@@ -239,8 +257,8 @@ export default function (view) {
         matchChoice.set(script.Match || 'All');
         suppressWidgetEvents = false;
         el('forEachMode').value = script.ForEach || 'None';
-        el('onFailureScript').innerHTML = '<option value="">Nothing</option>' + scripts.filter(function (s) { return s.Id !== script.Id; }).map(function (s) {
-            return '<option value="' + esc(s.Id) + '">' + esc(s.Name || 'Untitled') + '</option>';
+        el('onFailureScript').innerHTML = '<option value="">' + esc(t.tr('OptionNothing')) + '</option>' + scripts.filter(function (s) { return s.Id !== script.Id; }).map(function (s) {
+            return '<option value="' + esc(s.Id) + '">' + esc(s.Name || t.tr('ScriptUntitled')) + '</option>';
         }).join('');
         el('onFailureScript').value = compactId(script.OnFailureScriptId);
         renderTriggerOptions();
@@ -276,27 +294,22 @@ export default function (view) {
 
         var library = triggers.filter(function (t) { return t.Category === 'Library' && t.HasItem; });
         var kindWarn = library.length > 0 && (script.ItemKinds || []).length === 0;
-        el('itemKindWarn').textContent = kindWarn
-            ? 'With no item kinds, ' + library.map(quoted).join(' and ') +
-              ' runs for every kind a scan touches, including people, genres, studios, and folders.'
-            : '';
+        el('itemKindWarn').textContent = kindWarn ? t.format('WarnNoItemKinds', library.map(quoted).join(', ')) : '';
         Shared.setVisible('itemKindWarn', kindWarn);
 
         var noUser = triggers.filter(function (t) { return !carriesUser(script, t); });
         var userWarn = (script.UserIds || []).length > 0 && noUser.length > 0;
-        el('userWarn').textContent = userWarn
-            ? 'Ignored for ' + noUser.map(quoted).join(', ') + ', which ' +
-              (noUser.length === 1 ? 'has' : 'have') + ' no user. The script runs on ' + (noUser.length === 1 ? 'that event' : 'those events') + ' whatever these users do.'
-            : '';
+        var ignored = noUser.map(quoted).join(', ');
+        el('userWarn').textContent = !userWarn ? '' : noUser.length === 1 ? t.format('WarnUsersIgnoredOne', ignored) : t.format('WarnUsersIgnoredMany', ignored);
         Shared.setVisible('userWarn', userWarn);
 
         var mode = script.ForEach || 'None';
         Shared.setVisible('forEachLimitRow', mode !== 'None');
         var eachWarn = '';
         if (mode === 'Items' && (script.ItemKinds || []).length === 0) {
-            eachWarn = 'Choose at least one item kind above, such as Movie, so the script knows which items to go through.';
+            eachWarn = t.tr('WarnForEachNoKinds');
         } else if (mode !== 'None' && triggers.length && !triggers.some(function (t) { return expands(script, t); })) {
-            eachWarn = 'Every selected trigger already has ' + (mode === 'Items' ? 'an item' : 'a user') + ', so the script runs once per event. Running for each applies to triggers such as On a schedule, Webhook received, and Run now.';
+            eachWarn = mode === 'Items' ? t.tr('WarnForEachItemsAlready') : t.tr('WarnForEachUsersAlready');
         }
         el('forEachWarn').textContent = eachWarn;
         Shared.setVisible('forEachWarn', !!eachWarn);
@@ -316,11 +329,11 @@ export default function (view) {
 
     // The schedule a script's task starts with, until it is changed under Scheduled Tasks.
     function scheduleStart(script) {
-        var lead = 'Until you change it there, the task starts out running ';
-        if (script.ScheduleMode === 'Interval') return lead + 'every ' + (script.ScheduleIntervalMinutes || 60) + ' minutes.';
-        if (script.ScheduleMode === 'Monthly') return 'The task starts with no schedule of its own. Add one under Scheduled Tasks.';
+        if (script.ScheduleMode === 'Interval') return t.format('ScheduleStartInterval', script.ScheduleIntervalMinutes || 60);
+        if (script.ScheduleMode === 'Monthly') return t.tr('ScheduleStartMonthly');
         var days = script.ScheduleDays || [];
-        return lead + (days.length ? 'on ' + days.join(', ') : 'every day') + ' at ' + (script.ScheduleTime || '03:00') + '.';
+        var time = script.ScheduleTime || '03:00';
+        return days.length ? t.format('ScheduleStartDays', days.map(dayLabel).join(', '), time) : t.format('ScheduleStartDaily', time);
     }
 
     // Shows what the script holds, so a cleared field reads as empty rather than as a default it does not have.
@@ -346,6 +359,7 @@ export default function (view) {
         if (field === 'Library') return catalog.Libraries.map(function (l) { return { value: l.Id, label: l.Name }; });
         if (field === 'TaskKey') return catalog.Tasks.map(function (t) { return { value: t.Key, label: t.Name }; });
         if (field === 'CollectionName') return catalog.Collections.map(function (c) { return { value: c.Name, label: c.Name }; });
+        if (field === 'DayOfWeek') return DAYS.map(function (d) { return { value: d, label: dayLabel(d) }; });
         if (FIXED_VALUES[field]) return FIXED_VALUES[field].map(function (v) { return { value: v, label: v }; });
         return [];
     }
@@ -365,11 +379,9 @@ export default function (view) {
         if (!info) return '';
         var missing = triggers.filter(function (t) { return !supplies(script, t, info); });
         if (!missing.length) return '';
-        if (missing.length === triggers.length) return 'None of the selected triggers supply this value, so this condition never matches.';
+        if (missing.length === triggers.length) return t.tr('WarnConditionNoTrigger');
         var names = missing.map(quoted).join(', ');
-        return script.Match === 'Any'
-            ? 'Never matches for ' + names + '.'
-            : 'Never matches for ' + names + ', so with "all conditions" the script will not run on those.';
+        return script.Match === 'Any' ? t.format('WarnConditionNeverAny', names) : t.format('WarnConditionNeverAll', names);
     }
 
     // conditionItems
@@ -408,7 +420,7 @@ export default function (view) {
                 var input = document.createElement('input');
                 input.setAttribute('is', 'emby-input');
                 input.type = 'number';
-                input.setAttribute('aria-label', 'Value');
+                input.setAttribute('aria-label', t.tr('LabelValue'));
                 input.value = state.values.length ? state.values[0] : '';
                 input.addEventListener('input', function () {
                     state.values = input.value === '' ? [] : [input.value];
@@ -437,15 +449,15 @@ export default function (view) {
                     }
                 });
                 var search = picker.element.querySelector('input');
-                search.setAttribute('aria-label', 'Value');
+                search.setAttribute('aria-label', t.tr('LabelValue'));
                 control = { element: picker.element, input: search, destroy: function () { picker.destroy(); } };
                 swap(before);
                 return;
             }
             var tags = createTagInput({
                 values: state.values,
-                placeholder: 'Type a value and press Enter',
-                inputLabel: 'Value',
+                placeholder: t.tr('PlaceholderConditionValue'),
+                inputLabel: t.tr('LabelValue'),
                 onChange: function (values) {
                     state.values = values;
                     change();
@@ -511,7 +523,7 @@ export default function (view) {
             if (!warning) return;
             var note = document.createElement('div');
             note.className = 'base-warn';
-            note.textContent = 'Condition ' + (index + 1) + '. ' + warning;
+            note.textContent = t.format('WarnConditionNumbered', index + 1, warning);
             host.appendChild(note);
         });
     }
@@ -521,23 +533,24 @@ export default function (view) {
     function renderConditions() {
         var script = current();
         if (!conditionRepeater) {
+            var operators = operatorLabels();
             conditionRepeater = createRepeater({
                 fields: [
                     {
-                        key: 'Field', label: 'Field', type: 'select', width: '1fr',
-                        options: FIELD_GROUPS.reduce(function (all, group) {
+                        key: 'Field', label: t.tr('LabelField'), type: 'select', width: '1fr',
+                        options: fieldGroups().reduce(function (all, group) {
                             return all.concat(group.fields.map(function (f) { return { value: f.key, label: f.label }; }));
                         }, [])
                     },
                     {
-                        key: 'Operator', label: 'Operator', type: 'select', width: '1fr',
-                        options: Object.keys(OPERATOR_LABELS).map(function (o) { return { value: o, label: OPERATOR_LABELS[o] }; })
+                        key: 'Operator', label: t.tr('LabelOperator'), type: 'select', width: '1fr',
+                        options: Object.keys(operators).map(function (o) { return { value: o, label: operators[o] }; })
                     },
-                    { key: 'Values', label: 'Value', type: 'custom', width: '2fr', render: conditionValueField }
+                    { key: 'Values', label: t.tr('LabelValue'), type: 'custom', width: '2fr', render: conditionValueField }
                 ],
-                addText: 'Add condition',
-                rowName: 'Condition',
-                emptyText: 'No conditions. The script runs on every trigger that passes its filters.',
+                addText: t.tr('ButtonAddCondition'),
+                rowName: t.tr('RowCondition'),
+                emptyText: t.tr('EmptyConditions'),
                 onChange: onConditionsChanged
             });
             el('conditionList').appendChild(conditionRepeater.element);
@@ -552,36 +565,37 @@ export default function (view) {
 
     function operationSummary(op) {
         switch (op.Type) {
-            case 'RunCommand': return op.Command || 'No command yet';
-            case 'HttpRequest': return (op.Method || 'POST') + ' ' + (op.Url || 'no URL yet');
-            case 'SendMessage': return op.Text || 'No message yet';
-            case 'StopPlayback': return op.Text ? 'Message, then stop' : 'Stop the event\'s session';
-            case 'AddTag': case 'RemoveTag': return op.Tag || 'No tag yet';
+            case 'RunCommand': return op.Command || t.tr('SummaryNoCommand');
+            case 'HttpRequest': return (op.Method || 'POST') + ' ' + (op.Url || t.tr('SummaryNoUrl'));
+            case 'SendMessage': return op.Text || t.tr('SummaryNoMessage');
+            case 'StopPlayback': return op.Text ? t.tr('SummaryMessageThenStop') : t.tr('SummaryStopSession');
+            case 'AddTag': case 'RemoveTag': return op.Tag || t.tr('SummaryNoTag');
             case 'AddToCollection': case 'RemoveFromCollection': {
                 var c = catalog.Collections.find(function (x) { return compactId(x.Id) === compactId(op.CollectionId); });
-                return c ? c.Name : 'No collection chosen';
+                return c ? c.Name : t.tr('SummaryNoCollection');
             }
             case 'RunScript': {
                 var s = scripts.find(function (x) { return compactId(x.Id) === compactId(op.ScriptId); });
-                return s ? s.Name : 'No script chosen';
+                return s ? s.Name : t.tr('SummaryNoScript');
             }
             case 'RunScheduledTask': {
-                var t = catalog.Tasks.find(function (x) { return x.Key === op.TaskKey; });
-                return t ? t.Name : 'No task chosen';
+                var task = catalog.Tasks.find(function (x) { return x.Key === op.TaskKey; });
+                return task ? task.Name : t.tr('SummaryNoTask');
             }
-            case 'AppendToFile': return op.FilePath || 'No file yet';
-            case 'Wait': return (op.WaitSeconds || 0) + ' seconds';
-            case 'SetFavorite': return op.Favorite ? 'Add the favorite' : 'Remove the favorite';
-            case 'SetUserDisabled': return op.Disable ? 'Disable the user' : 'Enable the user';
-            case 'WriteActivityLog': return op.Title || 'Entry named after the script';
-            case 'RefreshMetadata': return op.FullRefresh ? 'Full refresh' : 'Standard refresh';
-            case 'StopScript': return 'Skip the steps after this one';
+            case 'AppendToFile': return op.FilePath || t.tr('SummaryNoFile');
+            case 'Wait': return t.format('ValueSeconds', op.WaitSeconds || 0);
+            case 'SetFavorite': return op.Favorite ? t.tr('SummaryAddFavorite') : t.tr('SummaryRemoveFavorite');
+            case 'SetUserDisabled': return op.Disable ? t.tr('OptionDisableTheUser') : t.tr('OptionEnableUser');
+            case 'WriteActivityLog': return op.Title || t.tr('SummaryActivityEntry');
+            case 'RefreshMetadata': return op.FullRefresh ? t.tr('LabelFullRefresh') : t.tr('SummaryStandardRefresh');
+            case 'StopScript': return t.tr('SummaryStopScript');
             default: return '';
         }
     }
 
     function operationWarning(script, op) {
-        var needs = OPERATION_TYPES[op.Type] && OPERATION_TYPES[op.Type].needs;
+        var types = operationTypes();
+        var needs = types[op.Type] && types[op.Type].needs;
         if (op.Type === 'SendMessage') needs = op.Target === 'EventSession' ? 'session' : (op.Target === 'UserSessions' ? 'user' : null);
         var triggers = selectedTriggers(script);
         if (!needs || !triggers.length) return '';
@@ -593,9 +607,12 @@ export default function (view) {
         };
         var missing = triggers.filter(lacks);
         if (!missing.length) return '';
-        var what = { session: 'session', item: 'item', user: 'user', useritem: 'user and item' }[needs];
-        return 'Skipped for ' + missing.map(quoted).join(', ') + ', which ' +
-            (missing.length === 1 ? 'has' : 'have') + ' no ' + what + '.';
+        var names = missing.map(quoted).join(', ');
+        var one = missing.length === 1;
+        if (needs === 'session') return one ? t.format('WarnStepSkippedSessionOne', names) : t.format('WarnStepSkippedSessionMany', names);
+        if (needs === 'item') return one ? t.format('WarnStepSkippedItemOne', names) : t.format('WarnStepSkippedItemMany', names);
+        if (needs === 'user') return one ? t.format('WarnStepSkippedUserOne', names) : t.format('WarnStepSkippedUserMany', names);
+        return one ? t.format('WarnStepSkippedUserItemOne', names) : t.format('WarnStepSkippedUserItemMany', names);
     }
 
     function newOperation(type) {
@@ -619,7 +636,7 @@ export default function (view) {
 
     function renderOperationCards() {
         var script = current();
-        el('operationEmpty').innerHTML = script.Operations.length ? '' : Shared.emptySection('No steps yet. Add one below.', { inline: true });
+        el('operationEmpty').innerHTML = script.Operations.length ? '' : Shared.emptySection(t.tr('EmptySteps'), { inline: true });
         Shared.setVisible('operationEmpty', script.Operations.length === 0);
         operationList.render();
     }
@@ -638,7 +655,7 @@ export default function (view) {
                     (opts.placeholder ? ' placeholder="' + esc(opts.placeholder) + '"' : '') + ' />';
         // A Base control sits in a plain field, since Jellyfin stretches every input inside an inputContainer.
         return '<div class="' + (opts.number ? 'base-field' : 'inputContainer') + '"><label' + (opts.number ? '' : ' for="' + id + '"') + '>' + esc(label) + '</label>' + field +
-            (opts.help ? '<div class="fieldDescription">' + opts.help + '</div>' : '') + '</div>';
+            (opts.help ? '<div class="fieldDescription">' + esc(opts.help) + '</div>' : '') + '</div>';
     }
 
     // mountStepNumbers
@@ -649,7 +666,7 @@ export default function (view) {
     function mountStepNumbers(op) {
         el('operationEditor').querySelectorAll('[data-number-mount]').forEach(function (mount) {
             var key = mount.getAttribute('data-number-mount');
-            var control = numberControl(STEP_NUMBERS[key], function (value) {
+            var control = numberControl(stepNumbers()[key], function (value) {
                 op[key] = value === null || value === undefined ? 0 : value;
                 edited();
             });
@@ -668,7 +685,7 @@ export default function (view) {
         var combo = createComboBox({
             value: op.OnlyIfVariable || '',
             suggestions: variableNames,
-            placeholder: 'Always, or a variable',
+            placeholder: t.tr('PlaceholderStepVariable'),
             onChange: function (value) {
                 var fixed = upperName(value);
                 if (fixed !== value) combo.setValue(fixed);
@@ -694,7 +711,7 @@ export default function (view) {
         return '<div class="checkboxContainer' + (help ? ' checkboxContainer-withDescription' : '') + '"><label class="emby-checkbox-label">' +
             '<input type="checkbox" is="emby-checkbox" data-key="' + key + '"' + (op[key] ? ' checked' : '') + ' />' +
             '<span class="checkboxLabel">' + esc(label) + '</span></label>' +
-            (help ? '<div class="fieldDescription checkboxFieldDescription">' + help + '</div>' : '') + '</div>';
+            (help ? '<div class="fieldDescription checkboxFieldDescription">' + esc(help) + '</div>' : '') + '</div>';
     }
 
     function select(op, key, label, options, opts) {
@@ -703,97 +720,113 @@ export default function (view) {
             '<select is="emby-select" data-key="' + key + '"' + (opts.bool ? ' data-bool="1"' : '') + '>' +
             options.map(function (o) {
                 return '<option value="' + esc(o.value) + '"' + (String(op[key]) === String(o.value) ? ' selected' : '') + '>' + esc(o.label) + '</option>';
-            }).join('') + '</select>' + (opts.help ? '<div class="fieldDescription">' + opts.help + '</div>' : '') + '</div>';
+            }).join('') + '</select>' + (opts.help ? '<div class="fieldDescription">' + esc(opts.help) + '</div>' : '') + '</div>';
     }
 
     function note(text) {
-        return '<div class="fieldDescription">' + text + '</div>';
+        return '<div class="fieldDescription">' + esc(text) + '</div>';
+    }
+
+    // richText
+    // A string whose {0}, {1} stand for code samples, as HTML with each sample in a code element.
+    //
+    // Inputs
+    // text [string]: The translated string.
+    // codes [Array]: The code samples, in placeholder order.
+    //
+    // Output
+    // [string]: The HTML.
+    function richText(text, codes) {
+        return esc(text).replace(/\{(\d+)\}/g, function (match, index) {
+            return codes[+index] === undefined ? match : '<code>' + esc(codes[+index]) + '</code>';
+        });
     }
 
     function operationFields(op) {
         switch (op.Type) {
             case 'RunCommand':
-                return '<div class="base-choice-group" role="radiogroup" aria-label="How the command runs">' +
+                return '<div class="base-choice-group" role="radiogroup" aria-label="' + esc(t.tr('LabelCommandMode')) + '">' +
                         '<label class="base-choice"><input type="radio" name="commandMode" value="direct"' + (op.RunThroughShell ? '' : ' checked') + ' />' +
-                            '<span class="base-choice-name">Run directly</span><span class="base-choice-text">Starts one program with its arguments. Event values fill arguments safely.</span></label>' +
+                            '<span class="base-choice-name">' + esc(t.tr('ChoiceRunDirectly')) + '</span><span class="base-choice-text">' + esc(t.tr('HelpRunDirectly')) + '</span></label>' +
                         '<label class="base-choice"><input type="radio" name="commandMode" value="shell"' + (op.RunThroughShell ? ' checked' : '') + ' />' +
-                            '<span class="base-choice-name">Through the shell</span><span class="base-choice-text">One line for /bin/sh, for pipes and redirects. Event values come from the environment.</span></label>' +
+                            '<span class="base-choice-name">' + esc(t.tr('ChoiceThroughShell')) + '</span><span class="base-choice-text">' + esc(t.tr('HelpThroughShell')) + '</span></label>' +
                     '</div>' +
-                    input(op, 'Command', op.RunThroughShell ? 'Shell line' : 'Command', {
+                    input(op, 'Command', op.RunThroughShell ? t.tr('LabelShellLine') : t.tr('LabelCommand'), {
                         placeholder: op.RunThroughShell ? '/scripts/notify.sh "$JF_ITEM_NAME" >> /tmp/log.txt' : '/scripts/notify.sh',
                         help: op.RunThroughShell
-                            ? 'Placeholders are not filled here, so event values cannot inject shell syntax. Read them from the environment, such as "$JF_ITEM_NAME". On Windows the line runs through cmd /c, which expands %JF_...% before parsing it, so there read event values inside a script file instead.'
-                            : 'A path to a script or program, or a name on the server\'s PATH such as curl. The server must be able to reach the path. In Docker, mount it into the container and use the path inside it.'
+                            ? t.tr('HelpShellLine')
+                            : t.tr('HelpCommand')
                     }) +
-                    (op.RunThroughShell ? '' : '<button is="emby-button" type="button" class="raised base-button secondary small" id="btnCheckPath"><span>Check path</span></button>') +
-                    (op.RunThroughShell ? '' : input(op, 'Arguments', 'Arguments, one per line', {
+                    (op.RunThroughShell ? '' : '<button is="emby-button" type="button" class="raised base-button secondary small" id="btnCheckPath"><span>' + esc(t.tr('ButtonCheckPath')) + '</span></button>') +
+                    (op.RunThroughShell ? '' : input(op, 'Arguments', t.tr('LabelArguments'), {
                         textarea: true,
                         placeholder: '--title\n{{ITEM_NAME}}',
-                        help: 'Each line is passed as one argument, with placeholders filled. Spaces and quotes in a value never split it.'
+                        help: t.tr('HelpArguments')
                     })) +
-                    input(op, 'WorkingDirectory', 'Working folder', { placeholder: 'The script\'s own folder', help: 'Optional. Defaults to the folder holding the script.' }) +
-                    input(op, 'TimeoutSeconds', 'Timeout', { number: true, help: 'The command is stopped after this long. 0 uses the default from Settings.' });
+                    input(op, 'WorkingDirectory', t.tr('LabelWorkingFolder'), { placeholder: t.tr('PlaceholderWorkingFolder'), help: t.tr('HelpWorkingFolder') }) +
+                    input(op, 'TimeoutSeconds', t.tr('LabelTimeout'), { number: true, help: t.tr('HelpStepTimeout') });
             case 'HttpRequest':
-                return select(op, '__preset', 'Start from a preset', [{ value: '', label: 'Keep the current request' }].concat(Object.keys(HTTP_PRESETS).map(function (k) {
-                        return { value: k, label: HTTP_PRESETS[k].label };
-                    })), { help: 'Fills the fields below for a common service. Replace the URL and put tokens in the script\'s secrets.' }) +
-                    select(op, 'Method', 'Method', HTTP_METHODS.map(function (m) { return { value: m, label: m }; })) +
-                    input(op, 'Url', 'URL', { placeholder: 'https://example.com/hook?item={{ITEM_NAME:url}}' }) +
-                    input(op, 'Headers', 'Headers, one per line', { textarea: true, rows: 2, placeholder: 'Authorization: Bearer {{SECRET_TOKEN}}' }) +
-                    input(op, 'ContentType', 'Content type', { placeholder: 'application/json' }) +
-                    input(op, 'Body', 'Body', { textarea: true, rows: 5, placeholder: '{ "text": "{{USER_NAME:json}} started {{ITEM_NAME:json}}" }' }) +
-                    input(op, 'Retries', 'Retries', { number: true, help: 'Tries again after no answer, a 5xx, or a 429, waiting longer each time. Up to 5.' });
+                var presets = httpPresetLabels();
+                return select(op, '__preset', t.tr('LabelPreset'), [{ value: '', label: t.tr('OptionKeepRequest') }].concat(Object.keys(HTTP_PRESETS).map(function (k) {
+                        return { value: k, label: presets[k] };
+                    })), { help: t.tr('HelpPreset') }) +
+                    select(op, 'Method', t.tr('LabelMethod'), HTTP_METHODS.map(function (m) { return { value: m, label: m }; })) +
+                    input(op, 'Url', t.tr('LabelUrl'), { placeholder: 'https://example.com/hook?item={{ITEM_NAME:url}}' }) +
+                    input(op, 'Headers', t.tr('LabelHeaders'), { textarea: true, rows: 2, placeholder: 'Authorization: Bearer {{SECRET_TOKEN}}' }) +
+                    input(op, 'ContentType', t.tr('LabelContentType'), { placeholder: 'application/json' }) +
+                    input(op, 'Body', t.tr('LabelBody'), { textarea: true, rows: 5, placeholder: '{ "text": "{{USER_NAME:json}} started {{ITEM_NAME:json}}" }' }) +
+                    input(op, 'Retries', t.tr('LabelRetries'), { number: true, help: t.tr('HelpRetries') });
             case 'SendMessage':
-                return select(op, 'Target', 'Send to', MESSAGE_TARGETS) +
-                    input(op, 'Title', 'Title') +
-                    input(op, 'Text', 'Message', { textarea: true, rows: 2 }) +
-                    input(op, 'DisplaySeconds', 'Show for', { number: true, help: '0 leaves it to the client.' });
+                return select(op, 'Target', t.tr('LabelSendTo'), messageTargets()) +
+                    input(op, 'Title', t.tr('LabelTitle')) +
+                    input(op, 'Text', t.tr('LabelMessage'), { textarea: true, rows: 2 }) +
+                    input(op, 'DisplaySeconds', t.tr('LabelShowFor'), { number: true, help: t.tr('HelpShowFor') });
             case 'StopPlayback':
-                return input(op, 'Text', 'Message shown before stopping', { textarea: true, rows: 2, help: 'Optional.' }) +
-                    input(op, 'Title', 'Message title', { help: 'Optional.' }) +
-                    input(op, 'DisplaySeconds', 'Show for', { number: true });
+                return input(op, 'Text', t.tr('LabelStopMessage'), { textarea: true, rows: 2, help: t.tr('HelpOptional') }) +
+                    input(op, 'Title', t.tr('LabelMessageTitle'), { help: t.tr('HelpOptional') }) +
+                    input(op, 'DisplaySeconds', t.tr('LabelShowFor'), { number: true });
             case 'PausePlayback':
-                return note('Pauses playback on the session that raised the event.');
+                return note(t.tr('HelpPausePlayback'));
             case 'MarkPlayed':
             case 'MarkUnplayed':
-                return note('Acts on the event\'s item for the event\'s user.');
+                return note(t.tr('HelpEventItemForUser'));
             case 'SetFavorite':
-                return select(op, 'Favorite', 'Favorite', [{ value: 'true', label: 'Add as a favorite' }, { value: 'false', label: 'Remove from favorites' }], { bool: true, help: 'Acts on the event\'s item for the event\'s user.' });
+                return select(op, 'Favorite', t.tr('Favorite'), [{ value: 'true', label: t.tr('OptionAddFavorite') }, { value: 'false', label: t.tr('OptionRemoveFavorite') }], { bool: true, help: t.tr('HelpEventItemForUser') });
             case 'AddTag':
             case 'RemoveTag':
-                return input(op, 'Tag', 'Tag', { placeholder: 'new', help: 'Placeholders are filled, such as {{LOCAL_DATE}}.' });
+                return input(op, 'Tag', t.tr('LabelTag'), { placeholder: t.tr('PlaceholderTag'), help: t.tr('HelpTag') });
             case 'AddToCollection':
             case 'RemoveFromCollection':
-                return select(op, 'CollectionId', 'Collection', [{ value: '', label: catalog.Collections.length ? 'Choose a collection' : 'No collections on this server' }].concat(catalog.Collections.map(function (c) {
+                return select(op, 'CollectionId', t.tr('LabelCollection'), [{ value: '', label: catalog.Collections.length ? t.tr('OptionChooseCollection') : t.tr('OptionNoCollections') }].concat(catalog.Collections.map(function (c) {
                     return { value: c.Id, label: c.Name };
                 })));
             case 'RefreshMetadata':
-                return checkbox(op, 'FullRefresh', 'Full refresh', 'Fetch everything again rather than only what is missing.') +
-                    checkbox(op, 'ReplaceAll', 'Replace existing metadata and images');
+                return checkbox(op, 'FullRefresh', t.tr('LabelFullRefresh'), t.tr('HelpFullRefresh')) +
+                    checkbox(op, 'ReplaceAll', t.tr('LabelReplaceAll'));
             case 'SetUserDisabled':
-                return select(op, 'Disable', 'Action', [{ value: 'true', label: 'Disable the user' }, { value: 'false', label: 'Enable the user' }], { bool: true, help: 'Acts on the event\'s user. Administrators are never disabled.' });
+                return select(op, 'Disable', t.tr('LabelAction'), [{ value: 'true', label: t.tr('OptionDisableTheUser') }, { value: 'false', label: t.tr('OptionEnableUser') }], { bool: true, help: t.tr('HelpSetUserDisabled') });
             case 'SignOutUser':
-                return note('Signs the event\'s user out of every device. Administrators are never signed out.');
+                return note(t.tr('HelpSignOutUser'));
             case 'ScanLibraries':
-                return note('Queues a scan of every library, the same as the Scan All Libraries button.');
+                return note(t.tr('HelpScanLibraries'));
             case 'RunScript':
-                return select(op, 'ScriptId', 'Script', [{ value: '', label: 'Choose a script' }].concat(scripts.filter(function (s) { return s.Id !== selectedId; }).map(function (s) {
+                return select(op, 'ScriptId', t.tr('LabelScript'), [{ value: '', label: t.tr('OptionChooseScript') }].concat(scripts.filter(function (s) { return s.Id !== selectedId; }).map(function (s) {
                     return { value: s.Id, label: s.Name };
-                })), { help: 'Runs that script\'s steps with this event, skipping its triggers and filters. Scripts may run each other up to 3 levels deep.' });
+                })), { help: t.tr('HelpRunScript') });
             case 'RunScheduledTask':
-                return select(op, 'TaskKey', 'Scheduled task', [{ value: '', label: 'Choose a task' }].concat(catalog.Tasks.map(function (t) {
-                    return { value: t.Key, label: t.Name };
+                return select(op, 'TaskKey', t.tr('LabelScheduledTask'), [{ value: '', label: t.tr('OptionChooseTask') }].concat(catalog.Tasks.map(function (task) {
+                    return { value: task.Key, label: task.Name };
                 })));
             case 'WriteActivityLog':
-                return input(op, 'Title', 'Entry name', { placeholder: 'The script\'s name' }) +
-                    input(op, 'Text', 'Details', { textarea: true, rows: 2 });
+                return input(op, 'Title', t.tr('LabelEntryName'), { placeholder: t.tr('PlaceholderEntryName') }) +
+                    input(op, 'Text', t.tr('LabelDetails'), { textarea: true, rows: 2 });
             case 'AppendToFile':
-                return input(op, 'FilePath', 'File', { placeholder: '/config/log/scripts.log', help: 'A full path whose folder exists. The file is created if missing.' }) +
-                    input(op, 'Text', 'Line to append', { textarea: true, rows: 2, placeholder: '{{LOCAL_DATE}} {{LOCAL_TIME}} {{EVENT}} {{ITEM_NAME}}' });
+                return input(op, 'FilePath', t.tr('File'), { placeholder: '/config/log/scripts.log', help: t.tr('HelpAppendFile') }) +
+                    input(op, 'Text', t.tr('LabelLineToAppend'), { textarea: true, rows: 2, placeholder: '{{LOCAL_DATE}} {{LOCAL_TIME}} {{EVENT}} {{ITEM_NAME}}' });
             case 'Wait':
-                return input(op, 'WaitSeconds', 'Wait for', { number: true });
+                return input(op, 'WaitSeconds', t.tr('LabelWaitFor'), { number: true });
             case 'StopScript':
-                return note('Ends the run here: the steps after this one are skipped, and the run still counts as succeeded. Give it a condition below so it only stops when you want it to.');
+                return note(t.tr('HelpStopScript'));
             default:
                 return '';
         }
@@ -807,19 +840,20 @@ export default function (view) {
     // What every step has beyond its own fields: a condition, and for a command or HTTP request a saved output,
     // each a Base Field Row under a Subsection Title.
     function stepExtras(op) {
-        var condition = '<h3 class="base-subsection-title">Only run this step if</h3><div class="base-field-row">' +
-            rowField('opFieldOnlyIfVariable', 'Variable', '<div id="onlyIfVariableMount"></div>') +
-            rowField('opFieldOnlyIfOperator', 'Operator', '<select is="emby-select" id="opFieldOnlyIfOperator" data-key="OnlyIfOperator">' + Object.keys(OPERATOR_LABELS).map(function (o) {
-                return '<option value="' + o + '"' + (o === (op.OnlyIfOperator || 'Is') ? ' selected' : '') + '>' + esc(OPERATOR_LABELS[o]) + '</option>';
+        var operators = operatorLabels();
+        var http = op.Type === 'HttpRequest';
+        var condition = '<h3 class="base-subsection-title">' + esc(t.tr('HeaderStepCondition')) + '</h3><div class="base-field-row">' +
+            rowField('opFieldOnlyIfVariable', t.tr('LabelVariable'), '<div id="onlyIfVariableMount"></div>') +
+            rowField('opFieldOnlyIfOperator', t.tr('LabelOperator'), '<select is="emby-select" id="opFieldOnlyIfOperator" data-key="OnlyIfOperator">' + Object.keys(operators).map(function (o) {
+                return '<option value="' + o + '"' + (o === (op.OnlyIfOperator || 'Is') ? ' selected' : '') + '>' + esc(operators[o]) + '</option>';
             }).join('') + '</select>') +
-            rowField('opFieldOnlyIfValue', 'Value', '<input is="emby-input" type="text" id="opFieldOnlyIfValue" data-key="OnlyIfValue" value="' + esc(op.OnlyIfValue) + '" placeholder="Value, or empty for none" />') +
-            '</div><div class="fieldDescription">Tests any variable, such as ITEM_KIND, a webhook field, or one an earlier step saved. A step whose condition does not match is skipped, and the run carries on.</div>';
+            rowField('opFieldOnlyIfValue', t.tr('LabelValue'), '<input is="emby-input" type="text" id="opFieldOnlyIfValue" data-key="OnlyIfValue" value="' + esc(op.OnlyIfValue) + '" placeholder="' + esc(t.tr('PlaceholderStepValue')) + '" />') +
+            '</div><div class="fieldDescription">' + esc(t.tr('HelpStepCondition')) + '</div>';
         var output = HAS_OUTPUT[op.Type]
-            ? '<h3 class="base-subsection-title">Save the ' + (op.Type === 'HttpRequest' ? 'response' : 'output') + ' for later steps</h3><div class="base-field-row">' +
-                rowField('opFieldOutputName', 'Save as', '<input is="emby-input" type="text" id="opFieldOutputName" class="base-mono" data-key="OutputName" data-upper="1" value="' + esc(op.OutputName) + '" placeholder="Name, such as RESULT" />') +
-                rowField('opFieldOutputJsonPath', 'JSON field', '<input is="emby-input" type="text" id="opFieldOutputJsonPath" data-key="OutputJsonPath" value="' + esc(op.OutputJsonPath) + '" placeholder="Everything, or a JSON field: data.items[0].name" />') +
-                '</div><div class="fieldDescription">Later steps use it as <code>{{NAME}}</code>, and <code>{{NAME_STATUS}}</code> holds the ' +
-                (op.Type === 'HttpRequest' ? 'HTTP status' : 'exit code') + '.</div>'
+            ? '<h3 class="base-subsection-title">' + esc(http ? t.tr('HeaderSaveResponse') : t.tr('HeaderSaveOutput')) + '</h3><div class="base-field-row">' +
+                rowField('opFieldOutputName', t.tr('LabelSaveAs'), '<input is="emby-input" type="text" id="opFieldOutputName" class="base-mono" data-key="OutputName" data-upper="1" value="' + esc(op.OutputName) + '" placeholder="' + esc(t.tr('PlaceholderSaveAs')) + '" />') +
+                rowField('opFieldOutputJsonPath', t.tr('LabelJsonField'), '<input is="emby-input" type="text" id="opFieldOutputJsonPath" data-key="OutputJsonPath" value="' + esc(op.OutputJsonPath) + '" placeholder="' + esc(t.tr('PlaceholderJsonField')) + '" />') +
+                '</div><div class="fieldDescription">' + richText(http ? t.tr('HelpSaveResponse') : t.tr('HelpSaveOutput'), ['{{NAME}}', '{{NAME_STATUS}}']) + '</div>'
             : '';
         return condition + output;
     }
@@ -836,8 +870,8 @@ export default function (view) {
             (warning ? '<div class="base-warn">' + esc(warning) + '</div>' : '') +
             operationFields(op) +
             stepExtras(op) +
-            checkbox(op, 'ContinueOnError', 'Continue on error', 'Run the following steps even if this one fails.') +
-            '<button is="emby-button" type="button" class="raised base-button destructive small" id="btnRemoveOperation"><span>Remove step</span></button>';
+            checkbox(op, 'ContinueOnError', t.tr('LabelContinueOnError'), t.tr('HelpContinueOnError')) +
+            '<button is="emby-button" type="button" class="raised base-button destructive small" id="btnRemoveOperation"><span>' + esc(t.tr('ButtonRemoveStep')) + '</span></button>';
         mountStepNumbers(op);
         mountVariableField(op);
         var mode = editor.querySelector('.base-choice-group');
@@ -890,12 +924,12 @@ export default function (view) {
         var op = selectedOperation();
         var command = el('opFieldCommand');
         if (!op || !command) return;
-        setFieldState(command, 'info', 'Checking…');
-        Shared.apiRequest('Scripts/CheckPath?path=' + encodeURIComponent(op.Command || ''), 'GET').then(function (check) {
+        setFieldState(command, 'info', t.tr('StatusChecking'));
+        Shared.apiRequest('Scripts/CheckPath?path=' + encodeURIComponent(op.Command || '') + '&language=' + encodeURIComponent(t.language), 'GET').then(function (check) {
             var ok = check && check.Exists && !check.IsDirectory && check.IsExecutable;
-            setFieldState(command, ok ? 'success' : 'error', check ? check.Message : 'No answer from the server.');
+            setFieldState(command, ok ? 'success' : 'error', check ? check.Message : t.tr('ErrorNoAnswer'));
         }).catch(function () {
-            setFieldState(command, 'error', 'Could not check the path.');
+            setFieldState(command, 'error', t.tr('ErrorCheckPath'));
         });
     }
 
@@ -920,10 +954,10 @@ export default function (view) {
     // Checks a secret's name: capital letters, digits, and underscores, and no other secret of the script with it.
     function secretNameProblem(value, item, index) {
         if (!value) return '';
-        if (!/^[A-Z0-9_]{1,40}$/.test(value)) return 'Use capital letters, digits, and underscores.';
+        if (!/^[A-Z0-9_]{1,40}$/.test(value)) return t.tr('ErrorSecretName');
         var rows = secretRepeater ? secretRepeater.getValue() : [];
         var same = rows.filter(function (row) { return row.Name === value; }).length;
-        return same > 1 ? 'Another secret has this name.' : '';
+        return same > 1 ? t.tr('ErrorSecretNameTaken') : '';
     }
 
     // renderSecrets
@@ -933,15 +967,15 @@ export default function (view) {
             secretRepeater = createRepeater({
                 fields: [
                     {
-                        key: 'Name', label: 'Name', placeholder: 'NAME', width: 'minmax(9rem, 1fr)', required: true, validate: secretNameProblem,
+                        key: 'Name', label: t.tr('LabelName'), placeholder: t.tr('PlaceholderSecretName'), width: 'minmax(9rem, 1fr)', required: true, validate: secretNameProblem,
                         // Names are capital letters, digits, and underscores, so typing fixes them as they go.
                         transform: function (text) { return text.toUpperCase().replace(/[^A-Z0-9_]/g, '_'); }
                     },
-                    { key: 'Value', label: 'Value', type: 'secret', placeholder: 'Value', width: 'minmax(11rem, 2fr)', clearable: true }
+                    { key: 'Value', label: t.tr('LabelValue'), type: 'secret', placeholder: t.tr('LabelValue'), width: 'minmax(11rem, 2fr)', clearable: true }
                 ],
-                addText: 'Add secret',
-                rowName: 'Secret',
-                emptyText: 'No secrets.',
+                addText: t.tr('ButtonAddSecret'),
+                rowName: t.tr('RowSecret'),
+                emptyText: t.tr('EmptySecrets'),
                 onChange: onSecretsChanged
             });
             el('secretMount').appendChild(secretRepeater.element);
@@ -981,12 +1015,12 @@ export default function (view) {
         if (script.ForEach === 'Items' || script.ForEach === 'Users') (catalog.ForEachVariables[script.ForEach] || []).forEach(add);
         (script.Operations || []).forEach(function (op, index) {
             if (!HAS_OUTPUT[op.Type] || !op.OutputName) return;
-            add({ Name: op.OutputName, Description: 'What step ' + (index + 1) + ' saved.' });
-            add({ Name: op.OutputName + '_STATUS', Description: 'Step ' + (index + 1) + '\'s ' + (op.Type === 'HttpRequest' ? 'HTTP status.' : 'exit code.') });
+            add({ Name: op.OutputName, Description: t.format('VariableStepSaved', index + 1) });
+            add({ Name: op.OutputName + '_STATUS', Description: op.Type === 'HttpRequest' ? t.format('VariableStepHttpStatus', index + 1) : t.format('VariableStepExitCode', index + 1) });
         });
         if (scripts.some(function (x) { return compactId(x.OnFailureScriptId) === script.Id; })) (catalog.FailureVariables || []).forEach(add);
         (script.Secrets || []).forEach(function (secret) {
-            if (secret.Name) add({ Name: 'SECRET_' + secret.Name, Description: 'The script\'s secret ' + secret.Name + '.' });
+            if (secret.Name) add({ Name: 'SECRET_' + secret.Name, Description: t.format('VariableSecret', secret.Name) });
         });
         variableList.setItems(rows.map(function (v) {
             return { id: v.Name, title: '{{' + v.Name + '}}', secondary: v.Description };
@@ -1019,19 +1053,19 @@ export default function (view) {
         button.disabled = true;
         var trigger = triggerInfo(el('testTrigger').value);
         var body = document.createElement('div');
-        body.innerHTML = '<div class="base-info">Running with sample values for ' + esc(trigger ? trigger.Label.toLowerCase() : 'the trigger') + '…</div>';
+        body.innerHTML = '<div class="base-info">' + esc(trigger ? t.format('TestRunning', trigger.Label) : t.tr('TestRunningNoTrigger')) + '</div>';
         openDialog({
-            title: 'Test: ' + (script.Name || 'Untitled'),
+            title: t.format('TitleTest', script.Name || t.tr('ScriptUntitled')),
             body: body,
             page: page,
-            buttons: [{ text: 'Close', className: 'base-button secondary', action: function (close) { close(); } }]
+            buttons: [{ text: t.tr('ButtonClose'), className: 'base-button secondary', action: function (close) { close(); } }]
         });
-        Shared.apiRequest('Scripts/Test', 'POST', { Script: script, Trigger: el('testTrigger').value }).then(function (run) {
+        Shared.apiRequest('Scripts/Test?language=' + encodeURIComponent(t.language), 'POST', { Script: script, Trigger: el('testTrigger').value }).then(function (run) {
             body.innerHTML = '';
             body.appendChild(renderRunSummary(Shared, run));
             body.appendChild(renderRunSteps(Shared, run));
         }).catch(function () {
-            body.innerHTML = '<div class="base-error">The test could not run. Check the steps and try again.</div>';
+            body.innerHTML = '<div class="base-error">' + esc(t.tr('ErrorTestFailed')) + '</div>';
         }).finally(function () {
             button.disabled = false;
         });
@@ -1041,16 +1075,16 @@ export default function (view) {
         var script = current();
         if (!script) return;
         if (tracker && tracker.isDirty()) {
-            Shared.setStatus('scriptStatus', 'Save first: Run now runs the saved script.', true);
+            Shared.setStatus('scriptStatus', t.tr('ErrorSaveFirst'), true);
             return;
         }
 
         var button = el('btnRunScript');
         button.disabled = true;
-        Shared.apiRequest('Scripts/Run/' + script.Id, 'POST').then(function () {
-            Shared.setStatus('scriptStatus', 'Started. The result is on the History tab.', false, { timeout: 8000 });
+        Shared.apiRequest('Scripts/Run/' + script.Id + '?language=' + encodeURIComponent(t.language), 'POST').then(function () {
+            Shared.setStatus('scriptStatus', t.tr('StatusRunStarted'), false, { timeout: 8000 });
         }).catch(function () {
-            Shared.setStatus('scriptStatus', 'Could not start the script. Save it and try again.', true);
+            Shared.setStatus('scriptStatus', t.tr('ErrorRunFailed'), true);
         }).finally(function () {
             button.disabled = false;
         });
@@ -1059,59 +1093,60 @@ export default function (view) {
     // ---- Save ----
 
     function validate(script) {
-        if (!script.Name || !script.Name.trim()) return 'Every script needs a name.';
-        var label = '"' + script.Name + '": ';
+        if (!script.Name || !script.Name.trim()) return t.tr('ValidateNameMissing');
+        var label = script.Name;
         for (var c = 0; c < script.Conditions.length; c++) {
             var condition = script.Conditions[c];
-            if (!(condition.Values || []).length) return label + 'the ' + (FIELD_LABELS[condition.Field] || condition.Field).toLowerCase() + ' condition needs a value.';
+            var field = fieldLabel(condition.Field) || condition.Field;
+            if (!(condition.Values || []).length) return t.format('ValidateConditionValue', label, field);
             if ((condition.Operator === 'AtLeast' || condition.Operator === 'AtMost') && condition.Values.some(function (v) { return isNaN(parseFloat(v)); })) {
-                return label + 'the ' + (FIELD_LABELS[condition.Field] || condition.Field).toLowerCase() + ' condition needs numbers for ' + OPERATOR_LABELS[condition.Operator] + '.';
+                return t.format('ValidateConditionNumbers', label, field, operatorLabels()[condition.Operator]);
             }
         }
 
         var secretNames = {};
         for (var s = 0; s < (script.Secrets || []).length; s++) {
             var name = script.Secrets[s].Name;
-            if (!/^[A-Z0-9_]{1,40}$/.test(name)) return label + 'secret names use capital letters, digits, and underscores.';
-            if (secretNames[name]) return label + 'two secrets are named ' + name + '.';
+            if (!/^[A-Z0-9_]{1,40}$/.test(name)) return t.format('ValidateSecretNames', label);
+            if (secretNames[name]) return t.format('ValidateSecretTwice', label, name);
             secretNames[name] = true;
         }
 
         var outside = function (value, min, max) { return !(value >= min && value <= max); };
-        if (outside(script.CooldownSeconds || 0, 0, 86400)) return label + 'the cooldown must be between 0 and 86400 seconds.';
-        if (script.Triggers.indexOf('PlaybackPausedFor') >= 0 && outside(script.PausedForMinutes, 1, 1440)) return label + 'paused for must be between 1 and 1440 minutes.';
-        if (script.Triggers.indexOf('PlaybackPlayingFor') >= 0 && outside(script.PlayingForMinutes, 1, 1440)) return label + 'playing for must be between 1 and 1440 minutes.';
-        if (script.Triggers.indexOf('PlaybackProgressReached') >= 0 && outside(script.ProgressPercentThreshold, 1, 99)) return label + 'the playback percentage must be between 1 and 99.';
-        if (script.Triggers.indexOf('StreamCountReached') >= 0 && outside(script.StreamCountThreshold, 1, 100)) return label + 'the stream count must be between 1 and 100.';
-        if (script.Triggers.indexOf('TranscodeCountReached') >= 0 && outside(script.TranscodeCountThreshold, 1, 100)) return label + 'the transcode count must be between 1 and 100.';
-        if (script.ForEach === 'Items' && !(script.ItemKinds || []).length) return label + 'running for each library item needs at least one item kind.';
-        if (script.ForEach !== 'None' && outside(script.ForEachLimit, 1, 500)) return label + 'the most runs per event must be between 1 and 500.';
+        if (outside(script.CooldownSeconds || 0, 0, 86400)) return t.format('ValidateCooldown', label);
+        if (script.Triggers.indexOf('PlaybackPausedFor') >= 0 && outside(script.PausedForMinutes, 1, 1440)) return t.format('ValidatePausedFor', label);
+        if (script.Triggers.indexOf('PlaybackPlayingFor') >= 0 && outside(script.PlayingForMinutes, 1, 1440)) return t.format('ValidatePlayingFor', label);
+        if (script.Triggers.indexOf('PlaybackProgressReached') >= 0 && outside(script.ProgressPercentThreshold, 1, 99)) return t.format('ValidatePercentage', label);
+        if (script.Triggers.indexOf('StreamCountReached') >= 0 && outside(script.StreamCountThreshold, 1, 100)) return t.format('ValidateStreamCount', label);
+        if (script.Triggers.indexOf('TranscodeCountReached') >= 0 && outside(script.TranscodeCountThreshold, 1, 100)) return t.format('ValidateTranscodeCount', label);
+        if (script.ForEach === 'Items' && !(script.ItemKinds || []).length) return t.format('ValidateForEachKinds', label);
+        if (script.ForEach !== 'None' && outside(script.ForEachLimit, 1, 500)) return t.format('ValidateForEachLimit', label);
 
         var saved = {};
         for (var i = 0; i < script.Operations.length; i++) {
             var op = script.Operations[i];
-            var step = label + 'step ' + (i + 1) + ' ';
+            var n = i + 1;
             if (op.OutputName && HAS_OUTPUT[op.Type]) {
-                if (!/^[A-Z0-9_]{1,40}$/.test(op.OutputName)) return step + 'saves its output under a name of capital letters, digits, and underscores.';
-                if (saved[op.OutputName]) return step + 'saves its output as ' + op.OutputName + ', which step ' + saved[op.OutputName] + ' already uses.';
-                saved[op.OutputName] = i + 1;
+                if (!/^[A-Z0-9_]{1,40}$/.test(op.OutputName)) return t.format('ValidateStepOutputName', label, n);
+                if (saved[op.OutputName]) return t.format('ValidateStepOutputTaken', label, n, op.OutputName, saved[op.OutputName]);
+                saved[op.OutputName] = n;
             }
-            if (op.OnlyIfVariable && !/^[A-Z0-9_]{1,80}$/.test(op.OnlyIfVariable)) return step + 'has a condition on something that is not a variable name.';
+            if (op.OnlyIfVariable && !/^[A-Z0-9_]{1,80}$/.test(op.OnlyIfVariable)) return t.format('ValidateStepConditionName', label, n);
             if (op.OnlyIfVariable && (op.OnlyIfOperator === 'AtLeast' || op.OnlyIfOperator === 'AtMost') && !/\{\{/.test(op.OnlyIfValue || '') && isNaN(parseFloat(op.OnlyIfValue))) {
-                return step + 'has a condition that needs a number.';
+                return t.format('ValidateStepConditionNumber', label, n);
             }
-            if (op.Type === 'RunCommand' && !(op.Command || '').trim()) return step + 'needs a command.';
-            if (op.Type === 'HttpRequest' && !/^https?:\/\//i.test((op.Url || '').trim())) return step + 'needs a URL that starts with http:// or https://.';
-            if (op.Type === 'SendMessage' && !(op.Text || '').trim()) return step + 'needs message text.';
-            if (op.Type === 'RunScheduledTask' && !op.TaskKey) return step + 'needs a scheduled task.';
-            if ((op.Type === 'AddTag' || op.Type === 'RemoveTag') && !(op.Tag || '').trim()) return step + 'needs a tag.';
-            if ((op.Type === 'AddToCollection' || op.Type === 'RemoveFromCollection') && !op.CollectionId) return step + 'needs a collection.';
-            if (op.Type === 'RunScript' && !op.ScriptId) return step + 'needs a script to run.';
-            if (op.Type === 'AppendToFile' && !/^(\/|[A-Za-z]:\\)/.test((op.FilePath || '').trim())) return step + 'needs a full file path.';
-            if (op.Type === 'Wait' && outside(op.WaitSeconds, 1, 3600)) return step + 'must wait between 1 and 3600 seconds.';
-            if (op.Type === 'RunCommand' && outside(op.TimeoutSeconds || 0, 0, 3600)) return step + 'timeout must be between 0 and 3600 seconds.';
-            if (op.Type === 'HttpRequest' && outside(op.Retries || 0, 0, 5)) return step + 'retries must be between 0 and 5.';
-            if ((op.Type === 'SendMessage' || op.Type === 'StopPlayback') && outside(op.DisplaySeconds || 0, 0, 300)) return step + 'show-for time must be between 0 and 300 seconds.';
+            if (op.Type === 'RunCommand' && !(op.Command || '').trim()) return t.format('ValidateStepCommand', label, n);
+            if (op.Type === 'HttpRequest' && !/^https?:\/\//i.test((op.Url || '').trim())) return t.format('ValidateStepUrl', label, n);
+            if (op.Type === 'SendMessage' && !(op.Text || '').trim()) return t.format('ValidateStepMessage', label, n);
+            if (op.Type === 'RunScheduledTask' && !op.TaskKey) return t.format('ValidateStepTask', label, n);
+            if ((op.Type === 'AddTag' || op.Type === 'RemoveTag') && !(op.Tag || '').trim()) return t.format('ValidateStepTag', label, n);
+            if ((op.Type === 'AddToCollection' || op.Type === 'RemoveFromCollection') && !op.CollectionId) return t.format('ValidateStepCollection', label, n);
+            if (op.Type === 'RunScript' && !op.ScriptId) return t.format('ValidateStepScript', label, n);
+            if (op.Type === 'AppendToFile' && !/^(\/|[A-Za-z]:\\)/.test((op.FilePath || '').trim())) return t.format('ValidateStepFile', label, n);
+            if (op.Type === 'Wait' && outside(op.WaitSeconds, 1, 3600)) return t.format('ValidateStepWait', label, n);
+            if (op.Type === 'RunCommand' && outside(op.TimeoutSeconds || 0, 0, 3600)) return t.format('ValidateStepTimeout', label, n);
+            if (op.Type === 'HttpRequest' && outside(op.Retries || 0, 0, 5)) return t.format('ValidateStepRetries', label, n);
+            if ((op.Type === 'SendMessage' || op.Type === 'StopPlayback') && outside(op.DisplaySeconds || 0, 0, 300)) return t.format('ValidateStepShowFor', label, n);
         }
 
         return '';
@@ -1145,7 +1180,7 @@ export default function (view) {
             // Reload so secrets come back as stored and new IDs settle.
             return reloadScripts();
         }, function () {
-            throw new Error('The server refused the save. Check each script and try again.');
+            throw new Error(t.tr('ErrorSaveRefused'));
         });
     }
 
@@ -1153,7 +1188,7 @@ export default function (view) {
 
     function blankScript(name) {
         return {
-            Id: compactId(generateGuid()), Name: name || 'New script', Description: '', Enabled: true, Triggers: [], ItemKinds: [], UserIds: [],
+            Id: compactId(generateGuid()), Name: name || t.tr('ScriptNewName'), Description: '', Enabled: true, Triggers: [], ItemKinds: [], UserIds: [],
             Match: 'All', Conditions: [], Operations: [], CooldownSeconds: 0, Secrets: [],
             PausedForMinutes: 10, PlayingForMinutes: 60, ScheduleMode: 'Daily', ScheduleIntervalMinutes: 60,
             ScheduleTime: '03:00', ScheduleDays: [], ScheduleMonthDay: 1,
@@ -1165,6 +1200,8 @@ export default function (view) {
     // Fills a script from a template or an imported file, keeping only what this version knows, so a file from
     // a newer version or a hand edit cannot leave the editor unable to render.
     function sanitize(source, base) {
+        var operators = operatorLabels();
+        var types = operationTypes();
         var s = Object.assign(base, {
             Name: String(source.Name || base.Name),
             Description: String(source.Description || ''),
@@ -1173,14 +1210,14 @@ export default function (view) {
             UserIds: (source.UserIds || []).map(compactId),
             Match: source.Match === 'Any' ? 'Any' : 'All',
             Conditions: (source.Conditions || []).filter(function (c) {
-                return c && FIELD_LABELS[c.Field] && OPERATOR_LABELS[c.Operator];
+                return c && fieldLabel(c.Field) && operators[c.Operator];
             }).map(function (c) {
                 return { Field: c.Field, Operator: c.Operator, Values: Array.isArray(c.Values) ? c.Values.map(String) : [] };
             }),
-            Operations: (source.Operations || []).filter(function (op) { return op && OPERATION_TYPES[op.Type]; }).map(function (op) {
+            Operations: (source.Operations || []).filter(function (op) { return op && types[op.Type]; }).map(function (op) {
                 var filled = Object.assign(newOperation(op.Type), op);
                 ['OutputName', 'OutputJsonPath', 'OnlyIfVariable', 'OnlyIfValue'].forEach(function (key) { filled[key] = filled[key] === null || filled[key] === undefined ? '' : String(filled[key]); });
-                if (!OPERATOR_LABELS[filled.OnlyIfOperator]) filled.OnlyIfOperator = 'Is';
+                if (!operators[filled.OnlyIfOperator]) filled.OnlyIfOperator = 'Is';
                 return filled;
             }),
             Secrets: (source.Secrets || []).filter(function (x) { return x && x.Name; }).map(function (x) {
@@ -1211,18 +1248,19 @@ export default function (view) {
     }
 
     function newScript() {
+        var list = templates();
         promptDialog([
-            { name: 'name', label: 'Name', value: '', placeholder: 'Named after the template when left blank' },
-            { name: 'description', label: 'Description', value: '', placeholder: 'What the script is for' },
-            { name: 'template', label: 'Start from', type: 'select', value: 'blank', options: TEMPLATES.map(function (t) { return { value: t.key, label: t.label }; }) }
-        ], { title: 'New script', submitText: 'Create' }).then(function (values) {
+            { name: 'name', label: t.tr('LabelName'), value: '', placeholder: t.tr('PlaceholderNewName') },
+            { name: 'description', label: t.tr('LabelDescription'), value: '', placeholder: t.tr('PlaceholderNewDescription') },
+            { name: 'template', label: t.tr('LabelStartFrom'), type: 'select', value: 'blank', options: list.map(function (item) { return { value: item.key, label: item.label }; }) }
+        ], { title: t.tr('ScriptNewName'), submitText: t.tr('Create') }).then(function (values) {
             if (!values) return;
-            var template = TEMPLATES.find(function (t) { return t.key === values.template; }) || TEMPLATES[0];
-            var name = (values.name || '').trim() || (template.key === 'blank' ? 'New script' : template.label);
+            var template = list.find(function (item) { return item.key === values.template; }) || list[0];
+            var name = (values.name || '').trim() || (template.key === 'blank' ? t.tr('ScriptNewName') : template.label);
             var script = sanitize(Object.assign({ Name: name }, template.build()), blankScript(name));
             script.Name = name;
             script.Description = (values.description || '').trim().slice(0, 500);
-            addScript(script, template.key === 'blank' ? '' : 'Started from "' + template.label + '". Review it and click Save.');
+            addScript(script, template.key === 'blank' ? '' : t.format('StatusStartedFromTemplate', template.label));
             el('scriptName').focus();
             el('scriptName').select();
         });
@@ -1231,15 +1269,16 @@ export default function (view) {
     function duplicateScript() {
         var source = current();
         if (!source) return;
-        var copy = sanitize(JSON.parse(JSON.stringify(source)), blankScript(source.Name + ' (copy)'));
-        copy.Name = source.Name + ' (copy)';
+        var copyName = t.format('ScriptCopyName', source.Name);
+        var copy = sanitize(JSON.parse(JSON.stringify(source)), blankScript(copyName));
+        copy.Name = copyName;
         copy.Enabled = false;
-        addScript(copy, 'Duplicated as a disabled copy. Secrets are not copied.');
+        addScript(copy, t.tr('StatusDuplicated'));
     }
 
     function exportScripts() {
         if (!scripts.length) {
-            Shared.setStatus('transferStatus', 'There are no scripts to export.', true);
+            Shared.setStatus('transferStatus', t.tr('ErrorNoScriptsToExport'), true);
             return;
         }
 
@@ -1251,8 +1290,11 @@ export default function (view) {
             return s;
         });
         downloadJson('jellyfin-scripts-' + stamp + '.json', { Format: 'jellyfin-plugin-scripts', Version: 1, Scripts: exported });
-        Shared.setStatus('transferStatus', 'Exported ' + scripts.length + ' script' + (scripts.length === 1 ? '' : 's') +
-            (tracker && tracker.isDirty() ? ', including unsaved edits' : '') + '. Secret values and webhook addresses are left out.', false);
+        var unsaved = !!(tracker && tracker.isDirty());
+        var exported = scripts.length === 1
+            ? (unsaved ? t.tr('StatusExportedOneUnsaved') : t.tr('StatusExportedOne'))
+            : (unsaved ? t.format('StatusExportedManyUnsaved', scripts.length) : t.format('StatusExportedMany', scripts.length));
+        Shared.setStatus('transferStatus', exported, false);
     }
 
     // Accepts an export file, a bare array of scripts, or one script.
@@ -1261,7 +1303,7 @@ export default function (view) {
         if (!list) return null;
         return list.filter(function (s) { return s && typeof s === 'object'; }).map(function (s) {
             var id = /^[0-9a-f]{32}$/.test(compactId(s.Id)) ? compactId(s.Id) : compactId(generateGuid());
-            var script = sanitize(s, blankScript(String(s.Name || 'Imported script')));
+            var script = sanitize(s, blankScript(String(s.Name || t.tr('ScriptImportedName'))));
             script.Id = id;
             script.Enabled = false;
             return script;
@@ -1273,18 +1315,20 @@ export default function (view) {
             if (data === null) return;
             var incoming = readImport(data);
             if (!incoming || !incoming.length) {
-                Shared.setStatus('transferStatus', 'That file has no scripts in it.', true);
+                Shared.setStatus('transferStatus', t.tr('ErrorImportEmpty'), true);
                 return;
             }
 
             var replacing = incoming.filter(function (s) {
                 return scripts.some(function (e) { return compactId(e.Id) === compactId(s.Id); });
             });
-            var message = 'Import ' + incoming.length + ' script' + (incoming.length === 1 ? '' : 's') + '?' +
-                (replacing.length ? ' ' + replacing.length + ' will replace a script with the same ID: ' +
-                    replacing.map(function (s) { return '"' + s.Name + '"'; }).join(', ') + '.' : '') +
-                ' Imported scripts start disabled so you can review their steps, then save. Secret values are not in the file, so enter them again.';
-            return confirmDialog(message, { title: 'Import scripts', confirmText: 'Import' }).then(function (ok) {
+            var replacingNames = replacing.map(function (s) { return '"' + s.Name + '"'; }).join(', ');
+            var message = [
+                incoming.length === 1 ? t.tr('ConfirmImportOne') : t.format('ConfirmImportMany', incoming.length),
+                !replacing.length ? '' : replacing.length === 1 ? t.format('ConfirmImportReplacingOne', replacingNames) : t.format('ConfirmImportReplacingMany', replacing.length, replacingNames),
+                t.tr('ConfirmImportReview')
+            ].filter(Boolean).join(' ');
+            return confirmDialog(message, { title: t.tr('DialogImportScripts'), confirmText: t.tr('ButtonImport') }).then(function (ok) {
                 if (!ok) return;
                 incoming.forEach(function (s) {
                     var index = scripts.findIndex(function (e) { return compactId(e.Id) === compactId(s.Id); });
@@ -1296,10 +1340,10 @@ export default function (view) {
                 selectedId = incoming[0].Id;
                 edited();
                 renderEditor();
-                Shared.setStatus('transferStatus', 'Imported ' + incoming.length + '. They are disabled and not saved yet: review each one, enable it, and click Save.', false, { timeout: 0 });
+                Shared.setStatus('transferStatus', t.format('StatusImported', incoming.length), false, { timeout: 0 });
             });
         }).catch(function () {
-            Shared.setStatus('transferStatus', 'That file is not valid JSON.', true);
+            Shared.setStatus('transferStatus', t.tr('ErrorImportJson'), true);
         });
     }
 
@@ -1315,15 +1359,15 @@ export default function (view) {
         el('btnDeleteScript').addEventListener('click', function () {
             var script = current();
             if (!script) return;
-            var name = script.Name || 'Untitled';
-            confirmDialog('Delete "' + name + '"? This saves right away. Unsaved edits to other scripts stay unsaved.', { title: 'Delete script', confirmText: 'Delete', destructive: true }).then(function (ok) {
+            var name = script.Name || t.tr('ScriptUntitled');
+            confirmDialog(t.format('ConfirmDeleteScript', name), { title: t.tr('TitleDeleteScript'), confirmText: t.tr('Delete'), destructive: true }).then(function (ok) {
                 if (!ok) return;
                 // Only the deletion is saved: the server's own copy loses this script, and edits to other scripts
                 // wait for Save as before.
                 var wasClean = !(tracker && tracker.isDirty());
                 Shared.saveConfigWith(function (config) {
                     config.Scripts = (config.Scripts || []).filter(function (s) { return compactId(s.Id) !== script.Id; });
-                }, 'transferStatus', { success: 'Deleted "' + name + '".', error: 'The server refused to delete the script.' }).then(function () {
+                }, 'transferStatus', { success: t.format('StatusDeleted', name), error: t.tr('ErrorDeleteRefused') }).then(function () {
                     scripts = scripts.filter(function (s) { return s.Id !== script.Id; });
                     selectedId = scripts.length ? scripts[0].Id : null;
                     if (wasClean && tracker) tracker.markClean();
@@ -1338,7 +1382,7 @@ export default function (view) {
         el('scriptEnabled').addEventListener('change', function () { current().Enabled = this.checked; edited(); });
         createNumbers();
         el('btnNewWebhook').addEventListener('click', function () {
-            confirmDialog('Make a new webhook address? Anything still calling the old one stops working once you save.', { title: 'New webhook address', confirmText: 'Make a new address' }).then(function (ok) {
+            confirmDialog(t.tr('ConfirmNewAddress'), { title: t.tr('TitleNewWebhookAddress'), confirmText: t.tr('ButtonMakeNewAddress') }).then(function (ok) {
                 if (!ok) return;
                 current().WebhookToken = newToken();
                 renderWebhook();
@@ -1365,10 +1409,11 @@ export default function (view) {
 
         // Steps: one editor moves into whichever card is open.
         var groups = {};
-        Object.keys(OPERATION_TYPES).forEach(function (t) { (groups[OPERATION_TYPES[t].group] = groups[OPERATION_TYPES[t].group] || []).push(t); });
+        var types = operationTypes();
+        Object.keys(types).forEach(function (type) { (groups[types[type].group] = groups[types[type].group] || []).push(type); });
         el('newOperationType').innerHTML = Object.keys(groups).map(function (g) {
-            return '<optgroup label="' + esc(g) + '">' + groups[g].map(function (t) {
-                return '<option value="' + t + '">' + esc(OPERATION_TYPES[t].label) + '</option>';
+            return '<optgroup label="' + esc(g) + '">' + groups[g].map(function (type) {
+                return '<option value="' + type + '">' + esc(types[type].label) + '</option>';
             }).join('') + '</optgroup>';
         }).join('');
 
@@ -1378,13 +1423,15 @@ export default function (view) {
             escapeHtml: Shared.escapeHtml,
             render: function (op) {
                 var warning = operationWarning(current(), op);
+                var operators = operatorLabels();
+                var stepTypes = operationTypes();
                 var badges = [];
-                if (op.OnlyIfVariable) badges.push({ label: 'if ' + op.OnlyIfVariable + ' ' + (OPERATOR_LABELS[op.OnlyIfOperator] || 'is') + ' ' + (op.OnlyIfValue === '' ? 'empty' : op.OnlyIfValue), cls: 'blue' });
-                if (op.OutputName && HAS_OUTPUT[op.Type]) badges.push({ label: 'saves ' + op.OutputName, cls: 'purple' });
-                if (op.ContinueOnError) badges.push({ label: 'continues on error', cls: 'gray' });
-                if (warning) badges.push({ label: 'sometimes skipped', cls: 'orange' });
+                if (op.OnlyIfVariable) badges.push({ label: t.format('BadgeStepCondition', op.OnlyIfVariable, operators[op.OnlyIfOperator] || operators.Is, op.OnlyIfValue === '' ? t.tr('BadgeEmpty') : op.OnlyIfValue), cls: 'blue' });
+                if (op.OutputName && HAS_OUTPUT[op.Type]) badges.push({ label: t.format('BadgeSaves', op.OutputName), cls: 'purple' });
+                if (op.ContinueOnError) badges.push({ label: t.tr('BadgeContinuesOnError'), cls: 'gray' });
+                if (warning) badges.push({ label: t.tr('BadgeSometimesSkipped'), cls: 'orange' });
                 return {
-                    title: OPERATION_TYPES[op.Type] ? OPERATION_TYPES[op.Type].label : op.Type,
+                    title: stepTypes[op.Type] ? stepTypes[op.Type].label : op.Type,
                     subtitle: operationSummary(op),
                     badges: badges,
                     dot: 'none'
@@ -1439,18 +1486,18 @@ export default function (view) {
         });
 
         variableList = createRecordList({
-            label: 'Variables',
-            openLabel: 'Copy {value}',
+            label: t.tr('HeaderVariables'),
+            openLabel: t.tr('LabelCopyValue'),
             maxHeight: '60vh',
-            emptyText: 'No variables.',
+            emptyText: t.tr('EmptyVariables'),
             onOpen: function (item) {
                 Shared.copyToClipboard(item.title).then(function (ok) {
                     if (!toaster) {
                         toaster = createToaster({ timeout: 2000 });
                         page.addCleanup(function () { toaster.destroy(); toaster = null; });
                     }
-                    if (ok) toaster.success('Copied ' + item.title + '.');
-                    else toaster.error('Could not copy ' + item.title + '.', 4000);
+                    if (ok) toaster.success(t.format('ToastCopied', item.title));
+                    else toaster.error(t.format('ErrorCopy', item.title), 4000);
                 });
             }
         });
@@ -1460,7 +1507,7 @@ export default function (view) {
         el('saveBarMount').appendChild(saveBar.element);
         el('btnTestScript').addEventListener('click', runTest);
         el('btnRunScript').addEventListener('click', runNow);
-        webhookField = createCopyField({ label: 'Webhook address' });
+        webhookField = createCopyField({ label: t.tr('LabelWebhookAddress') });
         el('webhookUrlMount').appendChild(webhookField.element);
 
         Shared.initCollapsibles();
@@ -1470,7 +1517,7 @@ export default function (view) {
         triggerList = createCheckboxList({
             items: catalog.Triggers,
             idKey: 'Key',
-            placeholder: 'Search ' + catalog.Triggers.length + ' triggers…',
+            placeholder: t.format('PlaceholderSearchTriggers', catalog.Triggers.length),
             searchKeys: ['Label', 'Description', 'Category'],
             renderRow: function (t) { return { label: t.Label, sublabel: t.Description, note: t.Category }; },
             onChange: function (ids) {
@@ -1484,7 +1531,7 @@ export default function (view) {
 
         itemKindSelect = createChipSelect({
             options: catalog.ItemKinds.map(function (k) { return { value: k.Value, label: k.Label }; }),
-            placeholder: 'Any kind. Type to add one, such as Movie or Episode',
+            placeholder: t.tr('PlaceholderItemKinds'),
             onChange: function (values) {
                 if (suppressWidgetEvents) return;
                 current().ItemKinds = values;
@@ -1496,7 +1543,7 @@ export default function (view) {
 
         userSelect = createUserMultiSelector({
             showSelectAll: true,
-            emptyMessage: 'No users on this server.',
+            emptyMessage: t.tr('EmptyUsers'),
             onChange: function (ids) {
                 if (suppressWidgetEvents) return;
                 current().UserIds = ids.map(compactId);
@@ -1538,7 +1585,7 @@ export default function (view) {
     }
 
     function load() {
-        Shared.apiRequest('Scripts/Catalog', 'GET').then(function (result) {
+        Shared.apiRequest('Scripts/Catalog?language=' + encodeURIComponent(t.language), 'GET').then(function (result) {
             catalog = result;
             if (!triggerList) createWidgets();
             return Promise.all([reloadScripts(), userSelect.ready]);
@@ -1550,7 +1597,7 @@ export default function (view) {
                 suppressWidgetEvents = false;
             }
         }).catch(function () {
-            Shared.setStatus('scriptStatus', 'Could not load the scripts.', true, { timeout: 0 });
+            Shared.setStatus('scriptStatus', t.tr('ErrorLoadScripts'), true, { timeout: 0 });
         });
     }
 }

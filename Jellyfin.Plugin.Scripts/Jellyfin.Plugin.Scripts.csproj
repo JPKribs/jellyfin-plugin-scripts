@@ -29,4 +29,78 @@
     <EmbeddedResource Include="Web\**\*" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Jellyfin's own strings the pages and messages use, in every language Jellyfin has -->
+    <JellyfinString Include="AddToCollection" />
+    <JellyfinString Include="Audio" />
+    <JellyfinString Include="ButtonClose" />
+    <JellyfinString Include="CommunityRating" />
+    <JellyfinString Include="Create" />
+    <JellyfinString Include="Delete" />
+    <JellyfinString Include="Disabled" />
+    <JellyfinString Include="Episode" />
+    <JellyfinString Include="Favorite" />
+    <JellyfinString Include="File" />
+    <JellyfinString Include="Friday" />
+    <JellyfinString Include="General" />
+    <JellyfinString Include="Genre" />
+    <JellyfinString Include="HeaderActivity" />
+    <JellyfinString Include="HeaderUsers" />
+    <JellyfinString Include="Items" />
+    <JellyfinString Include="LabelAccessDay" />
+    <JellyfinString Include="LabelAudioCodec" />
+    <JellyfinString Include="LabelCollection" />
+    <JellyfinString Include="LabelContentType" />
+    <JellyfinString Include="LabelDuration" />
+    <JellyfinString Include="LabelFailed" />
+    <JellyfinString Include="LabelFolder" />
+    <JellyfinString Include="LabelMessageTitle" />
+    <JellyfinString Include="LabelName" />
+    <JellyfinString Include="LabelPlayMethod" />
+    <JellyfinString Include="LabelPlaylist" />
+    <JellyfinString Include="LabelSystem" />
+    <JellyfinString Include="LabelTag" />
+    <JellyfinString Include="LabelTitle" />
+    <JellyfinString Include="LabelTranscodes" />
+    <JellyfinString Include="LabelUser" />
+    <JellyfinString Include="LabelValue" />
+    <JellyfinString Include="LabelVideoCodec" />
+    <JellyfinString Include="LabelYear" />
+    <JellyfinString Include="LiveTV" />
+    <JellyfinString Include="MarkPlayed" />
+    <JellyfinString Include="MarkUnplayed" />
+    <JellyfinString Include="Monday" />
+    <JellyfinString Include="Movie" />
+    <JellyfinString Include="MusicAlbum" />
+    <JellyfinString Include="MusicArtist" />
+    <JellyfinString Include="MusicVideo" />
+    <JellyfinString Include="New" />
+    <JellyfinString Include="NotificationOptionPluginInstalled" />
+    <JellyfinString Include="NotificationOptionPluginUninstalled" />
+    <JellyfinString Include="NotificationOptionUserLockedOut" />
+    <JellyfinString Include="ParentalRating" />
+    <JellyfinString Include="Person" />
+    <JellyfinString Include="Photo" />
+    <JellyfinString Include="RefreshMetadata" />
+    <JellyfinString Include="RemoveFromCollection" />
+    <JellyfinString Include="Saturday" />
+    <JellyfinString Include="Schedule" />
+    <JellyfinString Include="Season" />
+    <JellyfinString Include="SendMessage" />
+    <JellyfinString Include="Series" />
+    <JellyfinString Include="Settings" />
+    <JellyfinString Include="StopPlayback" />
+    <JellyfinString Include="Studio" />
+    <JellyfinString Include="Sunday" />
+    <JellyfinString Include="TabServer" />
+    <JellyfinString Include="TasksLibraryCategory" />
+    <JellyfinString Include="Thursday" />
+    <JellyfinString Include="TitlePlayback" />
+    <JellyfinString Include="Trailer" />
+    <JellyfinString Include="Tuesday" />
+    <JellyfinString Include="ValueSeconds" />
+    <JellyfinString Include="Video" />
+    <JellyfinString Include="Wednesday" />
+  </ItemGroup>
+
 </Project>

@@ -23,7 +23,7 @@ namespace Jellyfin.Plugin.Scripts.Api;
 
 /// <summary>
 /// The dashboard's API: what the editor offers, test runs, the run history, and path checks. Every route is
-/// for administrators only.
+/// for administrators only, except the page strings.
 /// </summary>
 [ApiController]
 [Route("Scripts")]
@@ -81,21 +81,22 @@ public class ScriptsController : ControllerBase
     /// Gets what the editor offers: the triggers and their variables, which condition fields apply to which
     /// triggers, every item kind, and the server's users, libraries, and scheduled tasks.
     /// </summary>
+    /// <param name="language">The language of the labels and descriptions, such as de. Leave out for US English.</param>
     /// <returns>The catalog.</returns>
     [HttpGet("Catalog")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public ActionResult<object> GetCatalog()
+    public ActionResult<object> GetCatalog([FromQuery] string? language)
     {
         var triggers = TriggerCatalog.All.Where(t => t.Selectable).Select(t => new
         {
             Key = t.Trigger.ToString(),
-            t.Label,
-            t.Category,
-            t.Description,
+            Label = BaseTranslations.Get(t.LabelKey, language),
+            Category = BaseTranslations.Get(t.CategoryKey, language),
+            Description = BaseTranslations.Get(t.DescriptionKey, language),
             t.HasItem,
             t.HasSession,
             t.HasUser,
-            Variables = t.Variables.Select(v => new { v.Name, v.Description })
+            Variables = t.Variables.Select(v => new { v.Name, Description = v.DescriptionIn(language) })
         });
 
         var fields = Enum.GetValues<ConditionField>().Select(f => new
@@ -129,7 +130,7 @@ public class ScriptsController : ControllerBase
             Triggers = triggers,
             Fields = fields,
             ItemKinds = Enum.GetValues<BaseItemKind>()
-                .Select(k => new { Value = k.ToString(), Label = ItemKindLabels.For(k) })
+                .Select(k => new { Value = k.ToString(), Label = ItemKindLabels.For(k, language) })
                 .OrderBy(k => k.Label, StringComparer.OrdinalIgnoreCase),
             Collections = collections,
             Libraries = libraries,
@@ -137,29 +138,43 @@ public class ScriptsController : ControllerBase
             Tasks = tasks,
             ForEachVariables = new
             {
-                Items = TriggerCatalog.ForEachVariables(ForEachMode.Items).Select(v => new { v.Name, v.Description }),
-                Users = TriggerCatalog.ForEachVariables(ForEachMode.Users).Select(v => new { v.Name, v.Description })
+                Items = TriggerCatalog.ForEachVariables(ForEachMode.Items).Select(v => new { v.Name, Description = v.DescriptionIn(language) }),
+                Users = TriggerCatalog.ForEachVariables(ForEachMode.Users).Select(v => new { v.Name, Description = v.DescriptionIn(language) })
             },
-            FailureVariables = TriggerCatalog.FailureVariables.Select(v => new { v.Name, v.Description })
+            FailureVariables = TriggerCatalog.FailureVariables.Select(v => new { v.Name, Description = v.DescriptionIn(language) })
         });
     }
+
+    /// <summary>
+    /// Gets the plugin's strings in a language, for the dashboard pages. The strings are not secret, so any caller
+    /// may read them.
+    /// </summary>
+    /// <param name="language">The language, such as de or pt-br. Leave out for US English.</param>
+    /// <returns>The strings by key, or Not Modified when the page already has them.</returns>
+    [HttpGet("Translations")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status304NotModified)]
+    public IActionResult Translations([FromQuery] string? language)
+        => BaseTranslations.Serve(language, Request, Response);
 
     /// <summary>
     /// Runs a script's steps now, with sample values for the chosen trigger. The script is taken from the
     /// request, so unsaved edits can be tried. Its filters are not applied, since the values are samples.
     /// </summary>
     /// <param name="request">The script and the trigger to imitate.</param>
+    /// <param name="language">The language of the error text, such as de. Leave out for US English.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The run record.</returns>
     [HttpPost("Test")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<ScriptRun>> Test([FromBody] TestRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<ScriptRun>> Test([FromBody] TestRequest request, [FromQuery] string? language, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
         if (request.Script is null || !Enum.IsDefined(request.Trigger))
         {
-            return BadRequest("A script and a trigger are required.");
+            return BadRequest(BaseTranslations.Get(TranslationKeys.ErrorScriptAndTriggerRequired, language));
         }
 
         try
@@ -186,23 +201,24 @@ public class ScriptsController : ControllerBase
     /// other and shows up in the history.
     /// </summary>
     /// <param name="id">The script's ID.</param>
+    /// <param name="language">The language of the error text, such as de. Leave out for US English.</param>
     /// <returns>Accepted when queued.</returns>
     [HttpPost("Run/{id}")]
     [ProducesResponseType(StatusCodes.Status202Accepted)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
-    public ActionResult RunNow([FromRoute] Guid id)
+    public ActionResult RunNow([FromRoute] Guid id, [FromQuery] string? language)
     {
         var script = Plugin.Instance?.ReadConfiguration(c => c.Scripts.FirstOrDefault(s => s.Id == id));
         if (script is null)
         {
-            return NotFound("No saved script has this ID. Save the script first.");
+            return NotFound(BaseTranslations.Get(TranslationKeys.ErrorScriptNotSaved, language));
         }
 
         var user = Guid.TryParse(User.FindFirst(UserIdClaim)?.Value, out var userId) && userId != Guid.Empty ? _userManager.GetUserById(userId) : null;
         return _runner.TryEnqueue(new ScriptJob(script, _builder.FromManual(user)))
             ? Accepted()
-            : StatusCode(StatusCodes.Status503ServiceUnavailable, "Too many runs are waiting. Try again in a moment.");
+            : StatusCode(StatusCodes.Status503ServiceUnavailable, BaseTranslations.Get(TranslationKeys.ErrorTooManyRuns, language));
     }
 
     /// <summary>
@@ -287,16 +303,17 @@ public class ScriptsController : ControllerBase
     /// it runs. In Docker this is the container's view, which differs from the host's.
     /// </summary>
     /// <param name="path">The path to check.</param>
+    /// <param name="language">The language of the answer, such as de. Leave out for US English.</param>
     /// <returns>Whether it exists, what it is, and whether it is executable.</returns>
     [HttpGet("CheckPath")]
     [SuppressMessage("Security", "CA3003:Review code for file path injection vulnerabilities", Justification = "Administrators only. Reporting what the server can see at a path the administrator typed is the purpose of this route.")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public ActionResult<PathCheck> CheckPath([FromQuery] string? path)
+    public ActionResult<PathCheck> CheckPath([FromQuery] string? path, [FromQuery] string? language)
     {
         var check = new PathCheck { Path = path ?? string.Empty };
         if (string.IsNullOrWhiteSpace(path))
         {
-            check.Message = "Enter a path.";
+            check.Message = BaseTranslations.Get(TranslationKeys.PathEnter, language);
             return check;
         }
 
@@ -308,13 +325,13 @@ public class ScriptsController : ControllerBase
             {
                 check.Exists = true;
                 check.IsDirectory = true;
-                check.Message = "This is a folder, not a file.";
+                check.Message = BaseTranslations.Get(TranslationKeys.PathIsFolder, language);
                 return check;
             }
 
             if (!System.IO.File.Exists(full))
             {
-                check.Message = "The server cannot find this file. In Docker, mount it into the container.";
+                check.Message = BaseTranslations.Get(TranslationKeys.PathFileMissing, language);
                 return check;
             }
 
@@ -322,19 +339,19 @@ public class ScriptsController : ControllerBase
             if (OperatingSystem.IsWindows())
             {
                 check.IsExecutable = true;
-                check.Message = "The server can see this file.";
+                check.Message = BaseTranslations.Get(TranslationKeys.PathVisible, language);
                 return check;
             }
 
             const UnixFileMode ExecuteBits = UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute;
             check.IsExecutable = (System.IO.File.GetUnixFileMode(full) & ExecuteBits) != 0;
             check.Message = check.IsExecutable
-                ? "The server can see this file and it is executable."
-                : "The server can see this file, but it is not executable. Run chmod +x on it, or call it through an interpreter.";
+                ? BaseTranslations.Get(TranslationKeys.PathExecutable, language)
+                : BaseTranslations.Get(TranslationKeys.PathNotExecutable, language);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
         {
-            check.Message = "The server could not check this path: " + ex.Message;
+            check.Message = BaseTranslations.Format(TranslationKeys.PathCheckFailed, language, ex.Message);
         }
 
         return check;

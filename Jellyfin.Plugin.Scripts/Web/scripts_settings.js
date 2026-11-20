@@ -1,7 +1,7 @@
 // scripts_settings.js
 // The Settings tab: runs at once, the default command timeout, and how many runs the history keeps, with Save.
 
-import { createScriptsPage, createSliderField, createDurationField, createSaveBar } from './configurationpage?name=scripts_common.js';
+import { createScriptsPage, createSliderField, createDurationField, createSaveBar, t } from './configurationpage?name=scripts_common.js';
 
 export default function (view) {
     'use strict';
@@ -59,9 +59,9 @@ export default function (view) {
     }
 
     function bind() {
-        concurrent = mount('maxConcurrentRuns', createSliderField({ min: 1, max: 32, label: 'Runs at once', onChange: changed }));
+        concurrent = mount('maxConcurrentRuns', createSliderField({ min: 1, max: 32, label: t.tr('LabelRunsAtOnce'), onChange: changed }));
         timeout = mount('defaultTimeout', createDurationField({ units: ['m', 's'], min: 1, max: 3600, required: true, onChange: changed }));
-        history = mount('historySize', createSliderField({ min: 0, max: 5000, label: 'Runs kept in the history', onChange: changed }));
+        history = mount('historySize', createSliderField({ min: 0, max: 5000, label: t.tr('LabelHistorySize'), onChange: changed }));
         bar = createSaveBar({ form: el('ScriptsSettingsForm'), fill: true, onSave: save });
         el('saveBarMount').appendChild(bar.element);
     }
@@ -74,7 +74,7 @@ export default function (view) {
             snapshot = serialize();
             bar.setDirty(false);
         }).catch(function () {
-            bar.setState('failed', 'Could not load the settings.');
+            bar.setState('failed', t.tr('ErrorLoadSettings'));
         });
     }
 }

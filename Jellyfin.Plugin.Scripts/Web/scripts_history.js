@@ -2,7 +2,7 @@
 // The History tab: recent runs in a table, a run's steps and variables in a dialog, and Clear history.
 
 import {
-    createScriptsPage, createDataTable, confirmDialog, openDialog, renderRunSummary, renderRunSteps, renderRunVariables, formatDuration
+    createScriptsPage, createDataTable, confirmDialog, openDialog, renderRunSummary, renderRunSteps, renderRunVariables, formatDuration, t
 } from './configurationpage?name=scripts_common.js';
 
 export default function (view) {
@@ -19,19 +19,20 @@ export default function (view) {
 
     function el(id) { return view.querySelector('#' + id); }
     function triggerLabel(key) { return triggerLabels[key] || key; }
+    function runName(run) { return run.IsTest ? t.format('RunNameTest', run.ScriptName) : run.ScriptName; }
 
     // Short enough for one line in the table: "Oct 25, 10:27:20 PM".
     function when(value) {
         var date = new Date(value);
-        return isNaN(date) ? '' : date.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit' });
+        return isNaN(date) ? '' : date.toLocaleString(t.language, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit' });
     }
 
     // Opens one run's result, steps, and variables in a dialog.
     function showRun(run) {
         var body = document.createElement('div');
         body.appendChild(renderRunSummary(Shared, run, [
-            { label: 'Trigger', value: triggerLabel(run.Trigger) },
-            { label: 'Started', value: when(run.StartedUtc) }
+            { label: t.tr('LabelTrigger'), value: triggerLabel(run.Trigger) },
+            { label: t.tr('LabelStarted'), value: when(run.StartedUtc) }
         ]));
         if (run.Summary) {
             var summary = document.createElement('div');
@@ -39,7 +40,7 @@ export default function (view) {
             summary.textContent = run.Summary;
             body.appendChild(summary);
         }
-        [['Steps', renderRunSteps(Shared, run)], ['Variables', renderRunVariables(Shared, run)]].forEach(function (part) {
+        [[t.tr('HeaderSteps'), renderRunSteps(Shared, run)], [t.tr('HeaderVariables'), renderRunVariables(Shared, run)]].forEach(function (part) {
             var title = document.createElement('h3');
             title.className = 'base-subsection-title';
             title.textContent = part[0];
@@ -47,10 +48,10 @@ export default function (view) {
             body.appendChild(part[1]);
         });
         openDialog({
-            title: run.ScriptName + (run.IsTest ? ' (test)' : ''),
+            title: runName(run),
             body: body,
             page: page,
-            buttons: [{ text: 'Close', className: 'base-button secondary', action: function (close) { close(); } }]
+            buttons: [{ text: t.tr('ButtonClose'), className: 'base-button secondary', action: function (close) { close(); } }]
         });
     }
 
@@ -73,13 +74,13 @@ export default function (view) {
     // clearHistory
     // Asks first, then deletes every recorded run.
     function clearHistory() {
-        confirmDialog('Clear every recorded run? This cannot be undone.', { title: 'Clear history', confirmText: 'Clear', destructive: true }).then(function (ok) {
+        confirmDialog(t.tr('ConfirmClearHistory'), { title: t.tr('TitleClearHistory'), confirmText: t.tr('ButtonClear'), destructive: true }).then(function (ok) {
             if (!ok) return;
             Shared.apiRequest('Scripts/History', 'DELETE').then(function () {
-                Shared.setStatus('historyStatus', 'History cleared.', false);
+                Shared.setStatus('historyStatus', t.tr('StatusHistoryCleared'), false);
                 if (table) table.reload();
             }).catch(function () {
-                Shared.setStatus('historyStatus', 'Could not clear the history.', true);
+                Shared.setStatus('historyStatus', t.tr('ErrorClearHistory'), true);
             });
         });
     }
@@ -94,32 +95,32 @@ export default function (view) {
         var host = el('historyTable');
         host.innerHTML = '';
         table = createDataTable({
-            label: 'Runs',
+            label: t.tr('LabelRuns'),
             fetch: fetchRuns,
             rowKey: 'Id',
             pageSize: 50,
             height: 'fill',
-            search: { placeholder: 'Search runs' },
+            search: { placeholder: t.tr('PlaceholderSearchRuns') },
             filters: [{
                 name: 'run',
-                label: 'Runs',
+                label: t.tr('LabelRuns'),
                 options: [
-                    { value: 'failed', label: 'Failed' },
-                    { value: 'test', label: 'Tests' }
+                    { value: 'failed', label: t.tr('LabelFailed') },
+                    { value: 'test', label: t.tr('FilterTests') }
                 ].concat(scripts.map(function (s) { return { value: s.Id, label: s.Name }; }))
             }],
-            actions: [{ id: 'clear', label: 'Clear history', icon: 'delete', variant: 'destructive', onClick: clearHistory }],
-            emptyText: 'No runs yet.',
+            actions: [{ id: 'clear', label: t.tr('TitleClearHistory'), icon: 'delete', variant: 'destructive', onClick: clearHistory }],
+            emptyText: t.tr('EmptyRuns'),
             widthKey: 'scripts-history',
             columns: [
-                { key: 'ScriptName', label: 'Run', width: '2fr', sortable: false, render: function (run) { return run.ScriptName + (run.IsTest ? ' (test)' : ''); } },
-                { key: 'Trigger', label: 'Trigger', width: '1.5fr', sortable: false, render: function (run) { return triggerLabel(run.Trigger); } },
-                { key: 'StartedUtc', label: 'Started', width: '1.5fr', sortable: false, render: function (run) { return when(run.StartedUtc); } },
-                { key: 'DurationMs', label: 'Duration', align: 'end', sortable: false, render: function (run) { return formatDuration(Shared, run.DurationMs); } },
+                { key: 'ScriptName', label: t.tr('LabelRun'), width: '2fr', sortable: false, render: runName },
+                { key: 'Trigger', label: t.tr('LabelTrigger'), width: '1.5fr', sortable: false, render: function (run) { return triggerLabel(run.Trigger); } },
+                { key: 'StartedUtc', label: t.tr('LabelStarted'), width: '1.5fr', sortable: false, render: function (run) { return when(run.StartedUtc); } },
+                { key: 'DurationMs', label: t.tr('LabelDuration'), align: 'end', sortable: false, render: function (run) { return formatDuration(Shared, run.DurationMs); } },
                 {
-                    key: 'Succeeded', label: 'Result', width: '8rem', sortable: false, render: function (run) {
+                    key: 'Succeeded', label: t.tr('LabelResult'), width: '8rem', sortable: false, render: function (run) {
                         var cell = document.createElement('span');
-                        cell.innerHTML = Shared.badge(run.Succeeded ? 'green' : 'red', run.Succeeded ? 'Succeeded' : 'Failed');
+                        cell.innerHTML = Shared.badge(run.Succeeded ? 'green' : 'red', run.Succeeded ? t.tr('StatusSucceeded') : t.tr('LabelFailed'));
                         return cell;
                     }
                 }
@@ -146,13 +147,13 @@ export default function (view) {
     }
 
     function load() {
-        Promise.all([Shared.getConfig(), Shared.apiRequest('Scripts/Catalog', 'GET')]).then(function (results) {
+        Promise.all([Shared.getConfig(), Shared.apiRequest('Scripts/Catalog?language=' + encodeURIComponent(t.language), 'GET')]).then(function (results) {
             (results[1].Triggers || []).forEach(function (t) { triggerLabels[t.Key] = t.Label; });
             // The catalog lists only triggers a script can pick, so a Run now run takes its label here.
-            if (!triggerLabels.Manual) triggerLabels.Manual = 'Run now';
+            if (!triggerLabels.Manual) triggerLabels.Manual = t.tr('TriggerManual');
             createTable(results[0].Scripts || []);
         }).catch(function () {
-            Shared.setStatus('historyStatus', 'Could not load the history.', true, { timeout: 0 });
+            Shared.setStatus('historyStatus', t.tr('ErrorLoadHistory'), true, { timeout: 0 });
         });
     }
 }

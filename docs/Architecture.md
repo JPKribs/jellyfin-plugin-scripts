@@ -16,13 +16,14 @@ Scripts targets Jellyfin 12.4 (`net10.0`, ABI `12.4.0.0`). Every event and API i
 | State files | `Services/ScriptPaths.cs`, `Services/HistoryStore.cs`, `Services/SecretVault.cs` |
 | Validation | `Services/ConfigurationValidator.cs`, called from `Plugin.OnConfigurationSaving` and the test route |
 | API | `Api/ScriptsController.cs` |
+| Strings | `Localization/en-us.json`, the `JellyfinString` items in the csproj, `Services/ItemKindLabels.cs` |
 | Dashboard | `Web/scripts_scripts.*`, `scripts_history.*`, `scripts_settings.*`, `scripts_common.js`, `scripts_templates.js`, `scripts_shared.css` |
 
-The API routes all sit under `Scripts/`: `GET Catalog`, `GET Status`, `POST Test`, `POST Run/{id}`, `POST Webhook/{token}`, `GET` and `DELETE History`, and `GET CheckPath`.
+The API routes all sit under `Scripts/`: `GET Catalog`, `GET Status`, `POST Test`, `POST Run/{id}`, `POST Webhook/{token}`, `GET` and `DELETE History`, `GET CheckPath`, and `GET Translations`. Only `Translations` allows anonymous requests, since it serves the page strings.
 
 `GET History` takes Base's `PagedQuery`, so the **History** tab's Data Table reads one page at a time with its search and its filter, `failed`, `test`, or a script ID.
 
-The dashboard pages import Base only through `scripts_common.js`, which also holds the tab bar and the labels each enum name displays as. The lists, row editors, pickers, sliders, duration fields, and Save Bars on the three tabs are Base components. `scripts_shared.css` holds only spacing between them, and the bottom alignment of the condition rows.
+The dashboard pages import Base only through `scripts_common.js`, which also holds the tab bar, the plugin's strings in the viewer's language, and the labels each enum name displays as. Every word a page shows comes from a key, and the catalog's labels and descriptions come in the language the page asks for. The lists, row editors, pickers, sliders, duration fields, and Save Bars on the three tabs are Base components. `scripts_shared.css` holds only spacing between them, and the bottom alignment of the condition rows.
 
 ## State
 

@@ -4,6 +4,7 @@ using Jellyfin.Data.Events.Users;
 using Jellyfin.Plugin.Scripts.Services;
 using JPKribs.Jellyfin.Base;
 using MediaBrowser.Controller;
+using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Controller.Events;
 using MediaBrowser.Controller.Events.Authentication;
 using MediaBrowser.Controller.Events.Updates;
@@ -23,7 +24,7 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
         // Writes summed script failures and the activity log step to Jellyfin's activity log, which is where the
         // dashboard surfaces plugin events to administrators.
         serviceCollection.AddActivityLogger();
-        serviceCollection.AddSingleton(provider => new ScriptsActivity(provider.GetRequiredService<ActivityLogger>()));
+        serviceCollection.AddSingleton(provider => new ScriptsActivity(provider.GetRequiredService<ActivityLogger>(), provider.GetRequiredService<IServerConfigurationManager>()));
 
         // Encrypts script secrets at rest. Keys live in a fixed directory under the Jellyfin data folder with a
         // pinned application name, so moving the host does not leave stored secrets undecryptable.
