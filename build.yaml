@@ -1,7 +1,7 @@
 ---
 name: "Scripts"
 guid: "449817c2-7661-46fb-b302-bbd6dd3b0a01"
-version: "12.4.3.0"
+version: "12.4.3.1"
 targetAbi: "12.4.0.0"
 framework: "net10.0"
 overview: "Run your own scripts on server events."
@@ -15,3 +15,5 @@ artifacts:
 changelog:
   changed:
   - The activity entry for failed runs has a generic name, Script runs failed, and an overview that says each fact once, such as Notify failed with the error The chosen collection no longer exists
+  developer:
+  - skills/logging.md sets how activity entries and server log lines are written
