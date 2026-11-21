@@ -16,4 +16,4 @@ changelog:
   fixed:
   - The run filter on the History tab read All Runs, and the clear button beside a secret's value was named Clear Value. They read All runs and Clear value, in sentence case like the rest of the page
   developer:
-  - Uses JPKribs.Jellyfin.Base 12.4.2, after 12.4.1. Base fills a label into its own text in sentence case, such as a filter's All choice, a secret's clear button, and a column's resize handle
+  - Uses JPKribs.Jellyfin.Base 12.4.3, after 12.4.1. Base fills a label into its own text in sentence case, such as a filter's All choice, a secret's clear button, and a column's resize handle
