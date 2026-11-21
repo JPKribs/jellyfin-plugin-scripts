@@ -9,6 +9,14 @@
     "category": "General",
     "versions": [
       {
+        "version": "12.4.3.0",
+        "changelog": "\n## Fixed\n- The run filter on the History tab read All Runs, and the clear button beside a secret's value was named Clear Value. They read All runs and Clear value, in sentence case like the rest of the page\n\n## Developer\n- Uses JPKribs.Jellyfin.Base 12.4.3, after 12.4.1. Base fills a label into its own text in sentence case, such as a filter's All choice, a secret's clear button, and a column's resize handle",
+        "targetAbi": "12.4.0.0",
+        "sourceUrl": "https://github.com/JPKribs/jellyfin-plugin-scripts/releases/download/v12.4.3.0/jellyfin-plugin-scripts-12.4.3.0.zip",
+        "checksum": "e857de386266de9538159f0f728b36fb",
+        "timestamp": "2026-11-21T02:15:16Z"
+      },
+      {
         "version": "12.4.2.0",
         "changelog": "\n## Added\n- The Scripts, History, and Settings tabs show their text in the viewer's language. Jellyfin's own words, such as day names, item kinds, and step names Jellyfin already has, come in every language Jellyfin has, and the rest is in US English until it is translated\n\n## Changed\n- Every label, badge, section title, and item kind is written in sentence case, as Jellyfin writes its own, such as Item kinds and Continues on error\n- The trigger list, the path check under a command, and the errors Test and Run now report follow the page's language\n- The activity entry for failed runs is written in the server's display language, such as 3 script runs failed\n\n## Developer\n- Uses JPKribs.Jellyfin.Base 12.4.1, after 12.4.0. Base's translations build embeds the strings and Localization/casing.json, BaseHttp replaces JpkHttp, the failed run outcome uses ActivityOutcome's key constructor, and the controller reads the language with BaseTranslations.RequestLanguage in place of its language query parameters\n- Catalog, Test, Run/{id}, and CheckPath take the language from ?language=, the X-Jellyfin-Plugin-Language header, or Accept-Language\n- The project is split into Api, Configuration, Web, Assets, Models, Services, Localization, and Tasks folders, and every page file is embedded from Web\n- The screenshot kit serves translations as { language, strings, casing }, with Base's own strings",
         "targetAbi": "12.4.0.0",
