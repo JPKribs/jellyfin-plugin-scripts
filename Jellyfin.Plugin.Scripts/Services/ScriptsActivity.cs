@@ -1,4 +1,7 @@
 using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
 using JPKribs.Jellyfin.Base;
 using MediaBrowser.Controller.Configuration;
 using Microsoft.Extensions.Logging;
@@ -20,9 +23,7 @@ public sealed class ScriptsActivity : IDisposable
         "Scripts.ScriptFailed",
         TranslationKeys.ActivityNameRunFailedOne,
         TranslationKeys.ActivityNameRunFailedMany,
-        (tally, language) => tally.Reasons.Count > 0
-            ? BaseTranslations.Format(tally.Total == 1 ? TranslationKeys.ActivityRunFailedWithErrors : TranslationKeys.ActivityRunsFailedWithErrors, language, tally.Total, ActivityText.CountedList(tally.Sources), ActivityText.CountedList(tally.Reasons))
-            : BaseTranslations.Format(tally.Total == 1 ? TranslationKeys.ActivityRunFailed : TranslationKeys.ActivityRunsFailed, language, tally.Total, ActivityText.CountedList(tally.Sources)),
+        RunFailedOverview,
         LogLevel.Error);
 
     /// <summary>
@@ -67,4 +68,32 @@ public sealed class ScriptsActivity : IDisposable
 
     /// <inheritdoc />
     public void Dispose() => Summary.Dispose();
+
+    // A single run names its script and error. A larger summary counts the runs and lists each script and error.
+    private static string RunFailedOverview(ActivityTally tally, string language)
+    {
+        var scripts = NamedList(tally.Sources, tally.Total);
+        var errors = NamedList(tally.Reasons, tally.Total);
+        if (tally.Total == 1)
+        {
+            return errors.Length > 0
+                ? BaseTranslations.Format(TranslationKeys.ActivityRunFailedWithErrors, language, scripts, errors)
+                : BaseTranslations.Format(TranslationKeys.ScheduledTaskFailedWithName, language, scripts);
+        }
+
+        return errors.Length > 0
+            ? BaseTranslations.Format(TranslationKeys.ActivityRunsFailedWithErrors, language, tally.Total, scripts, errors)
+            : BaseTranslations.Format(TranslationKeys.ActivityRunsFailed, language, tally.Total, scripts);
+    }
+
+    // Lists names, the largest count first. The count is left out when it is 1 or the whole total, since it
+    // would then repeat what the sentence already says, so one script reads "Notify" rather than "Notify (1)".
+    private static string NamedList(IReadOnlyDictionary<string, int> counts, int total)
+        => string.Join(", ", counts
+            .Where(p => p.Value > 0)
+            .OrderByDescending(p => p.Value)
+            .ThenBy(p => p.Key, StringComparer.Ordinal)
+            .Select(p => p.Value == 1 || p.Value == total
+                ? p.Key
+                : string.Create(CultureInfo.InvariantCulture, $"{p.Key} ({p.Value})")));
 }

@@ -45,7 +45,7 @@ Every label, heading, button, tab, column header, option, title, badge, and mess
 | Dialog title | Import scripts |
 | Badge and status chip | Continues on error |
 | Column header | Started |
-| Activity log name | 3 script runs failed |
+| Activity log name | Script runs failed |
 | Description, message, placeholder sentence | Runs once per pause. |
 
 * Product names, services, formats, and acronyms keep their casing, such as "Discord", "ntfy", "JSON", and "API key". Base keeps Jellyfin, TV, ID, API, URL, HTTP, HTTPS, IP, DNS, HDR, SDR, and 4K. Add any other word to `Localization/casing.json`. See [translations.md](translations.md#casing).
@@ -174,8 +174,9 @@ Use `shared.emptySection(text)` for a region and `shared.emptySection(text, { in
 
 Use `ActivitySummary` and `ActivityText` from Base.
 
-* The name is short and in sentence case, with a key for one and a key for many. "3 script runs failed".
-* The overview is one sentence with no closing period, as Base writes it. "3 script runs failed in Nightly scan (2), Notify (1)".
+* Follow [logging.md](logging.md#activity-log).
+* The name is short, generic, and in sentence case, with a key for one and a key for many and no count. "Script runs failed".
+* The overview is one sentence with no closing period, as Base writes it. "3 runs failed in Nightly scan (2), Notify".
 * Use the same verb the UI uses for the action.
 
 ### Messages From C#

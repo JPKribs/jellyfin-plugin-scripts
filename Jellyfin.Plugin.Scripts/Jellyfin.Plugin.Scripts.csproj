@@ -85,6 +85,7 @@
     <JellyfinString Include="RemoveFromCollection" />
     <JellyfinString Include="Saturday" />
     <JellyfinString Include="Schedule" />
+    <JellyfinString Include="ScheduledTaskFailedWithName" />
     <JellyfinString Include="Season" />
     <JellyfinString Include="SendMessage" />
     <JellyfinString Include="Series" />
