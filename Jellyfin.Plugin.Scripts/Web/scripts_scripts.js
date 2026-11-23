@@ -1360,7 +1360,7 @@ export default function (view) {
             'ForEachLimit', 'StreamCountThreshold', 'TranscodeCountThreshold', 'ProgressPercentThreshold'].forEach(function (key) {
             if (source[key] !== undefined) s[key] = parseInt(source[key], 10) || 0;
         });
-        if (['Interval', 'Daily', 'Monthly'].indexOf(source.ScheduleMode) >= 0) s.ScheduleMode = source.ScheduleMode;
+        if (['Interval', 'Daily', 'Monthly', 'None'].indexOf(source.ScheduleMode) >= 0) s.ScheduleMode = source.ScheduleMode;
         if (typeof source.ScheduleTime === 'string') s.ScheduleTime = source.ScheduleTime;
         if (Array.isArray(source.ScheduleDays)) s.ScheduleDays = source.ScheduleDays.filter(function (d) { return DAYS.indexOf(d) >= 0; });
         if (['None', 'Items', 'Users'].indexOf(source.ForEach) >= 0) s.ForEach = source.ForEach;
