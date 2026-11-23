@@ -1,7 +1,7 @@
 ---
 name: "Scripts"
 guid: "449817c2-7661-46fb-b302-bbd6dd3b0a01"
-version: "12.4.4.0"
+version: "12.4.4.1"
 targetAbi: "12.4.0.0"
 framework: "net10.0"
 overview: "Run your own scripts on server events."
@@ -13,20 +13,5 @@ owner: "JPKribs"
 artifacts:
 - "Jellyfin.Plugin.Scripts.dll"
 changelog:
-  added:
-  - A chart at the top of the History tab shows how many runs succeeded and failed on each of the last 14 days, or 7 on a phone
-  - A Variables list under each step text field that takes placeholders. Select one to insert it at the cursor
-  changed:
-  - Every section of the script editor starts closed and says what it holds under its heading, such as 2 steps, Everyone, or 4 conditions, all must match. General shows the script's description and whether it is Enabled or Disabled
-  - A section with a problem names it in its badge, such as Schedule ignored, 1 never matches, or No item kinds
-  - Item kinds is a panel under the trigger list. It shows only while a checked trigger has an item or the script runs for each library item, and it is cleared once none does. The Triggers heading shows All kinds or how many are chosen
-  - Test, Run now, and the trigger to test with are in a Testing section above Save
-  - The Variables section at the bottom of the editor is gone, since each step field lists the variables
-  - The trigger list and the History table show every row, and the page scrolls instead of the list
-  - Settings has two sections, Runs and History. Runs kept in the history is now Runs kept. The Docker and trust notes moved to the Run command docs
-  - A new script's scheduled task starts with no triggers. Add one under Scheduled Tasks. Scripts that already have a task keep its schedule
-  - Shorter help text on the Scripts and History tabs
-  - A script saved by this release with no schedule of its own cannot be read by an earlier release
-  developer:
-  - GET Scripts/History/Days returns the runs that succeeded and failed on each of the last 14 days, without tests
-  - ScheduleMode has a None value, the default for a new script, which gives its task no starting triggers
+  fixed:
+  - Import read a script's None schedule mode only because it is the default. It reads None like the other modes
