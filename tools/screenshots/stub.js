@@ -116,6 +116,16 @@ var testRun = { Id: 't1', ScriptName: 'Limit transcodes', Trigger: 'PlaybackStar
 
 window.__saved = [];
 function clone(o) { return JSON.parse(JSON.stringify(o)); }
+// historyDays
+// Fourteen days of sample run counts for the History chart, oldest first, ending today.
+function historyDays() {
+    var ok = [6, 9, 4, 7, 12, 8, 5, 10, 7, 11, 6, 9, 13, 8], bad = [0, 1, 0, 0, 2, 0, 0, 1, 0, 0, 3, 0, 1, 2], days = [];
+    for (var i = 13; i >= 0; i--) {
+        var d = new Date(Date.now() - i * 86400000);
+        days.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'));
+    }
+    return { Days: days, Succeeded: ok, Failed: bad };
+}
 function history(url) {
     var q = new URLSearchParams(url.split('?')[1] || '');
     var search = (q.get('Search') || '').toLowerCase(), filter = q.get('Filter') || '';
@@ -142,6 +152,7 @@ window.ApiClient = {
         var url = o.url || '';
         return catalogReady.then(function () {
             var body = url.indexOf('Catalog') >= 0 ? catalog
+                : url.indexOf('History/Days') >= 0 ? historyDays()
                 : url.indexOf('History') >= 0 ? (o.type === 'DELETE' ? {} : history(url))
                 : url.indexOf('CheckPath') >= 0 ? { Exists: true, Executable: true, Message: 'Found, and executable.' }
                 : url.indexOf('Scripts/Test') >= 0 ? testRun

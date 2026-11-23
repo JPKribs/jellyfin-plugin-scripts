@@ -53,7 +53,7 @@
                     <div id="scriptEditor" class="hidden">
 
                         <!-- General -->
-                        <div class="base-section">
+                        <div class="base-section" data-fold="general" data-fold-state="closed">
                             <div class="base-section-title" data-str="General">General</div>
                             <div class="base-section-content">
                                 <div class="inputContainer">
@@ -63,7 +63,6 @@
                                 <div class="inputContainer">
                                     <label for="scriptDescription" data-str="LabelDescription">Description</label>
                                     <input is="emby-input" type="text" id="scriptDescription" maxlength="500" />
-                                    <div class="fieldDescription" data-str="HelpScriptDescription">What the script is for. Shown with its scheduled task when it runs on a schedule.</div>
                                 </div>
                                 <div class="checkboxContainer">
                                     <label class="emby-checkbox-label">
@@ -75,11 +74,20 @@
                         </div>
 
                         <!-- Triggers -->
-                        <div class="base-section">
+                        <div class="base-section" data-fold="triggers" data-fold-state="closed">
                             <div class="base-section-title" data-str="SectionTriggers">Triggers</div>
                             <div class="base-section-content">
                                 <div class="fieldDescription" data-str="HelpTriggers">The script runs when any checked trigger happens. Search to narrow the list.</div>
                                 <div id="triggerMount"></div>
+
+                                <div id="itemKindOptions" class="base-panel hidden">
+                                    <div class="base-panel-header" data-str="SectionItemKinds">Item kinds</div>
+                                    <div class="base-panel-body">
+                                        <div class="fieldDescription" data-str="HelpItemKinds">Runs only for items of these kinds. Leave blank for every kind.</div>
+                                        <div id="itemKindMount"></div>
+                                        <div id="itemKindWarn" class="base-warn hidden"></div>
+                                    </div>
+                                </div>
 
                                 <div id="pausedOptions" class="base-panel hidden">
                                     <div class="base-panel-body">
@@ -163,20 +171,7 @@
                             </div>
                         </div>
 
-                        <!-- Filters -->
-                        <div class="base-section">
-                            <div class="base-section-title" data-str="SectionItemKinds">Item kinds</div>
-                            <div class="base-section-content">
-                                <div class="fieldDescription" data-str="HelpItemKinds">
-                                    Run only for items of these kinds. Leave empty for every kind. Triggers without an
-                                    item ignore this.
-                                </div>
-                                <div id="itemKindMount"></div>
-                                <div id="itemKindWarn" class="base-warn hidden"></div>
-                            </div>
-                        </div>
-
-                        <div class="base-section">
+                        <div class="base-section" data-fold="users" data-fold-state="closed">
                             <div class="base-section-title" data-str="HeaderUsers">Users</div>
                             <div class="base-section-content">
                                 <div class="fieldDescription" data-str="HelpUsers">
@@ -189,7 +184,7 @@
                         </div>
 
                         <!-- Conditions -->
-                        <div class="base-section">
+                        <div class="base-section" data-fold="conditions" data-fold-state="closed">
                             <div class="base-section-title" data-str="SectionConditions">Conditions</div>
                             <div class="base-section-content">
                                 <div class="base-choice-group" id="conditionMatch" role="radiogroup" aria-label="Condition match" data-str-label="LabelConditionMatch">
@@ -210,15 +205,10 @@
                         </div>
 
                         <!-- Steps -->
-                        <div class="base-section">
+                        <div class="base-section" data-fold="steps" data-fold-state="closed">
                             <div class="base-section-title" data-str="HeaderSteps">Steps</div>
                             <div class="base-section-content">
-                                <div class="fieldDescription" data-str-rich="HelpSteps">
-                                    Run in order. Drag a step or use the arrows to move it. A failed step stops the rest unless it
-                                    continues on error. Text fields accept <code>{{NAME}}</code> placeholders, listed under
-                                    Variables. A step can have its own condition, and a command or HTTP request can save its
-                                    output for the steps after it.
-                                </div>
+                                <div class="fieldDescription" data-str="HelpSteps">Run in order. Drag a step or use the arrows to move it. A failed step stops the rest unless it continues on error.</div>
                                 <div id="operationList"></div>
                                 <div id="operationEmpty" class="hidden"></div>
                                 <div id="operationEditor"></div>
@@ -235,7 +225,7 @@
                         </div>
 
                         <!-- Secrets -->
-                        <div class="base-section">
+                        <div class="base-section" data-fold="secrets" data-fold-state="closed">
                             <div class="base-section-title" data-str="SectionSecrets">Secrets</div>
                             <div class="base-section-content">
                                 <div class="fieldDescription" data-str-rich="HelpSecrets">
@@ -248,7 +238,7 @@
                         </div>
 
                         <!-- Behavior -->
-                        <div class="base-section">
+                        <div class="base-section" data-fold="behavior" data-fold-state="closed">
                             <div class="base-section-title" data-str="SectionBehavior">Behavior</div>
                             <div class="base-section-content">
                                 <div class="selectContainer">
@@ -290,42 +280,30 @@
                             </div>
                         </div>
 
-                        <!-- Variables -->
-                        <div class="base-collapsible-section">
-                            <button type="button" class="base-collapsible-header collapsed" aria-expanded="false" data-target="variableContent">
-                                <span class="base-collapsible-title" data-str="HeaderVariables">Variables</span>
-                                <span class="base-collapsible-icon"></span>
-                            </button>
-                            <div id="variableContent" class="base-collapsible-content collapsed">
-                                <div class="fieldDescription" data-str-rich="HelpVariables">
-                                    A command receives each of these as an environment variable, such as
-                                    <code>$JF_ITEM_NAME</code>, plus <code>$JF_EVENT_JSON</code> with all of them.
-                                    In a step's text fields, use <code>{{ITEM_NAME}}</code>, <code>{{ITEM_NAME:json}}</code>
-                                    inside a JSON string, or <code>{{ITEM_NAME:url}}</code> in a URL. Select one to copy it.
+                        <!-- Testing -->
+                        <div class="base-section" data-fold="testing" data-fold-state="closed">
+                            <div class="base-section-title" data-str="SectionTesting">Testing</div>
+                            <div class="base-section-content">
+                                <div class="fieldDescription" data-str="HelpTestAndRun">Test runs the steps with sample values, including unsaved edits. Run now runs the saved script for real.</div>
+                                <div class="selectContainer">
+                                    <label class="selectLabel" for="testTrigger" data-str="LabelTestTrigger">Trigger to test with</label>
+                                    <select is="emby-select" id="testTrigger"></select>
                                 </div>
-                                <div id="variableMount"></div>
+                                <span id="scriptStatus" class="base-status-text"></span>
+                                <div class="base-button-row">
+                                    <button is="emby-button" type="button" id="btnTestScript" class="raised base-button secondary fill">
+                                        <span class="material-icons" aria-hidden="true">science</span>
+                                        <span data-str="ButtonTest">Test</span>
+                                    </button>
+                                    <button is="emby-button" type="button" id="btnRunScript" class="raised base-button secondary fill">
+                                        <span class="material-icons" aria-hidden="true">play_arrow</span>
+                                        <span data-str="TriggerManual">Run now</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
-                        <!-- Test, Run now, and Save -->
-                        <div class="fieldDescription" data-str="HelpTestAndRun">
-                            Test runs this script's steps now with sample values for the chosen trigger, including unsaved
-                            edits. Filters and conditions are not applied, and steps that act on a session, item, or user
-                            are skipped because the sample has none. Run now runs the saved script for real, whatever its
-                            triggers, filters, and cooldown say.
-                        </div>
-                        <span id="scriptStatus" class="base-status-text"></span>
-                        <div class="base-button-row">
-                            <select is="emby-select" id="testTrigger" class="base-selector-dropdown" aria-label="Trigger to test with" data-str-label="LabelTestTrigger"></select>
-                            <button is="emby-button" type="button" id="btnTestScript" class="raised base-button secondary fill">
-                                <span class="material-icons" aria-hidden="true">science</span>
-                                <span data-str="ButtonTest">Test</span>
-                            </button>
-                            <button is="emby-button" type="button" id="btnRunScript" class="raised base-button secondary fill">
-                                <span class="material-icons" aria-hidden="true">play_arrow</span>
-                                <span data-str="TriggerManual">Run now</span>
-                            </button>
-                        </div>
+                        <!-- Save -->
                         <div id="saveBarMount"></div>
                     </div>
 

@@ -37,6 +37,14 @@ public class ScriptScheduledTaskTests
     }
 
     [Fact]
+    public void ANewScriptStartsWithNoTrigger()
+    {
+        var script = new ScriptDefinition { ScheduleTime = "04:30" };
+        Assert.Equal(ScheduleMode.None, script.ScheduleMode);
+        Assert.Empty(ScriptScheduledTask.DefaultTriggers(script));
+    }
+
+    [Fact]
     public void AMonthlyOrMissingScriptStartsWithNoTrigger()
     {
         Assert.Empty(ScriptScheduledTask.DefaultTriggers(new ScriptDefinition { ScheduleMode = ScheduleMode.Monthly }));

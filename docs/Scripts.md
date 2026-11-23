@@ -8,6 +8,8 @@ The counts at the top show how many scripts there are, and how many are enabled 
 
 Each script has a **Name** and an optional **Description** saying what it is for. **New** asks for both and starts from a blank script or a template, such as stopping playback paused for 30 minutes, limiting the server to 3 transcodes, asking "Still watching?" after 3 hours, posting new items to Discord, or scanning every library nightly. **Duplicate** adds a disabled copy of the open script, without its secrets. **Delete** asks first, then deletes the open script and saves that at once. Unsaved edits to other scripts stay unsaved.
 
+The editor's sections open and close from their headings, and all start closed. Each heading says what its section holds, such as *1 trigger*, *2 steps*, *Everyone*, or *2 conditions, all must match*, **General** shows the script's description and whether it is **Enabled** or **Disabled**, and **Testing** names the trigger to test with. A section with a warning names it in an orange badge. **Users** shows what ignores its users, such as **Schedule ignored**. **Conditions** counts the conditions a selected trigger never matches, such as **1 never matches**. **Behavior** shows **No item kinds** when it runs for each library item with none chosen, or **For each ignored** when every trigger already has its own item or user.
+
 Every other change is kept until you **Save**. **Save** is the full width bar at the bottom of the editor, and the line above it says when there are unsaved changes. Leaving the page with unsaved changes asks first.
 
 ![Starting from a template](screenshots/NewScript.png)
@@ -101,6 +103,7 @@ Every playback trigger carries the user, session, and item, plus `ACTIVE_STREAMS
 
 * The task only runs on its triggers while the script is enabled. Run by hand while the script is disabled, it does nothing.
 * Renaming the script or editing its description changes the task at once.
+* A new script's task starts with no triggers. Add one under **Scheduled Tasks**.
 * A script from a template, or one saved by an earlier version with a schedule of its own, starts its task on that schedule: every so many minutes, daily, or on the chosen days at the chosen time. Jellyfin has no monthly trigger, so a script that ran monthly starts with no trigger and needs one set.
 * Deleting the script, or removing **On a schedule** from it, hides and disables the task at once and removes the files Jellyfin kept for it. Jellyfin only drops the task itself when the server restarts.
 
@@ -151,9 +154,9 @@ For example, a script on a weekly schedule, for each **Movie** where **Days sinc
 
 ## Item kinds
 
-Choose the kinds of item the script runs for, such as Movie, Episode, Audio, or Collection. Every kind the server knows is offered, and nothing is assumed: leave the list empty to run for every kind.
+**Item kinds** is a panel under the trigger list. It shows while a checked trigger carries an item, or while the script runs for each library item. Choose the kinds of item the script runs for, such as Movie, Episode, Audio, or Collection. Every kind the server knows is offered, and nothing is assumed: leave the list empty to run for every kind.
 
-Item kinds only filter triggers that carry an item. Others ignore them.
+While the panel shows, the **Triggers** heading carries a badge, green **All kinds** with none chosen, or blue with the count, such as **2 kinds**. Unchecking the last trigger that carries an item clears the item kinds, since they would filter nothing.
 
 !!! warning
     A library scan adds people, genres, studios, and folders as items too. A script on **Item added** or **Item updated** with no item kinds runs for all of them.
@@ -263,6 +266,9 @@ Use **Check path** to confirm the server can see the file and that it is executa
 !!! info "Docker"
     The path is the path inside the container. Mount your scripts, for example `-v /srv/jellyfin-scripts:/scripts:ro`, and use `/scripts/notify.sh`. The official image has a shell but no Python or most other interpreters, so write scripts for `/bin/sh` or mount the interpreter you need.
 
+!!! warning "Trust"
+    A command runs on the server as the account Jellyfin runs under. Only add commands you trust.
+
 ## Secrets
 
 Keep tokens and passwords in the script's **Secrets** rather than in its steps. Use one as `{{SECRET_NAME}}` in a step, or `$JF_SECRET_NAME` in a command. Values are encrypted into their own file on the server, never sent back to the browser in any form, and left out of exports. Wherever a secret of three or more characters shows up in a step's message or a command's output, the history and the activity log show `[SECRET_NAME]` instead. Each secret is a row with a **Name** and a **Value**. **Add secret** adds a row, and the cross at the end of a row removes the secret when you save. A name is capital letters, digits, and underscores, and typing fixes it as you go. Renaming a secret keeps its value. A stored value shows as dots and stays until you type a new one. The **Clear Value** button beside a stored value empties it when you save.
@@ -273,7 +279,7 @@ Keep tokens and passwords in the script's **Secrets** rather than in its steps. 
 
 A command receives every variable the trigger supplies as an environment variable with a `JF_` prefix, such as `$JF_ITEM_NAME`, plus `$JF_EVENT_JSON` holding all of them as one JSON object. A value the event lacks is set to an empty string, so a script under `set -u` can still test it.
 
-In a step's text fields, write a variable as `{{ITEM_NAME}}`. Use `{{ITEM_NAME:json}}` inside a JSON string, and `{{ITEM_NAME:url}}` inside a URL. The **Variables** section at the bottom of the editor opens to list the ones the selected triggers supply, each with what it holds, along with the script's secrets and the outputs its steps save. Select one to copy it as a placeholder, such as `{{ITEM_NAME}}`, and a short note confirms the copy.
+In a step's text fields, write a variable as `{{ITEM_NAME}}`. Use `{{ITEM_NAME:json}}` inside a JSON string, and `{{ITEM_NAME:url}}` inside a URL. Under each step text field that takes placeholders, **Variables** opens a list of the ones the selected triggers supply, along with the script's secrets and the outputs its steps save. Select one to insert it at the cursor, such as `{{ITEM_NAME}}`. The **Content type** and **File** fields take no placeholders, so they have no list.
 
 | Group | Variables |
 |---|---|
@@ -308,7 +314,7 @@ Users are stored by ID, so on another server a script's users show as unknown un
 
 ## Testing
 
-At the bottom of the editor, the trigger to test with sits over **Test** and **Run now**, directly above **Save**. **Test** runs the open script's steps right away, including unsaved edits and its secrets, with sample values for the chosen trigger, and shows each step's result in a dialog. Item kinds and conditions are not applied, and steps that act on the event's session, user, or item are skipped, because the sample has none. A message for every session or every administrator goes only to your own sessions. Other steps, such as a command, an HTTP request, a library scan, or a queued task, really run.
+The **Testing** section, above **Save**, holds the trigger to test with, **Test**, and **Run now**. **Test** runs the open script's steps right away, including unsaved edits and its secrets, with sample values for the chosen trigger, and shows each step's result in a dialog. Item kinds and conditions are not applied, and steps that act on the event's session, user, or item are skipped, because the sample has none. A message for every session or every administrator goes only to your own sessions. Other steps, such as a command, an HTTP request, a library scan, or a queued task, really run.
 
 ![A test run](screenshots/TestRun.png)
 
@@ -316,7 +322,9 @@ A test of a script that runs for each item or user uses one sample item or user.
 
 ## History
 
-Every run, tests included, is listed on the **History** tab, newest first. The table fills the window and scrolls inside it. Its columns are **Run**, **Trigger**, **Started**, **Duration**, and **Result**, and a test shows *(test)* after its script's name. Drag the edge of a heading to resize its column, and the width is kept for the next visit. On a phone the table shows only the run and its result.
+A chart at the top of the **History** tab shows how many runs succeeded and failed on each of the last 14 days, or 7 on a phone, in the server's time zone. Test runs are left out of it.
+
+Every run, tests included, is listed on the **History** tab, newest first. The table grows with its rows, and more load as you scroll. Its columns are **Run**, **Trigger**, **Started**, **Duration**, and **Result**, and a test shows *(test)* after its script's name. Drag the edge of a heading to resize its column, and the width is kept for the next visit. On a phone the table shows only the run and its result.
 
 Search the runs, or filter them to **Failed**, **Tests**, or one script. **Clear history** asks first, then deletes every recorded run.
 
@@ -328,10 +336,12 @@ Open a run to see its result, trigger, start, and length, each step's result wit
 
 ## Settings
 
-The **Settings** tab sets how the scripts run, with **Save** at the bottom.
+The **Settings** tab has two sections, with **Save** at the bottom.
 
-* **Runs at once** is a slider that sets how many scripts may run at the same time. Further runs wait their turn.
-* **Default command timeout** is a duration in minutes and seconds. A **Run command** step that sets no timeout of its own is stopped after this long.
-* **Runs kept in the history** is a slider. The oldest runs are dropped past this many, and 0 keeps none.
+* **Runs**
+    * **Runs at once** is a slider that sets how many scripts may run at the same time. Further runs wait their turn.
+    * **Default command timeout** is a duration in minutes and seconds. A **Run command** step that sets no timeout of its own is stopped after this long.
+* **History**
+    * **Runs kept** is a slider. The oldest runs are dropped past this many, and 0 keeps none.
 
 ![Settings](screenshots/Settings.png)

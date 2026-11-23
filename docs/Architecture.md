@@ -19,9 +19,9 @@ Scripts targets Jellyfin 12.4 (`net10.0`, ABI `12.4.0.0`). Every event and API i
 | Strings | `Localization/en-us.json`, the `JellyfinString` items in the csproj, `Services/ItemKindLabels.cs` |
 | Dashboard | `Web/scripts_scripts.*`, `scripts_history.*`, `scripts_settings.*`, `scripts_common.js`, `scripts_templates.js`, `scripts_shared.css` |
 
-The API routes all sit under `Scripts/`: `GET Catalog`, `GET Status`, `POST Test`, `POST Run/{id}`, `POST Webhook/{token}`, `GET` and `DELETE History`, `GET CheckPath`, and `GET Translations`. Only `Translations` allows anonymous requests, since it serves the page strings.
+The API routes all sit under `Scripts/`: `GET Catalog`, `GET Status`, `POST Test`, `POST Run/{id}`, `POST Webhook/{token}`, `GET` and `DELETE History`, `GET History/Days`, `GET CheckPath`, and `GET Translations`. Only `Translations` allows anonymous requests, since it serves the page strings.
 
-`GET History` takes Base's `PagedQuery`, so the **History** tab's Data Table reads one page at a time with its search and its filter, `failed`, `test`, or a script ID.
+`GET History` takes Base's `PagedQuery`, so the **History** tab's Data Table reads one page at a time with its search and its filter, `failed`, `test`, or a script ID. `GET History/Days` counts the runs that succeeded and failed on each of the last 14 days, without tests, for the tab's chart.
 
 The dashboard pages import Base only through `scripts_common.js`, which also holds the tab bar, the plugin's strings in the viewer's language, and the labels each enum name displays as. Every word a page shows comes from a key, and the catalog, the path check, and the errors the API returns come in the page's language. The lists, row editors, pickers, sliders, duration fields, and Save Bars on the three tabs are Base components. `scripts_shared.css` holds only spacing between them, and the bottom alignment of the condition rows.
 

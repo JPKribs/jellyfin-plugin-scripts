@@ -22,9 +22,19 @@ async function scrollTo(p, selector, gap = 20) {
   }, [selector, gap, HEADER]);
   await p.waitForTimeout(300);
 }
+// Opens the editor section with this title, since every section starts closed.
+async function unfold(p, title) {
+  await p.evaluate((title) => {
+    const t = Array.from(document.querySelectorAll('.base-collapsible-title')).find(x => x.textContent.trim() === title);
+    const head = t.closest('.base-collapsible-header');
+    if (head.classList.contains('collapsed')) head.click();
+  }, title);
+  await p.waitForTimeout(300);
+}
 async function sectionTop(p, title, gap = 20) {
+  await unfold(p, title);
   await p.evaluate(([title, gap, h]) => {
-    const t = Array.from(document.querySelectorAll('.base-section-title')).find(x => x.textContent.trim() === title);
+    const t = Array.from(document.querySelectorAll('.base-collapsible-title')).find(x => x.textContent.trim() === title);
     window.scrollTo(0, t.getBoundingClientRect().top + window.scrollY - h - gap);
   }, [title, gap, HEADER]);
   await p.waitForTimeout(300);
@@ -50,16 +60,17 @@ const shots = {
       await blur(p);
     } },
   Triggers: { page: 'scripts', act: async (p) => { await pick(p, 'Limit transcodes'); await sectionTop(p, 'Triggers'); } },
-  Schedule: { page: 'scripts', act: async (p) => { await pick(p, 'Nightly scan'); await scrollTo(p, '#scheduleOptions', 190); } },
-  Webhook: { page: 'scripts', act: async (p) => { await pick(p, 'Scan after downloads'); await scrollTo(p, '#webhookOptions', 230); } },
+  Schedule: { page: 'scripts', act: async (p) => { await pick(p, 'Nightly scan'); await unfold(p, 'Triggers'); await scrollTo(p, '#scheduleOptions', 190); } },
+  Webhook: { page: 'scripts', act: async (p) => { await pick(p, 'Scan after downloads'); await unfold(p, 'Triggers'); await scrollTo(p, '#webhookOptions', 230); } },
   Conditions: { page: 'scripts', act: async (p) => { await pick(p, 'Limit transcodes'); await sectionTop(p, 'Conditions'); } },
-  Steps: { page: 'scripts', act: async (p) => { await pick(p, 'Health check'); await openStep(p, 1); await sectionTop(p, 'Steps'); } },
-  SavedOutput: { page: 'scripts', act: async (p) => { await pick(p, 'Health check'); await openStep(p, 0); await scrollTo(p, '#opFieldOutputName', 470); } },
+  Steps: { page: 'scripts', act: async (p) => { await pick(p, 'Health check'); await unfold(p, 'Steps'); await openStep(p, 1); await sectionTop(p, 'Steps'); } },
+  SavedOutput: { page: 'scripts', act: async (p) => { await pick(p, 'Health check'); await unfold(p, 'Steps'); await openStep(p, 0); await scrollTo(p, '#opFieldOutputName', 470); } },
   Secrets: { page: 'scripts', act: async (p) => { await pick(p, 'Post new movies'); await sectionTop(p, 'Secrets'); } },
   Behavior: { page: 'scripts', act: async (p) => { await pick(p, 'Tag unwatched movies'); await sectionTop(p, 'Behavior'); } },
   TestRun: { page: 'scripts', act: async (p) => {
       await pick(p, 'Limit transcodes');
-      await scrollTo(p, '#saveBarMount', 560);
+      await unfold(p, 'Testing');
+      await scrollTo(p, '#scriptEditor .base-save-bar', 560);
       await p.click('#btnTestScript'); await p.waitForTimeout(900); await blur(p);
     } },
   History: { page: 'history', act: async (p) => {} },

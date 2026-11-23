@@ -217,7 +217,7 @@ public static partial class ConfigurationValidator
             {
                 Range(script.ScheduleIntervalMinutes, 1, MaxIntervalMinutes, label + "schedule interval");
             }
-            else if (!ScheduleTimes.TryParse(script.ScheduleTime, out _))
+            else if (script.ScheduleMode != ScheduleMode.None && !ScheduleTimes.TryParse(script.ScheduleTime, out _))
             {
                 throw new ArgumentException(label + "the schedule time must be HH:mm, such as 03:00.");
             }

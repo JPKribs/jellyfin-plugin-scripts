@@ -63,6 +63,31 @@ public sealed class HistoryStoreTests : IDisposable
     }
 
     [Fact]
+    public void CountsEachDaysRunsAndLeavesTestsOut()
+    {
+        using var store = Create();
+        var today = new DateTime(2026, 11, 22, 12, 0, 0, DateTimeKind.Local);
+        void At(DateTime local, bool ok, bool test = false)
+        {
+            var run = Run("a", ok);
+            run.StartedUtc = local.ToUniversalTime();
+            run.IsTest = test;
+            store.Add(run, 50);
+        }
+
+        At(today, true);
+        At(today, false);
+        At(today, true, test: true);
+        At(today.AddDays(-2), true);
+        At(today.AddDays(-20), false);
+
+        var days = store.Days(today, 3);
+        Assert.Equal(new[] { "2026-11-20", "2026-11-21", "2026-11-22" }, days.Days);
+        Assert.Equal(new[] { 1, 0, 1 }, days.Succeeded);
+        Assert.Equal(new[] { 0, 0, 1 }, days.Failed);
+    }
+
+    [Fact]
     public void FiltersFailedRuns()
     {
         using var store = Create();

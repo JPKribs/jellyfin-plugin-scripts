@@ -11,3 +11,14 @@
 /* Bottom-aligns Field, Operator, and the remove button with the Value box, since picked chips sit above that box. */
 /* Example: <div id="conditionList"><div class="base-repeater-row">...</div></div> */
 #conditionList .base-repeater-row { align-items: end; }
+
+/* trigger details */
+/* A field gap between the trigger list and the detail panels under it, such as Item kinds or Webhook. */
+#triggerMount { margin-bottom: var(--base-gap-wide); }
+
+/* editor warnings */
+/* A field gap between a field and the warning under it, while the warning shows. Base sets no top margin a warning may take. */
+#itemKindMount:has(+ #itemKindWarn:not(.hidden)),
+#userMount:has(+ #userWarn:not(.hidden)),
+#forEachLimitRow:not(.hidden):has(+ #forEachWarn:not(.hidden)),
+#conditionList:has(+ #conditionWarnings:not(:empty)) { margin-bottom: var(--base-gap-wide); }

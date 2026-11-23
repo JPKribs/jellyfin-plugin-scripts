@@ -48,7 +48,9 @@ The check to run on your own changes before you call them done. People and AI as
 * [ ] Every changed page was clicked through in the [harness](testing.md#harness) with Jellyfin's real styles, and each screenshot was looked at.
 * [ ] Every lookup lists its choices as you type and stores IDs.
 * [ ] Rows are visibly separate, and condition rows line up along the bottom of the **Value** box.
-* [ ] Each Save is a full width Save Bar with no divider above it, and the **History** table fills the window.
+* [ ] Each Save is a full width Save Bar with no divider above it, and the **History** table and the trigger list are never clipped.
+* [ ] Every closed editor section says what it holds in its subtitle, and every badge names its state, never a bare "Warning".
+* [ ] Every warning sits one field gap below the field above it.
 * [ ] Every changed page was opened on a test server and looked at, after a hard reload.
 * [ ] Every top level group on a page has the same header frame, and a section with nothing to show is hidden.
 * [ ] Results use `setStatus`, confirms use `confirmDialog`, and nothing uses `Dashboard.alert` or `window.confirm`.

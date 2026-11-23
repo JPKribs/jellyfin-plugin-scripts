@@ -81,7 +81,7 @@ The agreed name for every concept in this plugin. The UI, the docs, messages, an
 | :--- | :--- | :--- | :--- |
 | Runs at once | How many scripts may run at the same time | `MaxConcurrentRuns` | Concurrency, parallelism |
 | Default command timeout | How long a **Run command** step runs when it sets no timeout | `DefaultTimeoutSeconds` | Timeout |
-| Runs kept in the history | How many runs the history keeps | `HistorySize` | History size, retention |
+| Runs kept | How many runs the history keeps, on the Settings tab | `HistorySize` | History size, retention |
 
 ## Housekeeping
 

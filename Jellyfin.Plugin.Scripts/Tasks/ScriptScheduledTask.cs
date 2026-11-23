@@ -78,7 +78,7 @@ public abstract class ScriptScheduledTask : IScheduledTask, IConfigurableSchedul
     /// <returns>The triggers.</returns>
     public static IEnumerable<TaskTriggerInfo> DefaultTriggers(ScriptDefinition? script)
     {
-        if (script is null)
+        if (script is null || script.ScheduleMode == ScheduleMode.None)
         {
             yield break;
         }

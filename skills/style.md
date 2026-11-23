@@ -263,15 +263,17 @@ Every config page uses Jellyfin's page shell.
 | Need | Component |
 | :--- | :--- |
 | A page with several independent groups of settings | `base-collapsible-section`, one per group |
-| A group that is always open | `base-section` with `base-section-title` and `base-section-content`, which shares the collapsible section's frame, such as the script editor's groups |
+| A group that is always open | `base-section` with `base-section-title` and `base-section-content`, which shares the collapsible section's frame, such as the Settings sections |
 | A heading inside a section | `base-subsection-title` |
 | An ordered setup | `base-collapsible-section numbered`, which Base numbers in order |
-| The settings of one checked choice, such as a trigger's threshold | `base-panel` with `base-panel-header` and `base-panel-body` |
+| The settings of one checked choice, such as a trigger's threshold or the item kinds of triggers that carry an item | `base-panel` with `base-panel-header` and `base-panel-body` |
 | Settings that only matter when a checkbox is on | `base-indent` under the checkbox, shown with `shared.bindReveal` |
 
 * A collapsible header is a `button.base-collapsible-header` holding `base-collapsible-title` and `base-collapsible-icon`. Base replaces the icon with `expand_more`.
-* Start collapsibles closed, except the first one on a page someone opens to act on. **Variables** starts closed.
-* Give every top level group on one page the same header frame. The script editor's groups are `base-section`, and **Variables** is the one collapsible.
+* Start collapsibles closed, except the first one on a page someone opens to act on. Every group in the script editor starts closed.
+* Give every top level group on one page the same header frame. Every group in the script editor is a collapsible.
+* A closed group says what it holds in its subtitle, such as **2 steps**, **Everyone**, or **2 conditions, all must match**. Build it with `createCollapsibleSection` and refresh it with `setSubtitle` on every edit. **General** shows the script's description and an **Enabled** or **Disabled** badge, and **Testing** names the trigger to test with. **Triggers** carries the item kinds as a badge while a checked trigger has an item, green **All kinds** or blue **2 kinds**, and no badge otherwise. A group whose warning is showing names it in an orange badge with `setBadge`, never a bare "Warning". **Users** says what ignores them, such as **Schedule ignored**, by the ignoring triggers' shared category, or **2 triggers ignored** when they span several. **Conditions** counts what never matches, such as **1 never matches**. **Behavior** shows **No item kinds** or **For each ignored**.
+* A step text field that the server fills placeholders in lists the script's variables under it with `placeholderHint`, labelled **Variables**. Selecting one inserts it at the cursor.
 * Hide a whole section while its feature is off or it has nothing to show. Never show an empty section.
 * Put anything that depends on a picker under that picker, and redraw it when the pick changes.
 
@@ -282,7 +284,7 @@ Every save is one Save Bar, the same on every page.
 * Save with `createSaveBar` and `fill: true`. Its button reads **Save**, never Save and a noun.
 * One bar per thing that saves. **Settings** and **Scripts** each save once, so each has one bar at the bottom of the page. A page whose sections save on their own has one bar at the bottom of each section.
 * The bar is the last element of what it saves. Nothing sits beside it or below it, and no divider line sits above it.
-* Other actions that belong with the save, such as **Test**, **Run now**, and the trigger to test with, go in one `base-button-row` directly above the bar. Each button is `raised base-button secondary fill`, or `destructive fill` when it deletes or resets data. A select in that row stays a plain emby select. No `small` buttons in that row. Base spaces that row. Its buttons have no margin of their own, so their edges line up with the Save Bar's, the row sits one `--base-gap-narrow` above the Save Bar, and its buttons use the same font weight as Save. A plugin adds no margin, gap, or weight of its own. The Save Bar's element goes directly after the row, never inside a wrapper, since Base spaces them as siblings.
+* Other actions that belong with the save go in one `base-button-row` directly above the bar. The script editor has none there, since **Test**, **Run now**, and the trigger to test with sit in its closed **Testing** section. Each button is `raised base-button secondary fill`, or `destructive fill` when it deletes or resets data. A select in that row stays a plain emby select. No `small` buttons in that row. Base spaces that row. Its buttons have no margin of their own, so their edges line up with the Save Bar's, the row sits one `--base-gap-narrow` above the Save Bar, and its buttons use the same font weight as Save. A plugin adds no margin, gap, or weight of its own. The Save Bar's element goes directly after the row, never inside a wrapper, since Base spaces them as siblings.
 * Track unsaved changes with `createChangeTracker` and pass the result to the bar's `setDirty`, so its line reads "Unsaved changes." `onSave` returns the save promise.
 * Guard leaving the page with the `isDirty` option of `createScriptsPage`, or `page.guardUnsaved`.
 * The Save Bar reports a save. Other actions report with `shared.setStatus` above their row.
@@ -317,7 +319,7 @@ grep -o "export function create[A-Za-z]*" ~/.nuget/packages/jpkribs.jellyfin.bas
 | A mode that needs a sentence per option | `createChoiceGroup` with `base-choice` cards |
 | Several on or off options in a row | `base-toggle-group` with `base-toggle` pills |
 | Many checkboxes | `base-check-grid` |
-| Many items from a long or searchable list | `createCheckboxList`, with `renderRow` giving each row a `label`, a `sublabel`, and a `note`, such as the trigger list |
+| Many items from a long or searchable list | `createCheckboxList`, with `renderRow` giving each row a `label`, a `sublabel`, and a `note`, such as the trigger list, which sets `maxHeight: null` so it is never clipped |
 | Rows of several fields that are added and removed | `createRepeater` |
 | Pairs of a name and a value | `createKeyValueEditor` |
 | A list of plain text values | `createStringList` or `createTagInput` |
@@ -376,7 +378,7 @@ grep -o "export function create[A-Za-z]*" ~/.nuget/packages/jpkribs.jellyfin.bas
 | Records in priority order | `createSortableCardList`, such as a script's steps |
 | A plain list of records | `base-card-list` with `base-card-item-*` |
 | Edit one record in a dialog | `openEditorDialog` |
-| A large searchable list | `createDataTable` with `fetch` and `height: 'fill'` |
+| A large searchable list | `createDataTable` with `fetch` and `pageSize` |
 | Edit table rows in place | `base-bulk-edit-bar` and `base-edit-row` |
 | Uploaded files | `base-asset-list` |
 | A thumbnail in a table row | A column `image(item)` loader with `imageShape`, one shape for each column |
@@ -385,10 +387,10 @@ grep -o "export function create[A-Za-z]*" ~/.nuget/packages/jpkribs.jellyfin.bas
 | Label and value pairs, such as a run's variables | `createDefinitionList` |
 
 * The script picker's actions read **New**, **Duplicate**, **Delete**, **Export**, and **Import**.
-* A list that can grow past one screen, such as the history, is a `createDataTable` with `height: 'fill'`, so it ends at the bottom of the window and scrolls inside. Rows open with `onOpen`, and an action on the whole list, such as **Clear history**, is one of its `actions`.
+* A list that can grow past one screen, such as the history, is a `createDataTable` with a `pageSize`, so more rows load as the page scrolls. Rows open with `onOpen`, and an action on the whole list, such as **Clear history**, is one of its `actions`.
 * Rows of fields that are added and removed, such as the conditions, are a `createRepeater`. A field that needs a Base control the Repeater does not draw, such as a Chip Select, is a `custom` field.
 * The condition rows bottom-align their cells with `align-items: end` in `scripts_shared.css`. A Chip Select puts its picked chips above its box, so **Field**, **Operator**, and the remove button line up with the **Value** box, not with the chips.
-* The **History** table fills the window. Keep `height: 'fill'` on it, so the page never scrolls past the table and its rows scroll inside it.
+* The **History** table is as tall as its rows and scrolls with the page. Leave `height` unset on it, so it is never clipped.
 
 ### Status
 
@@ -409,7 +411,7 @@ grep -o "export function create[A-Za-z]*" ~/.nuget/packages/jpkribs.jellyfin.bas
 
 ### Charts
 
-The Scripts pages draw no charts today. When one is needed, pick it here.
+The **History** tab's chart of each day's runs is a `createBarChart`, with succeeded in green and failed in red. When another chart is needed, pick it here.
 
 | Need | Use |
 | :--- | :--- |
@@ -469,6 +471,8 @@ The Scripts pages draw no charts today. When one is needed, pick it here.
 * When Base has a defect that breaks a page, report it and add one marked stopgap rule under a comment that names the defect. Delete the rule in the commit that moves to the Base version with the fix.
 * Size a column in `rem` or `fr`. An `em` width changes with the font size of each row, so a smaller heading row falls out of line with its columns.
 * Never define a color token. Use Base's.
+* Base sets `margin: 0 0 var(--base-gap-wide) 0 !important` on notices such as `base-warn`, so a notice cannot take a top margin. To space a notice from the field above it, give that field a bottom margin while the notice shows, such as `#userMount:has(+ #userWarn:not(.hidden))` in `scripts_shared.css`.
+* A Save Bar goes straight after its button row, never in a mount `div`, or Base cannot space the two. Replace the mount with `replaceWith`.
 
 ## Hand Built Pieces
 

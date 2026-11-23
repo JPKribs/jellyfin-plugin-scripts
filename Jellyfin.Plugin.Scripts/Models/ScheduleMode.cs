@@ -12,5 +12,8 @@ public enum ScheduleMode
     Daily,
 
     /// <summary>At <see cref="ScriptDefinition.ScheduleTime"/> on <see cref="ScriptDefinition.ScheduleMonthDay"/> each month.</summary>
-    Monthly
+    Monthly,
+
+    /// <summary>No schedule of its own. The task starts with no triggers, set under Scheduled Tasks.</summary>
+    None
 }

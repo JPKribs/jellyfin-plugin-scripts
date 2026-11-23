@@ -5,7 +5,7 @@
 import {
     createConfigPage, createChipSelect, createTagInput, createComboBox, adornField, createCheckboxList, createUserMultiSelector, createSortableCardList,
     createChoiceGroup, createCopyField, createTimeline, createDefinitionList, createRepeater, createDataTable,
-    createRecordList, createSaveBar, createSliderField, createDurationField, createToaster,
+    createRecordList, createSaveBar, createSliderField, createDurationField, createToaster, createBarChart, createCollapsibleSection,
     confirmDialog, promptDialog, openDialog, generateGuid, downloadJson, pickJsonFile, setFieldState, SECRET_KEPT,
     loadTranslations, createTranslations, setTabs
 } from './configurationpage?name=scripts_jpkribs_shared.js';
@@ -13,7 +13,7 @@ import {
 export {
     createRepeater, createDataTable, createChipSelect, createTagInput, createComboBox, adornField, createCheckboxList, createUserMultiSelector, createSortableCardList,
     createChoiceGroup, createCopyField, createRecordList, createSaveBar, createSliderField, createDurationField,
-    createToaster, confirmDialog, promptDialog, openDialog, generateGuid, downloadJson, pickJsonFile,
+    createToaster, createBarChart, createCollapsibleSection, confirmDialog, promptDialog, openDialog, generateGuid, downloadJson, pickJsonFile,
     setFieldState, SECRET_KEPT
 };
 

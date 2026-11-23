@@ -4,8 +4,8 @@
 
 import {
     createScriptsPage, createRepeater, createChipSelect, createTagInput, createComboBox, adornField, createCheckboxList, createUserMultiSelector, createSortableCardList,
-    createChoiceGroup, createCopyField, createRecordList, createSaveBar, createSliderField, createDurationField,
-    createToaster, confirmDialog, promptDialog, openDialog, generateGuid, downloadJson, pickJsonFile, setFieldState, SECRET_KEPT,
+    createChoiceGroup, createCopyField, createSaveBar, createSliderField, createDurationField,
+    createCollapsibleSection, confirmDialog, promptDialog, openDialog, generateGuid, downloadJson, pickJsonFile, setFieldState, SECRET_KEPT,
     fieldGroups, fieldLabel, NUMERIC_FIELDS, operatorLabels, operationTypes, renderRunSummary, renderRunSteps, t
 } from './configurationpage?name=scripts_common.js';
 import { templates, httpPresetLabels, HTTP_PRESETS } from './configurationpage?name=scripts_templates.js';
@@ -14,6 +14,7 @@ export default function (view) {
     'use strict';
 
     var tracker = null;
+    var folds = {};
     var page = createScriptsPage(view, 0, {
         bind: bind,
         load: load,
@@ -96,9 +97,8 @@ export default function (view) {
     var conditionRepeater = null;
     var conditionsQuiet = false;
     var secretRepeater = null;
-    var variableList = null;
+    var variableRows = [];
     var saveBar = null;
-    var toaster = null;
     var numberControls = {};
     var editorControls = [];
     // The script's variable names, offered by the step condition's variable field.
@@ -159,6 +159,7 @@ export default function (view) {
     function edited() {
         renderCounts();
         renderSelector();
+        renderSummaries();
         if (!tracker) return;
         var dirty = tracker.check();
         if (saveBar && saveBar.getState() !== 'saving') saveBar.setDirty(dirty);
@@ -268,10 +269,134 @@ export default function (view) {
         renderVariables();
         renderTestTriggers();
         renderWarnings();
+        renderSummaries();
+    }
+
+    // ---- Sections ----
+
+    // foldSections
+    // Turns each marked section into a Base Collapsible Section. Each starts closed and says what it holds under
+    // its title.
+    function foldSections() {
+        view.querySelectorAll('.base-section[data-fold]').forEach(function (section) {
+            var fold = createCollapsibleSection({
+                title: section.querySelector('.base-section-title').textContent.trim(),
+                content: section.querySelector('.base-section-content'),
+                collapsed: section.getAttribute('data-fold-state') === 'closed'
+            });
+            section.parentNode.replaceChild(fold.element, section);
+            folds[section.getAttribute('data-fold')] = fold;
+        });
+        page.addCleanup(function () {
+            Object.keys(folds).forEach(function (key) { folds[key].destroy(); });
+            folds = {};
+        });
+    }
+
+    // shortDuration
+    // Writes seconds as hours, minutes, and seconds, such as "1h 30m".
+    //
+    // Inputs
+    // seconds [number]: The length.
+    //
+    // Output
+    // [string]: The length as text.
+    function shortDuration(seconds) {
+        var parts = [[Math.floor(seconds / 3600), 'h'], [Math.floor(seconds % 3600 / 60), 'm'], [seconds % 60, 's']];
+        return parts.filter(function (part) { return part[0] > 0; }).map(function (part) { return part[0] + part[1]; }).join(' ');
+    }
+
+    // counted
+    // Picks the string for none, one, or many, and fills the count into many.
+    function counted(count, none, one, many) {
+        return count === 0 ? t.tr(none) : count === 1 ? t.tr(one) : t.format(many, count);
+    }
+
+    // shown
+    // Whether a warning in the editor is showing.
+    function shown(id) {
+        var node = el(id);
+        return !!node && !node.classList.contains('hidden') && node.textContent.trim() !== '';
+    }
+
+    // ignoredLabel
+    // Names the triggers that ignore the script's users, by their shared category, such as "Schedule ignored", or by
+    // their count when they span several.
+    //
+    // Inputs
+    // script [object]: The open script.
+    //
+    // Output
+    // [string]: The badge text.
+    function ignoredLabel(script) {
+        var ignored = selectedTriggers(script).filter(function (t) { return !carriesUser(script, t); });
+        var categories = ignored.map(function (t) { return t.Category; }).filter(function (c, i, all) { return all.indexOf(c) === i; });
+        return categories.length === 1 ? t.format('BadgeIgnored', categories[0]) : t.format('BadgeTriggersIgnored', ignored.length);
+    }
+
+    // renderSummaries
+    // Writes what each section holds under its title, with the script's description under General and the trigger
+    // to test with under Testing, marks whether the script is enabled, and names a section's warning in its badge.
+    function renderSummaries() {
+        var script = current();
+        if (!script || !folds.general) return;
+
+        folds.general.setSubtitle(script.Description || null);
+        folds.general.setBadge(script.Enabled ? { label: t.tr('LabelEnabled'), color: 'green' } : { label: t.tr('Disabled'), color: 'gray' });
+        folds.triggers.setSubtitle(counted((script.Triggers || []).length, 'SummaryNoTriggers', 'SummaryTriggersOne', 'SummaryTriggersMany'));
+        // The item kinds, only while they can matter. Every kind is green, and a chosen few are blue with their count.
+        var kinds = (script.ItemKinds || []).length;
+        folds.triggers.setBadge(!needsKinds(script) ? null : kinds === 0
+            ? { label: t.tr('BadgeAllKinds'), color: 'green' }
+            : { label: kinds === 1 ? t.tr('BadgeKindsOne') : t.format('BadgeKindsMany', kinds), color: 'blue' });
+        folds.steps.setSubtitle(counted((script.Operations || []).length, 'SummaryNoSteps', 'SummaryStepsOne', 'SummaryStepsMany'));
+
+        folds.users.setSubtitle(counted((script.UserIds || []).length, 'SummaryEveryone', 'SummaryUsersOne', 'SummaryUsersMany'));
+        folds.users.setBadge(shown('userWarn') ? { label: ignoredLabel(script), color: 'orange' } : null);
+
+        // With one condition, All and Any match the same, so only a count of two or more names the match.
+        folds.conditions.setSubtitle(counted((script.Conditions || []).length, 'SummaryNoConditions', 'SummaryConditionsOne',
+            script.Match === 'Any' ? 'SummaryConditionsAny' : 'SummaryConditionsAll'));
+        // How many conditions some selected trigger never supplies a value for.
+        var never = (script.Conditions || []).filter(function (c) { return !!conditionWarning(script, c); }).length;
+        folds.conditions.setBadge(never ? { label: never === 1 ? t.tr('BadgeNeverMatchesOne') : t.format('BadgeNeverMatchesMany', never), color: 'orange' } : null);
+
+        folds.secrets.setSubtitle(counted((script.Secrets || []).length, 'SummaryNoSecrets', 'SummarySecretsOne', 'SummarySecretsMany'));
+
+        var mode = el('forEachMode');
+        var behavior = [mode.options[mode.selectedIndex] ? mode.options[mode.selectedIndex].textContent : ''];
+        if (script.CooldownSeconds > 0) behavior.push(t.format('SummaryCooldown', shortDuration(script.CooldownSeconds)));
+        var onFailure = scripts.find(function (s) { return s.Id === compactId(script.OnFailureScriptId); });
+        if (onFailure) behavior.push(t.format('SummaryOnFailure', onFailure.Name || t.tr('ScriptUntitled')));
+        folds.behavior.setSubtitle(behavior.filter(Boolean).join(', '));
+        // Running for each library item needs item kinds, and running for each does nothing when every trigger has its own.
+        var noKinds = script.ForEach === 'Items' && !(script.ItemKinds || []).length;
+        folds.behavior.setBadge(!shown('forEachWarn') ? null : { label: t.tr(noKinds ? 'BadgeNoKinds' : 'BadgeForEachIgnored'), color: 'orange' });
+
+        var test = el('testTrigger');
+        folds.testing.setSubtitle(test.options[test.selectedIndex] ? t.format('SummaryTestWith', test.options[test.selectedIndex].textContent) : null);
+    }
+
+    // needsKinds
+    // Whether item kinds can matter to the script: a selected trigger carries an item, or it runs for each library item.
+    function needsKinds(script) {
+        return script.ForEach === 'Items' || selectedTriggers(script).some(function (t) { return t.HasItem; });
+    }
+
+    // dropUnusedKinds
+    // Clears the item kinds once nothing the script runs on carries an item, since they would filter nothing.
+    function dropUnusedKinds() {
+        var script = current();
+        if (needsKinds(script) || !(script.ItemKinds || []).length) return;
+        script.ItemKinds = [];
+        suppressWidgetEvents = true;
+        itemKindSelect.setValue([]);
+        suppressWidgetEvents = false;
     }
 
     function onTriggersChanged() {
         ensureWebhookToken(current());
+        dropUnusedKinds();
         renderTriggerOptions();
         renderConditions();
         renderOperationCards();
@@ -291,6 +416,8 @@ export default function (view) {
     function renderWarnings() {
         var script = current();
         var triggers = selectedTriggers(script);
+
+        Shared.setVisible('itemKindOptions', needsKinds(script));
 
         var library = triggers.filter(function (t) { return t.Category === 'Library' && t.HasItem; });
         var kindWarn = library.length > 0 && (script.ItemKinds || []).length === 0;
@@ -330,7 +457,7 @@ export default function (view) {
     // The schedule a script's task starts with, until it is changed under Scheduled Tasks.
     function scheduleStart(script) {
         if (script.ScheduleMode === 'Interval') return t.format('ScheduleStartInterval', script.ScheduleIntervalMinutes || 60);
-        if (script.ScheduleMode === 'Monthly') return t.tr('ScheduleStartMonthly');
+        if (script.ScheduleMode === 'None' || script.ScheduleMode === 'Monthly') return t.tr('ScheduleStartNone');
         var days = script.ScheduleDays || [];
         var time = script.ScheduleTime || '03:00';
         return days.length ? t.format('ScheduleStartDays', days.map(dayLabel).join(', '), time) : t.format('ScheduleStartDaily', time);
@@ -654,8 +781,11 @@ export default function (view) {
                 : '<input is="emby-input" type="text" id="' + id + '" data-key="' + key + '" value="' + esc(value) + '"' +
                     (opts.placeholder ? ' placeholder="' + esc(opts.placeholder) + '"' : '') + ' />';
         // A Base control sits in a plain field, since Jellyfin stretches every input inside an inputContainer.
+        // A text field the server fills placeholders in lists the script's variables under it, to insert at the cursor.
+        var hint = opts.number || opts.variables === false ? '' : Shared.placeholderHint(variableRows.map(function (v) { return [v.Name, v.Description]; }),
+            { open: '{{', close: '}}', label: t.tr('HeaderVariables') });
         return '<div class="' + (opts.number ? 'base-field' : 'inputContainer') + '"><label' + (opts.number ? '' : ' for="' + id + '"') + '>' + esc(label) + '</label>' + field +
-            (opts.help ? '<div class="fieldDescription">' + esc(opts.help) + '</div>' : '') + '</div>';
+            (opts.help ? '<div class="fieldDescription">' + esc(opts.help) + '</div>' : '') + hint + '</div>';
     }
 
     // mountStepNumbers
@@ -773,7 +903,7 @@ export default function (view) {
                     select(op, 'Method', t.tr('LabelMethod'), HTTP_METHODS.map(function (m) { return { value: m, label: m }; })) +
                     input(op, 'Url', t.tr('LabelUrl'), { placeholder: 'https://example.com/hook?item={{ITEM_NAME:url}}' }) +
                     input(op, 'Headers', t.tr('LabelHeaders'), { textarea: true, rows: 2, placeholder: 'Authorization: Bearer {{SECRET_TOKEN}}' }) +
-                    input(op, 'ContentType', t.tr('LabelContentType'), { placeholder: 'application/json' }) +
+                    input(op, 'ContentType', t.tr('LabelContentType'), { placeholder: 'application/json', variables: false }) +
                     input(op, 'Body', t.tr('LabelBody'), { textarea: true, rows: 5, placeholder: '{ "text": "{{USER_NAME:json}} started {{ITEM_NAME:json}}" }' }) +
                     input(op, 'Retries', t.tr('LabelRetries'), { number: true, help: t.tr('HelpRetries') });
             case 'SendMessage':
@@ -821,7 +951,7 @@ export default function (view) {
                 return input(op, 'Title', t.tr('LabelEntryName'), { placeholder: t.tr('PlaceholderEntryName') }) +
                     input(op, 'Text', t.tr('LabelDetails'), { textarea: true, rows: 2 });
             case 'AppendToFile':
-                return input(op, 'FilePath', t.tr('File'), { placeholder: '/config/log/scripts.log', help: t.tr('HelpAppendFile') }) +
+                return input(op, 'FilePath', t.tr('File'), { placeholder: '/config/log/scripts.log', help: t.tr('HelpAppendFile'), variables: false }) +
                     input(op, 'Text', t.tr('LabelLineToAppend'), { textarea: true, rows: 2, placeholder: '{{LOCAL_DATE}} {{LOCAL_TIME}} {{EVENT}} {{ITEM_NAME}}' });
             case 'Wait':
                 return input(op, 'WaitSeconds', t.tr('LabelWaitFor'), { number: true });
@@ -1000,6 +1130,9 @@ export default function (view) {
 
     // ---- Variables and test ----
 
+    // renderVariables
+    // Gathers the variables the open script's steps can use: its triggers', its for-each, its steps' saved outputs,
+    // the failure variables when another script runs it on failure, and its secrets. Each step text field lists them.
     function renderVariables() {
         var script = current();
         var triggers = selectedTriggers(script);
@@ -1022,9 +1155,7 @@ export default function (view) {
         (script.Secrets || []).forEach(function (secret) {
             if (secret.Name) add({ Name: 'SECRET_' + secret.Name, Description: t.format('VariableSecret', secret.Name) });
         });
-        variableList.setItems(rows.map(function (v) {
-            return { id: v.Name, title: '{{' + v.Name + '}}', secondary: v.Description };
-        }));
+        variableRows = rows;
         variableNames = rows.map(function (v) { return v.Name; });
         if (variableCombo && variableCombo.element.isConnected) variableCombo.setSuggestions(variableNames);
     }
@@ -1039,6 +1170,7 @@ export default function (view) {
             return '<option value="' + esc(t.Key) + '">' + esc(t.Label) + '</option>';
         }).join('');
         if (triggers.some(function (t) { return t.Key === previous; })) selectEl.value = previous;
+        renderSummaries();
     }
 
     function runTest() {
@@ -1190,7 +1322,7 @@ export default function (view) {
         return {
             Id: compactId(generateGuid()), Name: name || t.tr('ScriptNewName'), Description: '', Enabled: true, Triggers: [], ItemKinds: [], UserIds: [],
             Match: 'All', Conditions: [], Operations: [], CooldownSeconds: 0, Secrets: [],
-            PausedForMinutes: 10, PlayingForMinutes: 60, ScheduleMode: 'Daily', ScheduleIntervalMinutes: 60,
+            PausedForMinutes: 10, PlayingForMinutes: 60, ScheduleMode: 'None', ScheduleIntervalMinutes: 60,
             ScheduleTime: '03:00', ScheduleDays: [], ScheduleMonthDay: 1,
             ForEach: 'None', ForEachLimit: 50, OnFailureScriptId: '', WebhookToken: '',
             StreamCountThreshold: 3, TranscodeCountThreshold: 2, ProgressPercentThreshold: 90
@@ -1350,6 +1482,7 @@ export default function (view) {
     // ---- Wiring ----
 
     function bind() {
+        foldSections();
         el('selectScript').addEventListener('change', function () { selectScript(this.value); });
         el('btnNewScript').addEventListener('click', newScript);
         el('btnDuplicateScript').addEventListener('click', duplicateScript);
@@ -1391,6 +1524,7 @@ export default function (view) {
         });
         el('forEachMode').addEventListener('change', function () {
             current().ForEach = this.value;
+            dropUnusedKinds();
             renderConditions();
             renderOperationCards();
             renderVariables();
@@ -1456,6 +1590,7 @@ export default function (view) {
             edited();
         });
 
+        Shared.bindPlaceholders(el('operationEditor'));
         el('operationEditor').addEventListener('input', function (e) {
             if (e.target.matches('[data-key]') && e.target.type !== 'checkbox' && e.target.tagName !== 'SELECT') {
                 if (readOperationField(e.target) === 'OutputName') renderVariables();
@@ -1485,27 +1620,11 @@ export default function (view) {
             }
         });
 
-        variableList = createRecordList({
-            label: t.tr('HeaderVariables'),
-            openLabel: t.tr('LabelCopyValue'),
-            maxHeight: '60vh',
-            emptyText: t.tr('EmptyVariables'),
-            onOpen: function (item) {
-                Shared.copyToClipboard(item.title).then(function (ok) {
-                    if (!toaster) {
-                        toaster = createToaster({ timeout: 2000 });
-                        page.addCleanup(function () { toaster.destroy(); toaster = null; });
-                    }
-                    if (ok) toaster.success(t.format('ToastCopied', item.title));
-                    else toaster.error(t.format('ErrorCopy', item.title), 4000);
-                });
-            }
-        });
-        el('variableMount').appendChild(variableList.element);
-
         saveBar = createSaveBar({ fill: true, onSave: save });
-        el('saveBarMount').appendChild(saveBar.element);
+        // The bar takes the mount's place, so no wrapper sits between it and the page.
+        el('saveBarMount').replaceWith(saveBar.element);
         el('btnTestScript').addEventListener('click', runTest);
+        el('testTrigger').addEventListener('change', renderSummaries);
         el('btnRunScript').addEventListener('click', runNow);
         webhookField = createCopyField({ label: t.tr('LabelWebhookAddress') });
         el('webhookUrlMount').appendChild(webhookField.element);
@@ -1519,6 +1638,8 @@ export default function (view) {
             idKey: 'Key',
             placeholder: t.format('PlaceholderSearchTriggers', catalog.Triggers.length),
             searchKeys: ['Label', 'Description', 'Category'],
+            // Every trigger shows at once, with the page scrolling, rather than in a box that scrolls inside.
+            maxHeight: null,
             renderRow: function (t) { return { label: t.Label, sublabel: t.Description, note: t.Category }; },
             onChange: function (ids) {
                 if (suppressWidgetEvents) return;

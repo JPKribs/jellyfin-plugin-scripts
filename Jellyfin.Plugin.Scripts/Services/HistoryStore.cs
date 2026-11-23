@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using Jellyfin.Plugin.Scripts.Models;
@@ -132,6 +133,48 @@ public sealed class HistoryStore : IDisposable
         }
 
         return runs.ToList().ToPagedResult(query);
+    }
+
+    /// <summary>
+    /// Counts the runs that succeeded and failed on each of the last <paramref name="count"/> days, leaving test
+    /// runs out. A day is a day in the server's time zone.
+    /// </summary>
+    /// <param name="today">Today, in the server's time zone.</param>
+    /// <param name="count">How many days, today included.</param>
+    /// <returns>The days, oldest first.</returns>
+    public HistoryDays Days(DateTime today, int count)
+    {
+        var first = today.Date.AddDays(1 - count);
+        var result = new HistoryDays();
+        for (var i = 0; i < count; i++)
+        {
+            result.Days.Add(first.AddDays(i).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+            result.Succeeded.Add(0);
+            result.Failed.Add(0);
+        }
+
+        lock (_lock)
+        {
+            foreach (var run in Runs())
+            {
+                var index = (int)(DateTime.SpecifyKind(run.StartedUtc, DateTimeKind.Utc).ToLocalTime().Date - first).TotalDays;
+                if (run.IsTest || index < 0 || index >= count)
+                {
+                    continue;
+                }
+
+                if (run.Succeeded)
+                {
+                    result.Succeeded[index]++;
+                }
+                else
+                {
+                    result.Failed[index]++;
+                }
+            }
+        }
+
+        return result;
     }
 
     /// <summary>

@@ -286,6 +286,15 @@ public class ScriptsController : ControllerBase
         => _history.Query(query ?? new PagedQuery());
 
     /// <summary>
+    /// Counts the runs of each of the last 14 days, for the History chart.
+    /// </summary>
+    /// <returns>The days, oldest first, with the runs that succeeded and failed on each.</returns>
+    [HttpGet("History/Days")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<HistoryDays> GetHistoryDays()
+        => _history.Days(DateTime.Now, 14);
+
+    /// <summary>
     /// Deletes the run history.
     /// </summary>
     /// <returns>No content.</returns>

@@ -123,6 +123,16 @@ public class ConfigurationValidatorTests
     }
 
     [Fact]
+    public void AcceptsNoScheduleWithoutATime()
+    {
+        var script = Valid();
+        script.Triggers.Add(ScriptTrigger.Schedule);
+        script.ScheduleMode = ScheduleMode.None;
+        script.ScheduleTime = string.Empty;
+        ConfigurationValidator.Validate(script);
+    }
+
+    [Fact]
     public void RejectsAScriptThatRunsItself()
     {
         var script = Valid();

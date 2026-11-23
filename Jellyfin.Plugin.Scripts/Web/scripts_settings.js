@@ -1,5 +1,5 @@
 // scripts_settings.js
-// The Settings tab: runs at once, the default command timeout, and how many runs the history keeps, with Save.
+// The Settings tab: runs at once and the default command timeout, and how many runs the history keeps, with Save.
 
 import { createScriptsPage, createSliderField, createDurationField, createSaveBar, t } from './configurationpage?name=scripts_common.js';
 

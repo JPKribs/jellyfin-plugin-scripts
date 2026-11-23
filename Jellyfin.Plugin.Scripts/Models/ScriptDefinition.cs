@@ -52,7 +52,7 @@ public class ScriptDefinition
     public int PlayingForMinutes { get; set; } = 60;
 
     /// <summary>Gets or sets how <see cref="ScriptTrigger.Schedule"/> comes due.</summary>
-    public ScheduleMode ScheduleMode { get; set; } = ScheduleMode.Daily;
+    public ScheduleMode ScheduleMode { get; set; } = ScheduleMode.None;
 
     /// <summary>Gets or sets the minutes between runs in <see cref="ScheduleMode.Interval"/> mode.</summary>
     public int ScheduleIntervalMinutes { get; set; } = 60;
